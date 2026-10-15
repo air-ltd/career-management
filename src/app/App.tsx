@@ -1,0 +1,237 @@
+/**
+ * The application shell and routes.
+ *
+ * Routing is a table of five-ish patterns matched against the hash, rather than
+ * path routing, because GitHub Pages performs no request rewriting (D3).
+ */
+
+import { useEffect, useMemo, useState } from 'react'
+import { matchPath, usePath, type Route } from './router'
+import {
+  applyTheme,
+  readStoredPreference,
+  resolveTheme,
+  storePreference,
+  systemPrefersDark,
+  type ThemePreference,
+} from './theme'
+import { RegistryList } from '../features/shared/RegistryList'
+import { RegistryEdit } from '../features/shared/RegistryEdit'
+import { HomePage } from '../features/document/HomePage'
+import { SettingsPage } from '../features/settings/SettingsPage'
+import { SyncPage } from '../features/sync/SyncPage'
+import { DocumentIcon } from './Icons'
+
+const ROUTES: readonly Route[] = [
+  { path: '/' },
+  { path: '/profiles' },
+  { path: '/profiles/new' },
+  { path: '/profiles/:id/edit' },
+  { path: '/jobs' },
+  { path: '/jobs/new' },
+  { path: '/jobs/:id/edit' },
+  { path: '/achievements' },
+  { path: '/achievements/new' },
+  { path: '/achievements/:id/edit' },
+  { path: '/awards' },
+  { path: '/awards/new' },
+  { path: '/awards/:id/edit' },
+  { path: '/education' },
+  { path: '/education/new' },
+  { path: '/education/:id/edit' },
+  { path: '/questions' },
+  { path: '/questions/new' },
+  { path: '/question-categories/:id/edit' },
+  { path: '/questions/all' },
+  { path: '/questions/all/new' },
+  { path: '/questions/:id/edit' },
+  { path: '/document' },
+  { path: '/settings' },
+  { path: '/sync' },
+]
+
+const SECTIONS = [
+  { href: '/profiles', label: 'Profiles' },
+  { href: '/jobs', label: 'Jobs' },
+  { href: '/achievements', label: 'Achievements' },
+  { href: '/awards', label: 'Awards' },
+  { href: '/education', label: 'Education' },
+  { href: '/questions', label: 'Questions' },
+] as const
+
+export function App() {
+  const path = usePath()
+  const match = useMemo(() => matchPath(path, ROUTES), [path])
+
+  const [theme, setTheme] = useState<ThemePreference>(readStoredPreference)
+  /**
+   * The system preference is read into state rather than queried at render, so a
+   * change while the app is open re-renders it. Without this, choosing "system"
+   * would fix the theme at the moment it was chosen.
+   */
+  const [systemDark, setSystemDark] = useState(systemPrefersDark)
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = (event: MediaQueryListEvent) => {
+      setSystemDark(event.matches)
+    }
+    query.addEventListener('change', onChange)
+    return () => {
+      query.removeEventListener('change', onChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    applyTheme(resolveTheme(theme, systemDark))
+  }, [theme, systemDark])
+
+  /**
+   * `now` is threaded from the app rather than read inside each view, so a test
+   * can assert on a defaulted date without freezing the clock globally.
+   */
+  const now = useMemo(() => new Date(), [])
+
+  function onThemeChange(next: ThemePreference) {
+    storePreference(next)
+    setTheme(next)
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>
+          <a className="app-home" href="#/" aria-label="Career Management Document, home">
+            <DocumentIcon size={28} />
+            <span>Career Management Document</span>
+          </a>
+        </h1>
+        <nav aria-label="Sections">
+          <ul className="app-nav">
+            {SECTIONS.map((section) => (
+              <li key={section.href}>
+                <a
+                  href={`#${section.href}`}
+                  aria-current={path.startsWith(section.href) ? 'page' : undefined}
+                >
+                  {section.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="app-header-controls">
+          <a className="button" href="#/document">
+            Document
+          </a>
+          <a className="button" href="#/sync">
+            Sync
+          </a>
+          <a className="button" href="#/settings">
+            Settings
+          </a>
+        </div>
+      </header>
+
+      <main className="app-main">
+        {renderRoute(match?.route.path ?? null, match?.params ?? {}, now, theme, onThemeChange)}
+      </main>
+    </div>
+  )
+}
+
+function renderRoute(
+  routePath: string | null,
+  params: Record<string, string>,
+  now: Date,
+  theme: ThemePreference,
+  onThemeChange: (next: ThemePreference) => void,
+) {
+  if (routePath === null) {
+    return (
+      <section>
+        <h2>Page not found</h2>
+        <p>
+          Nothing is routed at <code>{window.location.hash}</code>.
+        </p>
+        <p>
+          <a href="#/">Back to the start</a>
+        </p>
+      </section>
+    )
+  }
+
+  // A list route.
+  const listKey = LIST_ROUTES[routePath]
+  if (listKey) return <RegistryList registryKey={listKey} now={now} />
+
+  // A new-record route. The id is absent, so the form starts blank.
+  const newKey = NEW_ROUTES[routePath]
+  if (newKey) return <RegistryEdit registryKey={newKey} id={null} now={now} />
+
+  // An edit route, which needs an id in the path.
+  const editKey = EDIT_ROUTES[routePath]
+  if (editKey) {
+    const id = params['id']
+    if (id === undefined) {
+      return (
+        <p className="hint">
+          No record was named. <a href="#/">Back to the start</a>.
+        </p>
+      )
+    }
+    return <RegistryEdit registryKey={editKey} id={id} now={now} />
+  }
+
+  switch (routePath) {
+    case '/':
+      return <HomePage />
+    case '/document':
+      return <p className="hint">The document view arrives in Phase 2.</p>
+    case '/settings':
+      return <SettingsPage now={now} theme={theme} onThemeChange={onThemeChange} />
+    case '/sync':
+      return <SyncPage />
+    default:
+      return <p className="hint">Nothing is routed at {routePath}.</p>
+  }
+}
+
+const LIST_ROUTES: Record<
+  string,
+  Parameters<typeof RegistryList>[0]['registryKey'] | undefined
+> = {
+  '/profiles': 'profiles',
+  '/jobs': 'jobs',
+  '/achievements': 'achievements',
+  '/awards': 'awards',
+  '/education': 'education',
+  '/questions': 'questionCategories',
+  '/questions/all': 'questions',
+}
+
+const NEW_ROUTES: Record<
+  string,
+  Parameters<typeof RegistryEdit>[0]['registryKey'] | undefined
+> = {
+  '/profiles/new': 'profiles',
+  '/jobs/new': 'jobs',
+  '/achievements/new': 'achievements',
+  '/awards/new': 'awards',
+  '/education/new': 'education',
+  '/questions/new': 'questionCategories',
+  '/questions/all/new': 'questions',
+}
+
+const EDIT_ROUTES: Record<
+  string,
+  Parameters<typeof RegistryEdit>[0]['registryKey'] | undefined
+> = {
+  '/profiles/:id/edit': 'profiles',
+  '/jobs/:id/edit': 'jobs',
+  '/achievements/:id/edit': 'achievements',
+  '/awards/:id/edit': 'awards',
+  '/education/:id/edit': 'education',
+  '/question-categories/:id/edit': 'questionCategories',
+  '/questions/:id/edit': 'questions',
+}

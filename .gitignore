@@ -1,2 +1,19 @@
 tmp/
 .tmp/
+node_modules
+dist
+coverage
+*.tsbuildinfo
+
+# The app holds personal data. Nothing that could carry a document belongs in the
+# repository, and nothing that could grant access to the Dropbox account does
+# either. The Dropbox keys in src/sync/appKey.ts are OAuth *client ids*, which are
+# public by construction and appear in the consent screen URL; the App secret is
+# never present here (SEC5).
+.env
+.env.local
+.env.*.local
+
+# Playwright's scratch profile, if a run is interrupted.
+test-results/
+playwright-report/

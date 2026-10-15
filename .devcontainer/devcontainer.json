@@ -2,16 +2,30 @@
   "name": "Base Image Dev Workspace",
   "image": "ghcr.io/jaredchurch/base:v11@sha256:e97e16565dcd5ab61f00d2f86e46bb9639c484b21c74ee27d049aff024674397",
   "features": {
+    // Node 24, via the official devcontainer feature.
+    //
+    // The base image ships Node 20, which this project cannot use: vitest 5
+    // declares `node: ^22.12.0 || ^24.0.0 || >=26.0.0` and jsdom 30 declares
+    // `^22.22.2 || ^24.15.0 || >=26.0.0`, so anything older fails with an engine
+    // error that reads like a dependency problem rather than a runtime one.
+    //
+    // Pinned to 24 to match `.nvmrc`, `package.json#engines` and CI, which all
+    // agree. If those three ever disagree, this is the fourth thing to change
+    // and the one that is easiest to forget.
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "24"
+    },
     "./features/opencode": {
-    // },
-    // "./features/gnucash": {
-    // },
-    // "./features/postgres": {
-    //   "version": "17",
-    //   "port": "5432",
-    //   "database": "gnucash_test",
-    //   "role": "gnucash",
-    //   "password": "gnucash"
+      // },
+      // "./features/gnucash": {
+      // },
+      // "./features/postgres": {
+      //   "version": "17",
+      //   "port": "5432",
+      //   "database": "gnucash_test",
+      //   "role": "gnucash",
+      //   "password": "gnucash"
+      // }
     }
   },
   // The devcontainer's PostgreSQL binds to loopback only, deliberately: it is a
@@ -49,9 +63,7 @@
   //   ".devcontainer/features/postgres/start.sh",
   //   ".devcontainer/features/gnucash/start-vnc.sh"
   // ],
-  "mounts": [
-    "type=tmpfs,destination=/tmp,tmpfs-size=400000000"
-  ],
+  "mounts": ["type=tmpfs,destination=/tmp,tmpfs-size=400000000"],
   "customizations": {
     "vscode": {
       "extensions": [
