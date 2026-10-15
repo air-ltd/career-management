@@ -1,0 +1,63 @@
+{
+  "name": "Base Image Dev Workspace",
+  "image": "ghcr.io/jaredchurch/base:v11@sha256:e97e16565dcd5ab61f00d2f86e46bb9639c484b21c74ee27d049aff024674397",
+  "features": {
+    "./features/opencode": {
+    // },
+    // "./features/gnucash": {
+    // },
+    // "./features/postgres": {
+    //   "version": "17",
+    //   "port": "5432",
+    //   "database": "gnucash_test",
+    //   "role": "gnucash",
+    //   "password": "gnucash"
+    }
+  },
+  // The devcontainer's PostgreSQL binds to loopback only, deliberately: it is a
+  // superuser account with a well-known development password, and a container
+  // listening on 0.0.0.0 would be reachable from the Docker bridge network — i.e.
+  // potentially the whole local network. VS Code's forwarder runs *inside* the
+  // container and connects to that loopback, so forwarding alone is enough to reach
+  // it from the client machine with nothing newly exposed.
+  // 6080 is the noVNC bridge. Declared so it appears in the PORTS tab ready to forward
+  // rather than having to be typed; `onAutoForward: notify` rather than `silent`
+  // because this one is opt-in and passwordless, so the operator should see it being
+  // forwarded rather than have it happen quietly. Nothing listens there unless
+  // GNUCASH_VNC=1.
+  // "forwardPorts": [5432, 6080],
+  // "portsAttributes": {
+  //   "5432": {
+  //     "label": "PostgreSQL (gnucash/gnucash @ gnucash_test)",
+  //     "onAutoForward": "notify",
+  //     "requireLocalPort": true
+  //   },
+  //   "6080": {
+  //     "label": "GnuCash GUI over VNC (needs GNUCASH_VNC=1; no password by default)",
+  //     "onAutoForward": "notify",
+  //     "requireLocalPort": true
+  //   }
+  // },
+  // An array, because the VNC display is a *second* postStartCommand rather than an
+  // extra line inside the first: it is a separate concern with its own opt-in, and
+  // folding it into the PostgreSQL script would mean the two cannot fail
+  // independently.
+  //
+  // start-vnc.sh is a no-op unless GNUCASH_VNC=1, so this line is harmless for anyone
+  // who does not want a passwordless remote-desktop port listening in their container.
+  // "postStartCommand": [
+  //   ".devcontainer/features/postgres/start.sh",
+  //   ".devcontainer/features/gnucash/start-vnc.sh"
+  // ],
+  "mounts": [
+    "type=tmpfs,destination=/tmp,tmpfs-size=100000000"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.vscode-github-actions",
+        "ms-azuretools.vscode-docker" // Gives you a visual Docker extension inside VS Code
+      ]
+    }
+  }
+}
