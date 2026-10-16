@@ -17,10 +17,10 @@ import {
 } from './theme'
 import { RegistryList } from '../features/shared/RegistryList'
 import { RegistryEdit } from '../features/shared/RegistryEdit'
-import { HomePage } from '../features/document/HomePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { SyncPage } from '../features/sync/SyncPage'
 import { SyncIndicator } from '../features/sync/SyncIndicator'
+import { describeKeySource } from '../sync/appKey'
 import { SyncProvider } from '../features/sync/SyncProvider'
 import { DocumentIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
@@ -56,7 +56,6 @@ const ROUTES: readonly Route[] = [
 ]
 
 const SECTIONS = [
-  { href: '/edit', label: 'Edit all' },
   { href: '/profiles', label: 'Profiles' },
   { href: '/jobs', label: 'Jobs' },
   { href: '/achievements', label: 'Achievements' },
@@ -97,6 +96,7 @@ export function App() {
    * can assert on a defaulted date without freezing the clock globally.
    */
   const now = useMemo(() => new Date(), [])
+  const { environment } = useMemo(() => describeKeySource(), [])
 
   function onThemeChange(next: ThemePreference) {
     storePreference(next)
@@ -110,7 +110,17 @@ export function App() {
           <h1>
             <a className="app-home" href="#/" aria-label="Career Management Document, home">
               <DocumentIcon size={28} />
-              <span>Career Management Document</span>
+              <span>
+                Career Management Document
+                {/*
+                  The badge and the sync target come from one function (SY33), so
+                  a dev build pointed at production Dropbox cannot disagree with
+                  what the title says about it.
+                */}
+                {environment !== 'production' && (
+                  <span className="env-badge">{environment}</span>
+                )}
+              </span>
             </a>
           </h1>
           <nav aria-label="Sections">
@@ -197,11 +207,10 @@ function renderRoute(
 
   switch (routePath) {
     case '/':
-      return <HomePage />
-    case '/document':
-      return <DocumentPage now={now} />
     case '/edit':
       return <AllInOnePage now={now} />
+    case '/document':
+      return <DocumentPage now={now} />
     case '/settings':
       return <SettingsPage now={now} theme={theme} onThemeChange={onThemeChange} />
     case '/sync':

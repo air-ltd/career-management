@@ -69,7 +69,13 @@ export async function saveFields(
 ): Promise<string> {
   const definition = REGISTRY[key]
   const table = db.table(definition.table)
-  const recordId = id ?? newId()
+
+  // An empty id means "not a record yet" as firmly as null does. Ids come from
+  // `newId` or from the database, so an empty string can only mean a caller asked
+  // for a new record — and storing it would produce a row every save collides
+  // with.
+  const isNew = id === null || id === ''
+  const recordId = isNew ? newId() : id
   const stamp = now.toISOString()
 
   // Loose rows, for the same reason as the registry's `Row`: `db.table()` is typed

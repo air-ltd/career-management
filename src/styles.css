@@ -97,6 +97,19 @@ code {
   color: inherit;
 }
 
+/* Non-production says so, in the title, where it cannot be missed (SY33). */
+.env-badge {
+  margin-left: 0.4rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--warning-border);
+  color: #1a1a18;
+  vertical-align: middle;
+}
+
 .app-nav {
   display: flex;
   flex-wrap: wrap;
@@ -449,8 +462,8 @@ code {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 1rem 1.1rem;
-  margin-bottom: 1.25rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
 }
 
 .inline-section-head {
@@ -460,13 +473,13 @@ code {
   gap: var(--gap);
   flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.75rem;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.35rem;
 }
 
 .inline-section-head h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .inline-rows {
@@ -480,9 +493,34 @@ code {
 
 .inline-row-head {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+.inline-row-actions {
+  display: flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  flex: 0 0 auto;
+}
+
+/*
+ * The body text under a heading, so the record can be read without opening it.
+ *
+ * Clamped rather than truncated in script: the full text is still stored and
+ * still printed, and only the display is shortened (D31 — no text is cut to
+ * achieve a layout).
+ */
+.inline-row-preview {
+  margin: 0 0 0.2rem 1.35rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .inline-row-toggle {
@@ -507,11 +545,13 @@ code {
 
 .inline-row-heading {
   font-weight: 600;
+  font-size: 0.92rem;
 }
 
 .inline-row-detail {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 /* The chevron sits with the text baseline rather than vertically centred, which
@@ -534,7 +574,13 @@ code {
 .inline-editor {
   border-left: 3px solid var(--accent);
   padding: 0.25rem 0 0.25rem 0.9rem;
-  margin: 0.5rem 0 1rem;
+  margin: 0.35rem 0 0.6rem;
+}
+
+/* The compact variant, used by the single-page editor's row controls. */
+.button-small {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.78rem;
 }
 
 .inline-editor .record-form h2 {
@@ -549,14 +595,14 @@ code {
 /* Nested records are indented, because the parent is what gives them meaning:
    an achievement with no job cannot be displayed anywhere. */
 .inline-children {
-  margin: 0 0 0.75rem 1.75rem;
-  padding-left: 0.9rem;
+  margin: 0 0 0.35rem 1.4rem;
+  padding-left: 0.7rem;
   border-left: 2px solid var(--border);
 }
 
-.inline-children-label {
-  margin: 0.35rem 0;
-  font-size: 0.85rem;
+.inline-children-empty {
+  margin: 0.15rem 0;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 

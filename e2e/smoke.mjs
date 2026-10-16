@@ -196,6 +196,8 @@ async function main() {
           'Job title': 'Engineer',
           'Start date': '2020-01-01',
           'End date': '2024-03-31',
+          // Present so the all-in-one page's preview has something to show.
+          Responsibilities: 'Did things',
         },
       }),
     )
@@ -379,6 +381,19 @@ async function main() {
 
     // ------------------------------------------------------------- all in one
     // The single-page editor: every section on one page, forms opening in place.
+    // Reached at the root, because it is the default page.
+    await page.goto(`${origin}${BASE_PATH}`, { waitUntil: 'networkidle' })
+    await page.locator('.all-in-one').waitFor()
+    check(
+      'the root URL is the all-in-one editor',
+      (await page.locator('.all-in-one').count()) === 1,
+    )
+    check(
+      'the header names the environment when it is not production (SY33)',
+      (await page.locator('.app-header .env-badge').innerText()).toLowerCase() ===
+        'development',
+    )
+
     await go(page, origin, '/edit')
     await page.locator('.all-in-one').waitFor()
     const sections = await page.locator('.inline-section h2').allInnerTexts()
@@ -398,8 +413,73 @@ async function main() {
       'achievements are grouped under their job',
       (await page.locator('.inline-children').count()) > 0,
     )
+    check(
+      'no achievement or question counts are shown',
+      (await page.locator('.inline-children-label').count()) === 0,
+    )
+    check(
+      'a parent with no children shows no empty-state box at all',
+      (await page
+        .locator('.inline-row')
+        .filter({ hasText: 'Behavioural' })
+        .first()
+        .locator('.inline-children')
+        .count()) === 0,
+    )
+    const jobRow = page.locator('.inline-row').filter({ hasText: 'Acme' }).first()
+    check(
+      'the job responsibilities are readable without opening the record',
+      (await jobRow.locator('.inline-row-preview').innerText()).includes('Did things'),
+    )
+    check(
+      '"add achievement" sits beside the job Edit button',
+      (await jobRow.getByRole('button', { name: 'Add achievement' }).count()) === 1 &&
+        (await jobRow.getByRole('button', { name: 'Edit' }).count()) === 1,
+    )
+
+    // Adding a nested record from beside the parent button.
+    await jobRow.getByRole('button', { name: 'Add achievement' }).click()
+    await page
+      .locator('.inline-editor')
+      .filter({ hasText: 'Add achievement' })
+      .getByRole('heading', { name: 'Add achievement' })
+      .waitFor()
+    await page.getByLabel('Achievement', { exact: true }).last().fill('NESTED_FROM_PARENT')
+    await page
+      .locator('.inline-editor')
+      .filter({ hasText: 'Add achievement' })
+      .getByRole('button', { name: 'Save' })
+      .click()
+    await page
+      .locator('.inline-row-heading')
+      .filter({ hasText: 'NESTED_FROM_PARENT' })
+      .first()
+      .waitFor({ timeout: 10000 })
+    check('a nested record can be added from beside its parent', true)
+    // The bug this caught: the nested add form is pre-filled with its parent, so
+    // it looked like an existing record and saved under an empty id.
+    check(
+      'the nested add form is titled Add, not Edit',
+      (await page.locator('.inline-editor h2').count()) === 0 ||
+        (await page.locator('.inline-editor h2').first().innerText()).startsWith('Add'),
+    )
+    await go(page, origin, '/achievements')
+    const nestedHref = await page
+      .locator('.record-row')
+      .filter({ hasText: 'NESTED_FROM_PARENT' })
+      .first()
+      .getByRole('link', { name: /^Edit / })
+      .getAttribute('href')
+    check(
+      'a nested record added in place gets a real id, not an empty one',
+      nestedHref !== null && !nestedHref.includes('/achievements//'),
+      String(nestedHref),
+    )
 
     // Editing in place, and the change reaching the record.
+    // Back on the editor first: the id check above navigated to /achievements,
+    // and inline rows only exist on the editor.
+    await go(page, origin, '/')
     await page
       .locator('.inline-row')
       .filter({ hasText: 'Acme' })

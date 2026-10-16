@@ -48,8 +48,18 @@ export function InlineEditor({
   onCancel,
 }: InlineEditorProps) {
   const definition = REGISTRY[registryKey]
-  const isNew = record === null
-  const recordId = record === null ? null : text(record, 'id')
+
+  /**
+   * "New" is decided by whether the record has an id, not by whether the record
+   * object is absent.
+   *
+   * A nested add form passes a *partly filled* record — `jobId` and an empty
+   * achievement, say — so the parent is not lost. That object has no id, and
+   * treating it as an existing record titled the form "Edit" and saved it under
+   * an empty id.
+   */
+  const recordId = record === null ? '' : text(record, 'id')
+  const isNew = recordId === ''
 
   /**
    * Values are initialised once, and the component is expected to be remounted
@@ -85,7 +95,7 @@ export function InlineEditor({
         onSubmit={(next) => {
           void (async () => {
             try {
-              await saveFields(registryKey, recordId, next, now)
+              await saveFields(registryKey, isNew ? null : recordId, next, now)
               setSaved(true)
               onDone()
             } catch (caught) {
@@ -105,6 +115,7 @@ export function InlineRow({
   record,
   heading,
   detail,
+  preview,
   fields,
   now,
   actions,
@@ -114,8 +125,16 @@ export function InlineRow({
   record: Record<string, unknown>
   heading: string
   detail: string
+  /**
+   * Body text shown under the heading so the record can be read without opening
+   * it. Clamped in CSS rather than truncated here, so the full text is in the
+   * document and only the display is shortened (D31: no text is cut to achieve a
+   * layout).
+   */
+  preview?: string
   fields: readonly Field[]
   now: Date
+  /** Buttons shown beside Edit — "add achievement", and the like. */
   actions?: React.ReactNode
   onSaved: () => void
 }) {
@@ -133,25 +152,32 @@ export function InlineRow({
             setOpen((previous) => !previous)
           }}
         >
-          <ChevronIcon size={16} />
+          <ChevronIcon size={14} />
           <span className="inline-row-heading">
             {isDeleted && <span className="badge">deleted</span>}
             {heading}
           </span>
           {detail !== '' && <span className="inline-row-detail">{detail}</span>}
         </button>
-        {!open && (
+
+        <div className="inline-row-actions">
+          {actions}
           <button
             type="button"
-            className="button"
+            className="button button-small"
+            aria-expanded={open}
             onClick={() => {
-              setOpen(true)
+              setOpen((previous) => !previous)
             }}
           >
-            Edit
+            {open ? 'Close' : 'Edit'}
           </button>
-        )}
+        </div>
       </div>
+
+      {preview !== undefined && preview !== '' && !open && (
+        <p className="inline-row-preview">{preview}</p>
+      )}
 
       {open && (
         <InlineEditor
@@ -159,7 +185,6 @@ export function InlineRow({
           record={record}
           fields={fields}
           now={now}
-          actions={actions}
           onDone={onSaved}
           onCancel={() => {
             setOpen(false)
@@ -181,6 +206,7 @@ export function InlineSection({
   emptyText,
   renderChildren,
   actionsFor,
+  preview,
 }: {
   title: string
   registryKey: RegistryKey
@@ -191,7 +217,10 @@ export function InlineSection({
   emptyText: string
   /** Nested editors, rendered inside the matching row. */
   renderChildren?: (record: Record<string, unknown>) => React.ReactNode
+  /** Buttons shown beside the row's Edit button. */
   actionsFor?: (record: Record<string, unknown>) => React.ReactNode
+  /** Body text shown under the heading, so the record reads without opening. */
+  preview?: (record: Record<string, unknown>) => string
 }) {
   const [adding, setAdding] = useState(false)
   const definition = REGISTRY[registryKey]
@@ -233,6 +262,8 @@ export function InlineSection({
         <div className="inline-rows">
           {records.map((record) => {
             const described = describe(record)
+            const recordActions = actionsFor?.(record)
+            const previewText = preview ? preview(record) : ''
             return (
               <div key={text(record, 'id')} className="inline-row-group">
                 <InlineRow
@@ -243,7 +274,8 @@ export function InlineSection({
                   fields={fields}
                   now={now}
                   onSaved={() => undefined}
-                  {...(actionsFor ? { actions: actionsFor(record) } : {})}
+                  {...(previewText !== '' ? { preview: previewText } : {})}
+                  {...(recordActions !== undefined ? { actions: recordActions } : {})}
                 />
                 {renderChildren?.(record)}
               </div>
