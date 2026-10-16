@@ -50,10 +50,19 @@ export function matchPath(path: string, routes: readonly Route[]): MatchResult {
   return null
 }
 
-/** The current hash path, without the leading `#`. */
+/**
+ * The current hash path, without the leading `#`.
+ *
+ * An absent or empty hash normalises to `/`, because every route pattern starts
+ * with a slash and `^/\/?$` does not match an empty string. Without this, a bare
+ * URL renders "Nothing is routed at ." — which is exactly what an un-normalised
+ * path produces on the app's very first load, and again after the OAuth redirect
+ * clears the query string.
+ */
 export function currentPath(): string {
   const hash = window.location.hash
-  return hash.startsWith('#') ? hash.slice(1) : hash
+  const path = hash.startsWith('#') ? hash.slice(1) : hash
+  return path === '' ? '/' : path
 }
 
 export function usePath(): string {

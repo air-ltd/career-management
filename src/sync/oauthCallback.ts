@@ -67,6 +67,15 @@ async function completeAuthFromRedirect(): Promise<boolean> {
       storage: tokenStore,
     })
     await provider.completeAuth(code, state)
+
+    /**
+     * Land on the sync page, which is where the result of this is visible.
+     *
+     * Safe to do unconditionally: the only path that reaches here is a fresh load
+     * from Dropbox's redirect, so there is no navigation in progress to
+     * interrupt and no prior hash to preserve.
+     */
+    window.location.hash = '/sync'
     return true
   } catch (error) {
     /**

@@ -309,12 +309,13 @@ async function main() {
 
     // ---------------------------------------------------------------- editing
     await go(page, origin, '/jobs')
-    // The edit control is an icon link with an aria-label naming the record.
-    // Targeting it by name rather than by "the first link" avoids depending on
-    // how many other links a row happens to contain.
+    // Scoped to the record row: the navigation contains links whose names also
+    // begin "Edit", and DOM order would pick one of those instead of this one.
     await page
-      .getByRole('link', { name: /^Edit / })
+      .locator('.record-row')
+      .filter({ hasText: 'Acme' })
       .first()
+      .getByRole('link', { name: /^Edit / })
       .click()
     await page.getByRole('heading', { name: 'Edit job' }).waitFor()
     await fill(page, 'Job title', 'Staff Engineer')
@@ -374,6 +375,118 @@ async function main() {
     check(
       'a required field blocks saving and says why',
       (await page.locator('.form-error').count()) > 0,
+    )
+
+    // ------------------------------------------------------------- all in one
+    // The single-page editor: every section on one page, forms opening in place.
+    await go(page, origin, '/edit')
+    await page.locator('.all-in-one').waitFor()
+    const sections = await page.locator('.inline-section h2').allInnerTexts()
+    check(
+      'the all-in-one page shows every section',
+      ['Profiles', 'Work history', 'Awards', 'Education', 'Question categories'].every((name) =>
+        sections.includes(name),
+      ),
+      JSON.stringify(sections),
+    )
+    check(
+      'nothing is expanded by default',
+      (await page.locator('.inline-editor').count()) === 0,
+      'forms should mount only when opened',
+    )
+    check(
+      'achievements are grouped under their job',
+      (await page.locator('.inline-children').count()) > 0,
+    )
+
+    // Editing in place, and the change reaching the record.
+    await page
+      .locator('.inline-row')
+      .filter({ hasText: 'Acme' })
+      .first()
+      .getByRole('button', { name: 'Edit' })
+      .click()
+    await page.getByRole('heading', { name: 'Edit job' }).waitFor()
+    await fill(page, 'Job title', 'Principal Engineer')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page
+      .locator('.inline-row-heading')
+      .filter({ hasText: 'Principal Engineer' })
+      .first()
+      .waitFor({ timeout: 10000 })
+    check('a record can be edited in place on the all-in-one page', true)
+
+    // Adding from the all-in-one page reaches the separate list view too.
+    const awardsSection = page.locator('.inline-section').filter({ hasText: 'Awards' })
+    await awardsSection.getByRole('button', { name: /Add award/ }).click()
+    await awardsSection.getByRole('heading', { name: 'Add award' }).waitFor()
+    await fill(page, 'Year', '2011')
+    await fill(page, 'Institution', 'Institute of Something')
+    await fill(page, 'What', 'Fellowship')
+    // Scoped to the section: other editors are still open on the page, and each
+    // has its own Save. Several can be open at once by design.
+    await awardsSection.getByRole('button', { name: 'Save' }).click()
+    // The form closes on save; waiting for that is what proves the save ran,
+    // rather than navigating away mid-write and finding nothing there.
+    await awardsSection
+      .getByRole('heading', { name: 'Add award' })
+      .waitFor({ state: 'detached', timeout: 10000 })
+      .then(
+        () => true,
+        () => false,
+      )
+      .then((closed) => {
+        check('saving on the all-in-one page closes the form', closed)
+      })
+
+    await go(page, origin, '/awards')
+    await page
+      .locator('.record-row')
+      .filter({ hasText: 'Institute of Something' })
+      .first()
+      .waitFor({ timeout: 10000 })
+    check('a record added on the all-in-one page appears on its own page', true)
+
+    // ------------------------------------------------------- story placement
+    // The job story belongs between the responsibilities and the achievements.
+    // A job of its own, so the check does not depend on what earlier steps left
+    // behind or on how much of it was edited.
+    await go(page, origin, '/jobs/new')
+    await fill(page, 'Company', 'Storycheck')
+    await fill(page, 'Job title', 'Role')
+    await fill(page, 'Start date', '2019-01-01')
+    await fill(page, 'Responsibilities', 'RESPONSIBILITIES_TEXT')
+    await fill(page, 'Story', 'JOB_STORY_TEXT')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page.locator('.record-row').filter({ hasText: 'Storycheck' }).first().waitFor()
+
+    await go(page, origin, '/achievements/new')
+    await page.getByLabel('Job', { exact: true }).selectOption({ label: 'Storycheck - Role' })
+    await fill(page, 'Achievement', 'ACHIEVEMENT_TEXT')
+    await page.getByRole('button', { name: 'Save' }).click()
+    // Waited for, not counted: counting immediately would run before the
+    // redirect and the list render, and would pass against a save that failed.
+    await page
+      .locator('.record-row')
+      .filter({ hasText: 'ACHIEVEMENT_TEXT' })
+      .first()
+      .waitFor({ timeout: 10000 })
+
+    await go(page, origin, '/document')
+    await page.getByRole('button', { name: 'Interview preparation' }).click()
+    await page.locator('.doc-job').filter({ hasText: 'Storycheck' }).first().waitFor()
+    const storyJob = await page
+      .locator('.doc-job')
+      .filter({ hasText: 'Storycheck' })
+      .first()
+      .innerText()
+    const order = ['RESPONSIBILITIES_TEXT', 'JOB_STORY_TEXT', 'ACHIEVEMENT_TEXT'].map((text) =>
+      storyJob.indexOf(text),
+    )
+    check(
+      'the job story sits between the responsibilities and the achievements',
+      order[0] >= 0 && order[1] > order[0] && order[2] > order[1],
+      `offsets ${JSON.stringify(order)}`,
     )
 
     // -------------------------------------------------------------------- sync

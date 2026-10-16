@@ -24,6 +24,7 @@ import { SyncIndicator } from '../features/sync/SyncIndicator'
 import { SyncProvider } from '../features/sync/SyncProvider'
 import { DocumentIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
+import { AllInOnePage } from '../features/document/AllInOnePage'
 
 const ROUTES: readonly Route[] = [
   { path: '/' },
@@ -49,11 +50,13 @@ const ROUTES: readonly Route[] = [
   { path: '/questions/all/new' },
   { path: '/questions/:id/edit' },
   { path: '/document' },
+  { path: '/edit' },
   { path: '/settings' },
   { path: '/sync' },
 ]
 
 const SECTIONS = [
+  { href: '/edit', label: 'Edit all' },
   { href: '/profiles', label: 'Profiles' },
   { href: '/jobs', label: 'Jobs' },
   { href: '/achievements', label: 'Achievements' },
@@ -197,6 +200,8 @@ function renderRoute(
       return <HomePage />
     case '/document':
       return <DocumentPage now={now} />
+    case '/edit':
+      return <AllInOnePage now={now} />
     case '/settings':
       return <SettingsPage now={now} theme={theme} onThemeChange={onThemeChange} />
     case '/sync':

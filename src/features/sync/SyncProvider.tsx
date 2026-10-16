@@ -18,6 +18,7 @@ import { SCHEMA_VERSION } from '../../export/envelope'
 import { readSnapshot, writeSnapshot } from '../../storage/db'
 import { readSyncMeta, writeSyncMeta } from '../../storage/syncMeta'
 import { describeKeySource } from '../../sync/appKey'
+import { beginAuthCallback } from '../../sync/oauthCallback'
 
 /** The activity log is capped: a long-lived tab must not grow without bound. */
 const LOG_LIMIT = 50
@@ -81,7 +82,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }))
     })()
 
+    // The token may be mid-exchange right now: this provider can be the first
+    // thing that runs after an OAuth redirect. Awaiting the memoised callback
+    // means one exchange, completed, rather than racing it and reporting "not
+    // connected" on a connect that actually worked.
     void (async () => {
+      await beginAuthCallback()
       setConnected(await indexedDbDropboxProvider().hasUsableToken())
     })()
 

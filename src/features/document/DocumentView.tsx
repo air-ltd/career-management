@@ -76,6 +76,18 @@ export function DocumentView({ model }: { model: DocumentModel }) {
                 <div className="doc-body">{toParagraphs(job.responsibilities)}</div>
               )}
 
+              {/*
+                The job story sits between the responsibilities and the
+                achievements, not after them. It answers "what was this role
+                actually like", which is the question the responsibilities leave
+                open and the achievements answer concretely — so read in that
+                order it holds together, and read with the story last it reads as
+                an afterthought.
+              */}
+              {stories && job.story !== '' && (
+                <div className="doc-body doc-story">{toParagraphs(job.story)}</div>
+              )}
+
               {(model.achievementsByJob.get(job.id) ?? []).length > 0 && (
                 <ul className="doc-achievements">
                   {(model.achievementsByJob.get(job.id) ?? []).map((achievement) => (
@@ -95,10 +107,6 @@ export function DocumentView({ model }: { model: DocumentModel }) {
                     </li>
                   ))}
                 </ul>
-              )}
-
-              {stories && job.story !== '' && (
-                <div className="doc-body doc-story">{toParagraphs(job.story)}</div>
               )}
             </article>
           ))}

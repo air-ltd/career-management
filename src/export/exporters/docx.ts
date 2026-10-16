@@ -158,6 +158,14 @@ export const docxExporter: DocumentExporter = {
             children.push(paragraph)
         }
 
+        // The job story sits between the responsibilities and the achievements,
+        // matching the on-screen document: it answers what the role was actually
+        // like, which the responsibilities leave open and the achievements answer
+        // concretely.
+        if (model.options.includeStories && job.story !== '') {
+          for (const paragraph of paragraphs(job.story, size, true)) children.push(paragraph)
+        }
+
         for (const achievement of achievements) {
           children.push(
             new Paragraph({
@@ -176,10 +184,6 @@ export const docxExporter: DocumentExporter = {
               )
             }
           }
-        }
-
-        if (model.options.includeStories && job.story !== '') {
-          for (const paragraph of paragraphs(job.story, size, true)) children.push(paragraph)
         }
       }
     }
