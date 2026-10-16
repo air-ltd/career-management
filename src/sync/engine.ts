@@ -19,6 +19,8 @@ import {
   toEnvelope,
 } from '../export/envelope'
 import { SyncError, type SyncProvider } from './provider'
+import { repairUnusableIds } from '../domain/repair'
+import { newId } from '../storage/repository'
 import type { Snapshot } from '../domain/types'
 import { narrowTables } from '../export/envelope'
 
@@ -45,6 +47,8 @@ export interface SyncDeps {
   writeLastRev: (rev: string | null) => Promise<void>
   now: () => Date
   onLog?: (event: SyncLogEntry) => void
+  /** The id source used to repair unusable records. Injected for testability. */
+  makeId?: () => string
 }
 
 export type SyncOutcome =
@@ -128,7 +132,28 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
     // merge locally and publishing the repaired one leaves the database and the
     // remote holding different data, so every subsequent cycle finds a difference
     // and pushes a redundant correction — forever.
-    const merged = repairReferences(collapseSingletons(outcome.merged))
+    //
+    // Ids first, then references: a record that has just been given an id may be
+    // the one another record was pointing at, and clearing a reference before
+    // restoring the target would throw away a link that was actually fine.
+    const identified = repairUnusableIds(outcome.merged, deps.makeId ?? newId)
+    if (identified.repaired.length > 0) {
+      log(
+        deps,
+        'warn',
+        `Gave ${String(identified.repaired.length)} record(s) a new id so they can be edited and merged: ${identified.repaired
+          .map((entry) => entry.table)
+          .join(', ')}. Nothing else about them was changed.`,
+      )
+    }
+    if (identified.unrepairable.length > 0) {
+      log(
+        deps,
+        'error',
+        `${String(identified.unrepairable.length)} record(s) have no usable id and could not be given one. They cannot be edited until this is resolved.`,
+      )
+    }
+    const merged = repairReferences(collapseSingletons(identified.snapshot))
 
     /**
      * Written unconditionally, *before* the publish decision.

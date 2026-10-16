@@ -454,8 +454,22 @@ code {
  * rendered forms meant a CV with thirty achievements shipped thirty forms.
  */
 
-.all-in-one-head {
-  margin-bottom: 1.5rem;
+/* The editor, in the second column of the same grid the document page uses. */
+.all-in-one > .inline-section:first-of-type {
+  margin-top: 0;
+}
+
+/*
+ * The document, for printing only.
+ *
+ * Hidden on screen because the user is here to edit, not to read the document,
+ * and printing it would be a second copy of the document page below the button.
+ * Revealed when printing, in place of the editor, so the Print button on this
+ * page produces the same document as the one on the document page rather than a
+ * printout of the editor.
+ */
+.all-in-one-print {
+  display: none;
 }
 
 .inline-section {
@@ -516,11 +530,33 @@ code {
   margin: 0 0 0.2rem 1.35rem;
   font-size: 0.82rem;
   color: var(--text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* Not the `-webkit-box` clamp used elsewhere: the preview holds one block per
+     paragraph, and clamping a box of blocks cuts the story off mid-sentence
+     while claiming the job's responsibilities are complete. Two lines is the
+     right limit, and a block count is the only honest way to count them. */
+  display: block;
+  max-height: 3.1em;
   overflow: hidden;
+}
+
+.inline-row-preview p {
+  margin: 0;
+}
+
+.inline-row-preview p + p {
+  margin-top: 0.15rem;
+}
+
+/*
+ * A story in the pane, styled the way a story is styled in the document
+ * (`.doc-story`).
+ *
+ * Italic and quieter, and the same in both places on purpose: the pane is where
+ * you read what you are about to send, and a story that is italic in the PDF and
+ * upright on the screen invites you to misread the screen.
+ */
+.inline-row-story {
+  font-style: italic;
 }
 
 .inline-row-toggle {
@@ -659,23 +695,61 @@ code {
   margin-bottom: 1rem;
 }
 
+/*
+ * `<dates>  <company>: <job title>` on one line, dates in a leading column.
+ *
+ * The fixed width is the point: it is what lines the company names up. Sized to
+ * the longest range the format can produce ("Jan 2020 - present" and
+ * "Jan 2024 - Feb 2024"), in `ch` so it tracks the type size rather than being
+ * a magic pixel count that stops fitting when the size changes.
+ */
+.doc-job-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+
 .doc-job-title {
   margin: 0;
   font-size: 1.05em;
+  min-width: 0;
 }
 
 .doc-job-dates {
-  margin: 0.1rem 0 0.4rem;
+  flex: 0 0 20ch;
+  width: 20ch;
+  margin: 0;
   color: var(--text-muted);
   font-size: 0.85em;
+  /* Left-aligned, so the dates sit flush against the page margin. The column
+     still holds a fixed measure, so the company names line up either way — but a
+     range starting a third of the way across the page reads as indented rather
+     than as the start of a line. */
+  text-align: left;
+  /* Never wrap: a wrapped date range would break the column the alignment
+     depends on. The width above is sized so this does not happen. */
+  white-space: nowrap;
 }
 
+/*
+ * The responsibilities and the first achievement bullet are one thought, so the
+ * air between them is only what the prose paragraph already carries.
+ *
+ * Sibling vertical margins collapse, so the gap here is the *larger* of the
+ * paragraph's bottom margin and the list's top margin — which means clearing the
+ * paragraph's trailing margin is what actually closes the gap. Setting the list's
+ * top margin alone would have changed nothing.
+ */
 .doc-body p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.4rem;
+}
+
+.doc-body p:last-child {
+  margin-bottom: 0;
 }
 
 .doc-achievements {
-  margin: 0.4rem 0 0;
+  margin: 0.25rem 0 0;
   padding-left: 1.3rem;
 }
 
@@ -703,17 +777,11 @@ code {
   font-size: 0.95em;
 }
 
-.doc-award-table th,
 .doc-award-table td {
   text-align: left;
   padding: 0.3rem 0.5rem 0.3rem 0;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
-}
-
-.doc-award-table th {
-  border-bottom: 2px solid var(--text);
-  font-weight: 600;
 }
 
 .doc-award-year {
@@ -785,18 +853,100 @@ code {
 
 /* ------------------------------------------------------------ document page */
 
-.document-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/*
+ * The document with a sidebar beside it, rather than controls stacked above it.
+ *
+ * The paper is the tall scrolling thing and the controls are a short list beside
+ * it. Stacked, the controls pushed the top of the document off screen and the fit
+ * report — which grows as it lists records to shorten — pushed it further.
+ *
+ * The sidebar is on the right, which is where the eye finishes: you read the
+ * document, then reach for what to change about it or send it. On the left it
+ * sits between the document and the scrollbar, which is the worst of both.
+ *
+ * Placement is by grid line rather than by source order. Auto-placement fills
+ * columns before starting a new row, so the first child after the toolbar would
+ * take the wide column and the document would land in the rail — the columns
+ * would have to be rewritten to get this back.
+ */
+.document-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 15rem);
+  align-items: start;
   gap: var(--gap);
-  flex-wrap: wrap;
-  margin-bottom: 0.75rem;
 }
 
-.document-presets {
+/* Everything that is not the document lives in the right rail. */
+.document-controls {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.document-paper,
+.all-in-one-content {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.document-print {
+  /*
+   * Directly under the fit report, not pushed to the foot of the rail.
+   *
+   * Pinning it to the bottom meant forcing the rail to the full height of the
+   * window, which put the page's one action below the fold on a short document —
+   * the very case where you most want to print it.
+   */
+  margin-top: 0;
+}
+
+.document-print .button {
+  width: 100%;
+  justify-content: center;
+}
+
+.document-sidebar {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  /* Sticky so the controls stay reachable while scrolling a long document. */
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+}
+
+/*
+ * Below this width there is no room for two columns, and a sidebar that squeezes
+ * the paper to nothing is worse than no sidebar.
+ */
+@media (max-width: 48rem) {
+  .document-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column, so the explicit lines have to go with it. */
+  .document-controls,
+  .document-paper,
+  .all-in-one-content {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .document-sidebar {
+    position: static;
+    max-height: none;
+  }
+}
+
+.document-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.document-field select {
+  width: 100%;
 }
 
 .document-options {
@@ -804,7 +954,6 @@ code {
   border-radius: var(--radius);
   background: var(--surface);
   padding: 0.6rem 0.9rem;
-  margin-bottom: 1rem;
   font-size: 0.9rem;
 }
 
@@ -819,6 +968,38 @@ code {
   gap: 0.35rem;
   margin-right: 1rem;
   margin-top: 0.4rem;
+}
+
+/*
+ * A record shown because "include deleted records" is on.
+ *
+ * Muted red plus a left rule, for two reasons. The rule is the load-bearing one:
+ * printing is frequently configured to drop background colours, and a tint that
+ * vanishes on paper leaves deleted records indistinguishable from live ones —
+ * which is the exact failure the marker exists to prevent. Red is not relied on
+ * alone for that, and it is not the only cue either, so this still reads in
+ * greyscale and for anyone who cannot distinguish the colour.
+ */
+.doc-deleted {
+  color: var(--danger);
+  border-left: 2px solid currentColor;
+  padding-left: 0.5rem;
+}
+
+.doc-job.doc-deleted,
+.doc-question-group.doc-deleted {
+  border-left-width: 3px;
+  padding-left: 0.6rem;
+}
+
+@media print {
+  /* `-webkit-print-color-adjust` is about backgrounds; the text colour itself is
+     printed, so the rule and the muted text survive either way. This is here so
+     the colour is not adjusted away on the engines that would. */
+  .doc-deleted {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }
 
 .document-paper {
@@ -860,6 +1041,23 @@ code {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+}
+
+/*
+ * A fixed width, sized to the longest label the indicator can show.
+ *
+ * Without it the header reflows every time the status changes — "Synced" is six
+ * characters and "Changes waiting" is fifteen, so the whole header shifts each
+ * time a sync starts and finishes. An indicator you are trying to watch should
+ * not move while you watch it, and a shorter label sitting in a fixed bubble with
+ * the text centred reads better than a tight bubble that breathes.
+ */
+.sync-indicator .badge {
+  display: inline-block;
+  min-width: 19ch;
+  text-align: center;
+  /* Never wrap: a two-line bubble is worse than a slightly wide one. */
+  white-space: nowrap;
 }
 
 .badge-warn {
@@ -951,11 +1149,27 @@ code {
   .app-nav,
   .app-header-controls,
   .document-controls,
-  .all-in-one-head,
   .inline-editor,
   .record-row-actions,
   .button-row,
   .undo-bar {
+    display: none;
+  }
+
+  .all-in-one-print {
+    display: block;
+  }
+
+  .document-page {
+    display: block;
+  }
+
+  /*
+   * The records themselves are the editor, and the editor is not the output —
+   * `.all-in-one-print` is. Printing both would give a document followed by every
+   * record again, which is two pages of the same content in two formats.
+   */
+  .inline-section {
     display: none;
   }
 

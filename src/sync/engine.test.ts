@@ -89,6 +89,36 @@ function remoteOf(snapshot: Snapshot, rev: string): RemoteFile {
   return { body: serialiseEnvelope(toEnvelope(snapshot, new Date(0))), rev }
 }
 
+/** A remote document with one question whose id is blank — the reported failure. */
+function blankIdRemote() {
+  return {
+    format: 'career-management-document',
+    formatVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: new Date(0).toISOString(),
+    counts: { questions: 1 },
+    data: {
+      settings: [],
+      profiles: [],
+      jobs: [],
+      achievements: [],
+      awards: [],
+      education: [],
+      questionCategories: [],
+      questions: [
+        {
+          id: '',
+          updatedAt: '1970-01-01T00:00:01.000Z',
+          deletedAt: null,
+          categoryId: 'c1',
+          question: 'Why us?',
+          answer: 'Because.',
+        },
+      ],
+    },
+  }
+}
+
 describe('runSync', () => {
   it('skips without failing when not connected, leaving data alone (SY3)', async () => {
     const provider = new FakeProvider()
@@ -168,6 +198,47 @@ describe('runSync', () => {
     const outcome = await runSync(deps)
     expect(getWritten()?.entities.jobs.map((r) => r.id)).toEqual(['theirs'])
     expect(outcome.status).toBe('up-to-date')
+  })
+
+  it('recovers a remote record with a blank id rather than refusing forever', async () => {
+    // The file that produced this failure: one question with an empty id, which
+    // the record schema rejects — and which the envelope used to reject too.
+    // Refusing made the document permanently unsyncable, because the thing that
+    // would fix it was the thing that was blocked.
+    const snapshot = snapshotOf([row('mine', 100)])
+    const provider = new FakeProvider()
+    provider.remote = {
+      body: JSON.stringify(blankIdRemote()),
+      rev: 'rev-1',
+    }
+    const { deps, getWritten } = harness(snapshot, provider)
+
+    const outcome = await runSync(deps)
+
+    // It synced, rather than blocking.
+    expect(outcome.status).toBe('pushed')
+
+    // The question's text survived, and it got an id so it can be edited.
+    const question = getWritten()?.entities['questions']?.[0] as unknown as
+      { id: string; question: string; answer: string } | undefined
+    expect(question?.question).toBe('Why us?')
+    expect(question?.answer).toBe('Because.')
+    expect(question?.id).not.toBe('')
+    expect(question?.id).toBeTruthy()
+  })
+
+  it('says what it repaired, rather than fixing it silently', async () => {
+    const provider = new FakeProvider()
+    provider.remote = { body: JSON.stringify(blankIdRemote()), rev: 'rev-1' }
+
+    const logs: string[] = []
+    const { deps } = harness(snapshotOf([]), provider)
+    deps.onLog = (entry) => {
+      logs.push(entry.message)
+    }
+
+    await runSync(deps)
+    expect(logs.some((message) => message.includes('new id'))).toBe(true)
   })
 
   it('refuses to overwrite a remote file it cannot read', async () => {

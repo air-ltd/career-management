@@ -11,18 +11,17 @@
  */
 
 import {
-  BorderStyle,
   Document,
   HeadingLevel,
   Packer,
   Paragraph,
-  ShadingType,
   Table,
   TableCell,
   TableLayoutType,
+  Tab,
+  TabStopType,
   TableRow,
   TextRun,
-  VerticalAlign,
   WidthType,
 } from 'docx'
 import type { DocumentModel } from '../model'
@@ -43,9 +42,6 @@ const HEADING_SIZE = {
   section: 26,
   job: 22,
 } as const
-
-const THIN_BORDER = { style: BorderStyle.SINGLE, size: 4, color: '9CA3AF' } as const
-const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } as const
 
 /** A paragraph with blank lines between blocks, which is how stories read. */
 function paragraphs(text: string, size: number, italics = false): Paragraph[] {
@@ -87,6 +83,11 @@ export const docxExporter: DocumentExporter = {
     const size = model.settings.fontSizePt * HALF_POINTS_PER_PT
     const children: (Paragraph | Table)[] = []
 
+    const geometry = pageGeometry(model.settings.pageSize)
+    const page = wordPageSize(geometry)
+    // Where a right tab lands the date range: the right edge of the text column.
+    const contentWidthTwips = geometry.contentWidthTwips
+
     // --- header ----------------------------------------------------------
     if (model.profile !== null) {
       children.push(
@@ -125,31 +126,37 @@ export const docxExporter: DocumentExporter = {
       for (const job of model.jobs) {
         const achievements = model.achievementsByJob.get(job.id) ?? []
 
-        children.push(
-          new Paragraph({
-            heading: HeadingLevel.HEADING_2,
-            children: [
-              new TextRun({
-                text: `${job.company} - ${job.jobTitle}`,
-                bold: true,
-                size: HEADING_SIZE.job * HALF_POINTS_PER_PT,
-              }),
-            ],
-            keepNext: true,
-            spacing: { before: 200, after: 40 },
-          }),
-        )
-
         // D17: displayed at month precision, which is CV convention.
         const range =
           job.endDate === null
             ? `${formatMonth(job.startDate)} - present`
             : `${formatMonth(job.startDate)} - ${formatMonth(job.endDate)}`
+
+        /**
+         * `<dates>  <company>: <job title>` on one line — matching the on-screen
+         * document.
+         *
+         * A **left tab stop**, not a two-column table. D34 rules tables out for
+         * positioning because applicant tracking systems parse the text stream,
+         * and layout tables are the usual cause of a CV parsing badly. A tab
+         * achieves the same alignment — every company name starting at the same
+         * position — as ordinary inline text.
+         */
         children.push(
           new Paragraph({
-            children: [new TextRun({ text: range, size, italics: true })],
-            spacing: { after: 120 },
+            heading: HeadingLevel.HEADING_2,
+            children: [
+              new TextRun({ text: range, size, italics: true }),
+              new Tab(),
+              new TextRun({
+                text: jobHeading(job),
+                bold: true,
+                size: HEADING_SIZE.job * HALF_POINTS_PER_PT,
+              }),
+            ],
+            tabStops: [{ type: TabStopType.LEFT, position: contentWidthTwips }],
             keepNext: true,
+            spacing: { before: 200, after: 120 },
           }),
         )
 
@@ -197,27 +204,6 @@ export const docxExporter: DocumentExporter = {
           width: { size: 100, type: WidthType.PERCENTAGE },
           layout: TableLayoutType.FIXED,
           rows: [
-            new TableRow({
-              tableHeader: true,
-              children: ['Year', 'Institution', 'What'].map(
-                (label) =>
-                  new TableCell({
-                    children: [
-                      new Paragraph({
-                        children: [new TextRun({ text: label, bold: true, size })],
-                      }),
-                    ],
-                    shading: { type: ShadingType.CLEAR, fill: 'E5E7EB' },
-                    borders: {
-                      bottom: THIN_BORDER,
-                      top: NO_BORDER,
-                      left: NO_BORDER,
-                      right: NO_BORDER,
-                    },
-                    verticalAlign: VerticalAlign.CENTER,
-                  }),
-              ),
-            }),
             ...model.awardsEducation.map(
               (entry) =>
                 new TableRow({
@@ -270,9 +256,6 @@ export const docxExporter: DocumentExporter = {
       }
     }
 
-    const geometry = pageGeometry(model.settings.pageSize)
-    const pageSize = wordPageSize(geometry)
-
     const document = new Document({
       title: model.profile?.title ?? 'Career Management Document',
       creator: 'Career Management Document',
@@ -281,7 +264,7 @@ export const docxExporter: DocumentExporter = {
           properties: {
             // `size`, not a flat width/height: the section's page property takes
             // a size object, a margin object and so on.
-            page: { size: pageSize },
+            page,
           },
           children,
         },
@@ -290,6 +273,19 @@ export const docxExporter: DocumentExporter = {
 
     return Packer.toBlob(document)
   },
+}
+
+/**
+ * `Company: Job title`, with only the halves that are present.
+ *
+ * Kept in step with `DocumentView` so the Word export and the printed document
+ * label a job identically — two formats that spell the same role differently is
+ * the kind of drift nobody notices until someone compares them.
+ */
+function jobHeading(job: { company: string; jobTitle: string }): string {
+  if (job.company === '') return job.jobTitle
+  if (job.jobTitle === '') return job.company
+  return `${job.company}: ${job.jobTitle}`
 }
 
 /** `Jan 2024` from `2024-01-31`, matching the on-screen document (D17). */

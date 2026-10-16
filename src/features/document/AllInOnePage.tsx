@@ -11,11 +11,15 @@
  */
 
 import { useState } from 'react'
+import { DocumentView } from './DocumentView'
+import { DocumentChrome } from './DocumentChrome'
+import { useDocument, usePageRule } from './useDocumentSource'
 import { InlineEditor, InlineRow, InlineSection } from './InlineEditor'
 import { text } from './recordText'
 import { formatDateRange, formatYear } from '../../domain/format'
 import { REGISTRY } from '../shared/registry'
 import { useFieldContext, useRecords } from '../shared/data'
+import { PRESETS, type ExportOptions } from '../../export/model'
 import type { Field } from '../shared/fields'
 import type { Mergeable } from '../../domain/types'
 
@@ -39,6 +43,20 @@ function inDocumentOrder(records: Mergeable[]): Row[] {
 
 export function AllInOnePage({ now }: { now: Date }) {
   const context = useFieldContext(now)
+
+  /*
+   * The document, and the options that shape it.
+   *
+   * The editor is the editing surface; this is what the Print button prints. It is
+   * not shown — a second copy of the document beside the editor is a scrolling
+   * duplicate of a page the user can already go to — but it is built and kept
+   * live, so the print button produces the document rather than a printout of the
+   * editor. It shares the document page's chrome, so the two print buttons give
+   * the same document.
+   */
+  const [options, setOptions] = useState<ExportOptions>(PRESETS['cv'].options)
+  const { model, settings, saveSettings, liveProfiles } = useDocument(options, now)
+  usePageRule(settings.pageSize)
 
   // Which parent, if any, has its "add a child" form open. Held here rather than
   // inside the child component so the button that opens it can sit beside the
@@ -71,157 +89,262 @@ export function AllInOnePage({ now }: { now: Date }) {
 
   if (loading) return <p className="hint">Loading…</p>
 
-  const jobs = inDocumentOrder(rawJobs)
-  const awards = inDocumentOrder(rawAwards)
-  const education = inDocumentOrder(rawEducation)
+  /*
+   * What the editor pane shows, which the rail controls.
+   *
+   * Two rules, both taken from the options rather than applied per record type:
+   *
+   * Stories. Each type used to pick its own preview — a job showed its
+   * responsibilities, an achievement showed its story, a category showed its
+   * story — so "some stories are shown, some are not" was not a bug in one of
+   * them but the rule being absent. Now a story is shown exactly when the
+   * document would show it: with stories excluded, no record shows one at all;
+   * with them included, every record shows its own. The job also keeps its
+   * responsibilities, which is not a story and does not come and go with them.
+   *
+   * Deleted records. They were always listed, so "show deleted" did nothing — the
+   * one state where the toggle should have mattered was the only one it was stuck
+   * on. Tombstones are now listed only when asked for, which is what reconciling
+   * against another device is for. When they are listed they carry the same
+   * marking they get in the document (`InlineRow` already does this).
+   */
+  const showStories = options.includeStories
+  const showDeleted = options.includeDeleted
+  const visible = (records: Row[]) =>
+    showDeleted ? records : records.filter((record) => text(record, 'deletedAt') === '')
+
+  const jobs = visible(inDocumentOrder(rawJobs))
+  const awards = visible(inDocumentOrder(rawAwards))
+  const education = visible(inDocumentOrder(rawEducation))
+  // The children of a job or category, filtered the same way, so a hidden parent
+  // does not leave its records hanging on their own.
+  const visibleAchievements = visible(achievements)
+  const visibleQuestions = visible(questions)
 
   return (
-    <section className="all-in-one">
-      <header className="all-in-one-head">
-        <h2>Edit everything</h2>
-        <p className="hint">
-          The whole document on one page, in the order it appears in the document. Open a record
-          to edit it in place; nothing is saved until you say so.
-        </p>
-      </header>
+    <section className="document-page all-in-one">
+      {/*
+        The print output, not a preview: hidden on screen, shown when printing.
+        See `all-in-one-print` in the stylesheet.
+      */}
+      <div className="all-in-one-print">
+        <DocumentView model={model} />
+      </div>
 
-      <InlineSection
-        title="Profiles"
-        registryKey="profiles"
-        records={profiles}
-        describe={(record) => ({
-          heading: text(record, 'name') || '(unnamed profile)',
-          detail: text(record, 'email'),
-        })}
-        fields={REGISTRY.profiles.fields(context)}
-        now={now}
-        emptyText="No profiles yet."
+      <DocumentChrome
+        options={options}
+        onOptionsChange={setOptions}
+        settings={settings}
+        saveSettings={saveSettings}
+        liveProfiles={liveProfiles}
+        model={model}
       />
 
-      <InlineSection
-        title="Work history"
-        registryKey="jobs"
-        records={jobs}
-        describe={(record) => ({
-          heading: `${text(record, 'company')} - ${text(record, 'jobTitle')}`,
-          detail: formatDateRange(text(record, 'startDate'), endDateOf(record)),
-        })}
-        fields={REGISTRY.jobs.fields(context)}
-        now={now}
-        emptyText="No jobs yet."
-        // The responsibilities, so a role can be read without opening it. Line
-        // breaks collapse to spaces so the preview stays one block.
-        preview={(record) => collapse(text(record, 'responsibilities'))}
-        actionsFor={(job) => (
-          <AddChildButton
-            label="Add achievement"
-            expanded={
-              addingChildFor?.kind === 'achievement' &&
-              addingChildFor.parentId === text(job, 'id')
-            }
-            onClick={() =>
-              setAddingChildFor((previous) =>
-                previous?.kind === 'achievement' && previous.parentId === text(job, 'id')
-                  ? null
-                  : { kind: 'achievement', parentId: text(job, 'id') },
-              )
-            }
-          />
-        )}
-        renderChildren={(job) => (
-          <AchievementsUnderJob
-            job={job}
-            records={achievements}
-            fields={REGISTRY.achievements.fields(context)}
-            now={now}
-            adding={
-              addingChildFor?.kind === 'achievement' &&
-              addingChildFor.parentId === text(job, 'id')
-            }
-            onToggleAdding={() =>
-              setAddingChildFor((previous) =>
-                previous?.kind === 'achievement' && previous.parentId === text(job, 'id')
-                  ? null
-                  : { kind: 'achievement', parentId: text(job, 'id') },
-              )
-            }
-          />
-        )}
-      />
+      {/*
+        One grid cell for every record.
 
-      <InlineSection
-        title="Awards"
-        registryKey="awards"
-        records={awards}
-        describe={(record) => ({
-          heading: text(record, 'institution'),
-          detail: `${formatYear(Number(record['year']))} - ${text(record, 'what')}`,
-        })}
-        fields={REGISTRY.awards.fields(context)}
-        now={now}
-        emptyText="No awards yet."
-      />
+        Left to itself each `InlineSection` is a grid item, and a grid fills its
+        columns before it starts a new row — so the sections flowed into both
+        columns and alternated down the page: work history under the sidebar,
+        awards beside it, education back under the sidebar. Wrapping them puts the
+        whole list in the second column, which is the arrangement the document page
+        gets from `.document-paper`.
+      */}
+      <div className="all-in-one-content">
+        <InlineSection
+          title="Profiles"
+          registryKey="profiles"
+          records={profiles}
+          describe={(record) => ({
+            heading: text(record, 'name') || '(unnamed profile)',
+            detail: text(record, 'email'),
+          })}
+          fields={REGISTRY.profiles.fields(context)}
+          now={now}
+          emptyText="No profiles yet."
+        />
 
-      <InlineSection
-        title="Education"
-        registryKey="education"
-        records={education}
-        describe={(record) => ({
-          heading: text(record, 'institution'),
-          detail: `${formatYear(Number(record['year']))} - ${text(record, 'what')}`,
-        })}
-        fields={REGISTRY.education.fields(context)}
-        now={now}
-        emptyText="No education entries yet."
-      />
+        <InlineSection
+          title="Work history"
+          registryKey="jobs"
+          records={jobs}
+          describe={(record) => ({
+            heading: `${text(record, 'company')} - ${text(record, 'jobTitle')}`,
+            detail: formatDateRange(text(record, 'startDate'), endDateOf(record)),
+          })}
+          fields={REGISTRY.jobs.fields(context)}
+          now={now}
+          emptyText="No jobs yet."
+          // The responsibilities, so a role can be read without opening it. Line
+          // breaks collapse to spaces so the preview stays one block. The story
+          // joins them when stories are included, which is what makes a job agree
+          // with the achievements and categories below it rather than being the
+          // one type that never shows one.
+          preview={(record) => jobPreview(record, showStories)}
+          actionsFor={(job) => (
+            <AddChildButton
+              label="Add achievement"
+              expanded={
+                addingChildFor?.kind === 'achievement' &&
+                addingChildFor.parentId === text(job, 'id')
+              }
+              onClick={() =>
+                setAddingChildFor((previous) =>
+                  previous?.kind === 'achievement' && previous.parentId === text(job, 'id')
+                    ? null
+                    : { kind: 'achievement', parentId: text(job, 'id') },
+                )
+              }
+            />
+          )}
+          renderChildren={(job) => (
+            <AchievementsUnderJob
+              job={job}
+              records={visibleAchievements}
+              showStories={showStories}
+              fields={REGISTRY.achievements.fields(context)}
+              now={now}
+              adding={
+                addingChildFor?.kind === 'achievement' &&
+                addingChildFor.parentId === text(job, 'id')
+              }
+              onToggleAdding={() =>
+                setAddingChildFor((previous) =>
+                  previous?.kind === 'achievement' && previous.parentId === text(job, 'id')
+                    ? null
+                    : { kind: 'achievement', parentId: text(job, 'id') },
+                )
+              }
+            />
+          )}
+        />
 
-      <InlineSection
-        title="Question categories"
-        registryKey="questionCategories"
-        records={categories}
-        describe={(record) => ({ heading: text(record, 'title'), detail: '' })}
-        fields={REGISTRY.questionCategories.fields(context)}
-        now={now}
-        emptyText="No question categories yet."
-        preview={(record) => collapse(text(record, 'story'))}
-        actionsFor={(category) => (
-          <AddChildButton
-            label="Add question"
-            expanded={
-              addingChildFor?.kind === 'question' &&
-              addingChildFor.parentId === text(category, 'id')
-            }
-            onClick={() =>
-              setAddingChildFor((previous) =>
-                previous?.kind === 'question' && previous.parentId === text(category, 'id')
-                  ? null
-                  : { kind: 'question', parentId: text(category, 'id') },
-              )
-            }
-          />
-        )}
-        renderChildren={(category) => (
-          <QuestionsUnderCategory
-            category={category}
-            records={questions}
-            fields={REGISTRY.questions.fields(context)}
-            now={now}
-            adding={
-              addingChildFor?.kind === 'question' &&
-              addingChildFor.parentId === text(category, 'id')
-            }
-            onToggleAdding={() =>
-              setAddingChildFor((previous) =>
-                previous?.kind === 'question' && previous.parentId === text(category, 'id')
-                  ? null
-                  : { kind: 'question', parentId: text(category, 'id') },
-              )
-            }
-          />
-        )}
-      />
+        <InlineSection
+          title="Awards"
+          registryKey="awards"
+          records={awards}
+          describe={(record) => ({
+            heading: text(record, 'institution'),
+            detail: `${formatYear(Number(record['year']))} - ${text(record, 'what')}`,
+          })}
+          // The story, like every other type's. Without this the section has no
+          // preview at all, so its stories could not appear whatever the toggle
+          // said — the same rule, or one record's story is missing because
+          // someone forgot the prop.
+          preview={(record) => storyPreview(text(record, 'story'), showStories)}
+          fields={REGISTRY.awards.fields(context)}
+          now={now}
+          emptyText="No awards yet."
+        />
+
+        <InlineSection
+          title="Education"
+          registryKey="education"
+          records={education}
+          describe={(record) => ({
+            heading: text(record, 'institution'),
+            detail: `${formatYear(Number(record['year']))} - ${text(record, 'what')}`,
+          })}
+          // The story, like every other type's. Without this the section has no
+          // preview at all, so its stories could not appear whatever the toggle
+          // said — the same rule, or one record's story is missing because
+          // someone forgot the prop.
+          preview={(record) => storyPreview(text(record, 'story'), showStories)}
+          fields={REGISTRY.education.fields(context)}
+          now={now}
+          emptyText="No education entries yet."
+        />
+
+        <InlineSection
+          title="Question categories"
+          registryKey="questionCategories"
+          records={visible(categories)}
+          describe={(record) => ({ heading: text(record, 'title'), detail: '' })}
+          fields={REGISTRY.questionCategories.fields(context)}
+          now={now}
+          emptyText="No question categories yet."
+          preview={(record) => storyPreview(text(record, 'story'), showStories)}
+          actionsFor={(category) => (
+            <AddChildButton
+              label="Add question"
+              expanded={
+                addingChildFor?.kind === 'question' &&
+                addingChildFor.parentId === text(category, 'id')
+              }
+              onClick={() =>
+                setAddingChildFor((previous) =>
+                  previous?.kind === 'question' && previous.parentId === text(category, 'id')
+                    ? null
+                    : { kind: 'question', parentId: text(category, 'id') },
+                )
+              }
+            />
+          )}
+          renderChildren={(category) => (
+            <QuestionsUnderCategory
+              category={category}
+              records={visibleQuestions}
+              showStories={showStories}
+              fields={REGISTRY.questions.fields(context)}
+              now={now}
+              adding={
+                addingChildFor?.kind === 'question' &&
+                addingChildFor.parentId === text(category, 'id')
+              }
+              onToggleAdding={() =>
+                setAddingChildFor((previous) =>
+                  previous?.kind === 'question' && previous.parentId === text(category, 'id')
+                    ? null
+                    : { kind: 'question', parentId: text(category, 'id') },
+                )
+              }
+            />
+          )}
+        />
+      </div>
     </section>
   )
+}
+
+/**
+ * A record's story, or nothing.
+ *
+ * One shape for every type — a job, an achievement, a category, a question's
+ * answer — so a story cannot be italic in one and not in another, or present in
+ * one and absent from another, without that being visible here.
+ *
+ * Returns nothing when stories are excluded, rather than an empty string: the
+ * empty string still rendered an empty paragraph, and an empty paragraph is not
+ * the same as no preview at all.
+ */
+function storyPreview(story: string, showStories: boolean): React.ReactNode {
+  if (!showStories) return null
+  const collapsed = collapse(story)
+  return collapsed === '' ? null : <p className="inline-row-story">{collapsed}</p>
+}
+
+/**
+ * A job's preview: its responsibilities, and below them its story.
+ *
+ * Two blocks, not one joined with a space. A role's responsibilities are what it
+ * did and its story is what it was like — read as one run they are a single
+ * sentence about the role, and read as two the job matches the achievements and
+ * categories below it, which are each their own line.
+ */
+function jobPreview(record: Record<string, unknown>, showStories: boolean): React.ReactNode {
+  const responsibilities = collapse(text(record, 'responsibilities'))
+  const story = showStories ? collapse(text(record, 'story')) : ''
+  const blocks: React.ReactNode[] = []
+
+  if (responsibilities !== '') blocks.push(<p key="responsibilities">{responsibilities}</p>)
+  if (story !== '')
+    blocks.push(
+      <p key="story" className="inline-row-story">
+        {story}
+      </p>,
+    )
+
+  return blocks.length === 0 ? null : blocks
 }
 
 /**
@@ -270,6 +393,7 @@ function AddChildButton({
 function AchievementsUnderJob({
   job,
   records,
+  showStories,
   fields,
   now,
   adding,
@@ -277,6 +401,7 @@ function AchievementsUnderJob({
 }: {
   job: Record<string, unknown>
   records: Row[]
+  showStories: boolean
   fields: readonly Field[]
   now: Date
   adding: boolean
@@ -298,7 +423,7 @@ function AchievementsUnderJob({
           record={achievement}
           heading={text(achievement, 'achievement')}
           detail=""
-          preview={collapse(text(achievement, 'story'))}
+          preview={storyPreview(text(achievement, 'story'), showStories)}
           fields={fields}
           now={now}
           onSaved={() => undefined}
@@ -324,6 +449,7 @@ function AchievementsUnderJob({
 function QuestionsUnderCategory({
   category,
   records,
+  showStories,
   fields,
   now,
   adding,
@@ -331,6 +457,7 @@ function QuestionsUnderCategory({
 }: {
   category: Record<string, unknown>
   records: Row[]
+  showStories: boolean
   fields: readonly Field[]
   now: Date
   adding: boolean
@@ -350,6 +477,7 @@ function QuestionsUnderCategory({
           record={question}
           heading={text(question, 'question')}
           detail=""
+          preview={storyPreview(text(question, 'answer'), showStories)}
           fields={fields}
           now={now}
           onSaved={() => undefined}

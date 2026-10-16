@@ -60,7 +60,15 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
               update({ activeProfileId: event.target.value === '' ? null : event.target.value })
             }}
           >
-            <option value="">None</option>
+            {/*
+              The same rule as the picker on the document page: no way to select "no
+              profile". Where several exist and none is chosen, this prompts instead.
+            */}
+            {profiles.length > 1 && settings.activeProfileId === null && (
+              <option value="" disabled>
+                Choose a profile
+              </option>
+            )}
             {profiles.map((profile) => (
               <option key={profile.id} value={profile.id}>
                 {profile.name || '(unnamed)'}

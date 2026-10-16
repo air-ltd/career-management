@@ -200,7 +200,12 @@ describe('docxExporter', () => {
     // the same geometry the exporter uses is the point: it catches the two
     // drifting apart, which is the actual risk.
     expect(xml).toContain(
-      `w:w="${String(expected.width)}" w:h="${String(expected.height)}" w:orient="portrait"`,
+      `w:w="${String(expected.size.width)}" w:h="${String(expected.size.height)}" w:orient="portrait"`,
+    )
+    // The margin too: Word defaults to 1 inch, so an export that left it alone
+    // fitted a different measure than the print layout it came from.
+    expect(xml).toContain(
+      `w:top="${String(expected.margin.top)}" w:right="${String(expected.margin.right)}"`,
     )
   })
 

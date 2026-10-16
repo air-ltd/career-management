@@ -130,8 +130,13 @@ export function InlineRow({
    * it. Clamped in CSS rather than truncated here, so the full text is in the
    * document and only the display is shortened (D31: no text is cut to achieve a
    * layout).
+   *
+   * Nodes rather than a string because a job shows two blocks — its
+   * responsibilities and, when stories are included, its story on its own line —
+   * and a story is styled differently from the rest. A string could not carry
+   * that without a delimiter the CSS would have to know about.
    */
-  preview?: string
+  preview?: React.ReactNode
   fields: readonly Field[]
   now: Date
   /** Buttons shown beside Edit — "add achievement", and the like. */
@@ -175,8 +180,10 @@ export function InlineRow({
         </div>
       </div>
 
-      {preview !== undefined && preview !== '' && !open && (
-        <p className="inline-row-preview">{preview}</p>
+      {preview !== undefined && preview !== null && preview !== '' && !open && (
+        // A `div`, not a `p`: the preview holds one block per paragraph, and
+        // nesting `p` in `p` is not valid HTML.
+        <div className="inline-row-preview">{preview}</div>
       )}
 
       {open && (
@@ -220,7 +227,7 @@ export function InlineSection({
   /** Buttons shown beside the row's Edit button. */
   actionsFor?: (record: Record<string, unknown>) => React.ReactNode
   /** Body text shown under the heading, so the record reads without opening. */
-  preview?: (record: Record<string, unknown>) => string
+  preview?: (record: Record<string, unknown>) => React.ReactNode
 }) {
   const [adding, setAdding] = useState(false)
   const definition = REGISTRY[registryKey]
@@ -263,7 +270,7 @@ export function InlineSection({
           {records.map((record) => {
             const described = describe(record)
             const recordActions = actionsFor?.(record)
-            const previewText = preview ? preview(record) : ''
+            const previewNode = preview ? preview(record) : null
             return (
               <div key={text(record, 'id')} className="inline-row-group">
                 <InlineRow
@@ -274,7 +281,9 @@ export function InlineSection({
                   fields={fields}
                   now={now}
                   onSaved={() => undefined}
-                  {...(previewText !== '' ? { preview: previewText } : {})}
+                  {...(previewNode !== null && previewNode !== undefined && previewNode !== ''
+                    ? { preview: previewNode }
+                    : {})}
                   {...(recordActions !== undefined ? { actions: recordActions } : {})}
                 />
                 {renderChildren?.(record)}

@@ -61,6 +61,12 @@ export interface AwardEducationEntry {
   institution: string
   what: string
   story: string
+  /**
+   * Carried through so the view can mark it. The rows are flattened into a
+   * combined table, and without this a tombstone that had been included on
+   * purpose looked exactly like a live record.
+   */
+  deletedAt: string | null
 }
 
 export interface QuestionCategoryGroup {
@@ -160,6 +166,7 @@ export function buildDocumentModel(input: {
       institution: award.institution,
       what: award.what,
       story: award.story,
+      deletedAt: award.deletedAt,
     })),
     ...input.education.filter(keepLive).map((entry) => ({
       kind: 'education' as const,
@@ -167,6 +174,7 @@ export function buildDocumentModel(input: {
       institution: entry.institution,
       what: entry.what,
       story: entry.story,
+      deletedAt: entry.deletedAt,
     })),
   ].sort((a, b) =>
     a.year === b.year ? (a.institution < b.institution ? -1 : 1) : b.year - a.year,

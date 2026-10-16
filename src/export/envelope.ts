@@ -44,8 +44,15 @@ const isoInstant = z.string().refine((value) => !Number.isNaN(Date.parse(value))
  * synced into an older one would silently lose every field that build added —
  * which is the quietest way there is to destroy someone's data. Passing unknown
  * fields through lets an older build carry a newer build's file intact.
+ *
+ * The id is checked for *shape* here — it must be a string — but not for
+ * emptiness. This gate answers "is this our file, and is it whole?"; whether a
+ * particular record is *usable* is `narrowTables`' question, and it can report it.
+ * Validating the id strictly here meant one record with a blank id made the
+ * entire document unreadable, which turned a repairable problem into a dead end:
+ * sync refused to run, so the broken record could never be fixed by syncing.
  */
-const entityTable = z.array(z.looseObject({ id: z.string().min(1) })).default([])
+const entityTable = z.array(z.looseObject({ id: z.string() })).default([])
 
 const entityTables = {
   settings: entityTable,

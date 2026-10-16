@@ -63,14 +63,23 @@ export function DocumentView({ model }: { model: DocumentModel }) {
             // orphaned at the foot of one.
             <article
               key={job.id}
-              className="doc-job"
+              className={classFor('doc-job', job.deletedAt)}
               style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
             >
-              <h3 className="doc-job-title">
-                <span className="doc-job-company">{job.company}</span>
-                {job.jobTitle !== '' && <span className="doc-job-role"> - {job.jobTitle}</span>}
-              </h3>
-              <p className="doc-job-dates">{formatDateRange(job.startDate, job.endDate)}</p>
+              {/*
+                `<dates>  <company>: <job title>` on one line, dates leading.
+
+                The dates get a fixed-width column, and that is what makes the
+                company names line up: every row's dates occupy the same measure,
+                so every company starts in the same place. Left to size itself,
+                "Jan 2020 - Mar 2024" and "Jan 2024" would push the next name to
+                two different positions and the eye would re-find the left edge on
+                every row.
+              */}
+              <div className="doc-job-head">
+                <p className="doc-job-dates">{formatDateRange(job.startDate, job.endDate)}</p>
+                <h3 className="doc-job-title">{jobHeading(job)}</h3>
+              </div>
 
               {job.responsibilities !== '' && (
                 <div className="doc-body">{toParagraphs(job.responsibilities)}</div>
@@ -93,7 +102,7 @@ export function DocumentView({ model }: { model: DocumentModel }) {
                   {(model.achievementsByJob.get(job.id) ?? []).map((achievement) => (
                     <li
                       key={achievement.id}
-                      className="doc-achievement"
+                      className={classFor('doc-achievement', achievement.deletedAt)}
                       data-fit-achievement=""
                       data-fit-job={job.id}
                       data-fit-achievement-id={achievement.id}
@@ -116,18 +125,22 @@ export function DocumentView({ model }: { model: DocumentModel }) {
       {model.awardsEducation.length > 0 && (
         <section className="doc-section" aria-label="Awards and education">
           <h2 className="doc-section-title">Awards and education</h2>
-          {/* D16: one combined table, real tabular data, which D34 allows. */}
+          {/*
+            D16: one combined table, real tabular data, which D34 allows.
+
+            No column titles. Each row is a year, an institution and what it was
+            for, in that order, and the order is the same for every row — a header
+            row naming them costs a line on every page for a table the eye reads
+            without it. `scope` on the cells would not help here either: the
+            columns are what they are by position, not by label.
+          */}
           <table className="doc-award-table">
-            <thead>
-              <tr>
-                <th className="doc-award-year">Year</th>
-                <th className="doc-award-institution">Institution</th>
-                <th className="doc-award-what">What</th>
-              </tr>
-            </thead>
             <tbody>
               {model.awardsEducation.map((entry, index) => (
-                <tr key={`${entry.kind}-${String(entry.year)}-${entry.institution}-${index}`}>
+                <tr
+                  key={`${entry.kind}-${String(entry.year)}-${entry.institution}-${index}`}
+                  className={classFor('', entry.deletedAt)}
+                >
                   <td className="doc-award-year">{formatYear(entry.year)}</td>
                   <td className="doc-award-institution">{entry.institution}</td>
                   <td className="doc-award-what">
@@ -149,7 +162,7 @@ export function DocumentView({ model }: { model: DocumentModel }) {
           {model.questionCategories.map((group) => (
             <div
               key={group.category.id}
-              className="doc-question-group"
+              className={classFor('doc-question-group', group.category.deletedAt)}
               style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
             >
               <h3 className="doc-question-category">{group.category.title}</h3>
@@ -157,7 +170,7 @@ export function DocumentView({ model }: { model: DocumentModel }) {
                 {group.questions.map((question) => (
                   <div
                     key={question.id}
-                    className="doc-question"
+                    className={classFor('doc-question', question.deletedAt)}
                     style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
                   >
                     <dt>{question.question}</dt>
@@ -171,6 +184,37 @@ export function DocumentView({ model }: { model: DocumentModel }) {
       )}
     </div>
   )
+}
+
+/**
+ * Add the tombstone marker when the record has been deleted.
+ *
+ * Deleting a record never removes it — D51 keeps the tombstone forever, so an
+ * offline device cannot resurrect a deletion. Showing them is an explicit opt-in
+ * and is useful when reconciling against another device, but a page of deleted
+ * records that look exactly like live ones is worse than no page: it reads as the
+ * current state of a career rather than a record of what was removed.
+ *
+ * The class carries a colour *and* a left rule, because most browsers drop
+ * background colours when printing and a document whose only signal is a tint
+ * comes out of a printer looking like nothing is marked at all.
+ */
+function classFor(base: string, deletedAt: string | null): string {
+  return deletedAt === null ? base : `${base} doc-deleted`.trim()
+}
+
+/**
+ * `Company: Job title`, with only the halves that are present.
+ *
+ * A record with a company but no title has no colon to put anywhere, and one with
+ * a title but no company has nothing to put before it. Emitting a dangling ": "
+ * either way is the kind of detail that looks fine in one record and wrong in the
+ * document.
+ */
+function jobHeading(job: { company: string; jobTitle: string }): string {
+  if (job.company === '') return job.jobTitle
+  if (job.jobTitle === '') return job.company
+  return `${job.company}: ${job.jobTitle}`
 }
 
 function formatYear(year: number): string {
