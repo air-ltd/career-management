@@ -171,133 +171,149 @@ export function DocumentPage({ now }: { now: Date }) {
 
   return (
     <section className="document-page">
-      <div className="document-toolbar">
-        <div className="document-presets" role="group" aria-label="Document">
-          {(Object.keys(PRESETS) as Preset[]).map((preset) => (
+      {/*
+        Everything that is interface rather than document.
+
+        One container, so the print stylesheet hides all of it with a single rule.
+        Listed piecemeal it becomes a set that has to be kept in step with whatever
+        is added next, and the preset description is exactly the kind of thing that
+        gets missed: useful on screen, noise on paper.
+      */}
+      <div className="document-controls">
+        <div className="document-toolbar">
+          <div className="document-presets" role="group" aria-label="Document">
+            {(Object.keys(PRESETS) as Preset[]).map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className={options.preset === preset ? 'button button-primary' : 'button'}
+                aria-pressed={options.preset === preset}
+                onClick={() => {
+                  selectPreset(preset)
+                }}
+              >
+                {PRESETS[preset].label}
+              </button>
+            ))}
+          </div>
+
+          <div className="button-row">
+            {/* D22: print is the browser's job, not a generated file. */}
+            <button type="button" className="button" onClick={() => window.print()}>
+              <PrintIcon />
+              Print / save as PDF
+            </button>
             <button
-              key={preset}
               type="button"
-              className={options.preset === preset ? 'button button-primary' : 'button'}
-              aria-pressed={options.preset === preset}
+              className="button"
+              disabled={exporting}
               onClick={() => {
-                selectPreset(preset)
+                void exportDocx()
               }}
             >
-              {PRESETS[preset].label}
+              <DownloadIcon />
+              Word
             </button>
-          ))}
+          </div>
         </div>
 
-        <div className="button-row">
-          {/* D22: print is the browser's job, not a generated file. */}
-          <button type="button" className="button" onClick={() => window.print()}>
-            <PrintIcon />
-            Print / save as PDF
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={exporting}
-            onClick={() => {
-              void exportDocx()
-            }}
-          >
-            <DownloadIcon />
-            Word
-          </button>
-        </div>
+        <p className="hint">{PRESETS[options.preset].hint}</p>
+
+        {/*
+          D38: deviations from the selected preset. Presented as "also include",
+          which is what they are — not as the primary control.
+        */}
+        <details className="document-options">
+          <summary>Also include</summary>
+          <label>
+            <input
+              type="checkbox"
+              checked={options.includeStories}
+              onChange={(event) => {
+                setOptions((previous) => ({
+                  ...previous,
+                  includeStories: event.target.checked,
+                }))
+              }}
+            />
+            Stories
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={options.includeQuestions}
+              onChange={(event) => {
+                setOptions((previous) => ({
+                  ...previous,
+                  includeQuestions: event.target.checked,
+                }))
+              }}
+            />
+            Interview questions
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={options.includeDeleted}
+              onChange={(event) => {
+                setOptions((previous) => ({
+                  ...previous,
+                  includeDeleted: event.target.checked,
+                }))
+              }}
+            />
+            Deleted records
+          </label>
+        </details>
+
+        {/*
+          D32. For the CV preset only: an estimated page count against the target,
+          and the specific records to shorten. Never an auto-fit, and never a
+          warning on interview preparation (D40).
+        */}
+        {report !== null && (
+          <div className={over ? 'fit-report fit-over' : 'fit-report'} role="status">
+            <p>
+              Estimated {report.pages} {report.pages === 1 ? 'page' : 'pages'}
+              {report.target !== null && (
+                <>
+                  {' '}
+                  (target {report.target}) — <em>an estimate</em>
+                </>
+              )}
+            </p>
+
+            {report.target !== null && (
+              <p className="fit-hint">
+                {over
+                  ? 'The app will not shrink the text to make this fit. Shorten the records below.'
+                  : 'Nothing to shorten. If it prints over a page, it will say so here.'}
+              </p>
+            )}
+
+            {report.overLong.length > 0 && (
+              <div className="fit-records">
+                <p>
+                  These will run to {report.overLong[0]?.lines} lines when most are{' '}
+                  {report.typicalLines}:
+                </p>
+                <ul>
+                  {report.overLong.map((record) => (
+                    <li key={record.achievementId}>
+                      <a href={`#/achievements/${record.achievementId}/edit`}>
+                        {jobName(doc, record.jobId)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <p className="hint">{PRESETS[options.preset].hint}</p>
-
-      {/*
-        D38: deviations from the selected preset. Presented as "also include",
-        which is what they are — not as the primary control.
-      */}
-      <details className="document-options">
-        <summary>Also include</summary>
-        <label>
-          <input
-            type="checkbox"
-            checked={options.includeStories}
-            onChange={(event) => {
-              setOptions((previous) => ({ ...previous, includeStories: event.target.checked }))
-            }}
-          />
-          Stories
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={options.includeQuestions}
-            onChange={(event) => {
-              setOptions((previous) => ({
-                ...previous,
-                includeQuestions: event.target.checked,
-              }))
-            }}
-          />
-          Interview questions
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={options.includeDeleted}
-            onChange={(event) => {
-              setOptions((previous) => ({ ...previous, includeDeleted: event.target.checked }))
-            }}
-          />
-          Deleted records
-        </label>
-      </details>
-
-      {/*
-        D32. For the CV preset only: an estimated page count against the target,
-        and the specific records to shorten. Never an auto-fit, and never a
-        warning on interview preparation (D40).
-      */}
-      {report !== null && (
-        <div className={over ? 'fit-report fit-over' : 'fit-report'} role="status">
-          <p>
-            Estimated {report.pages} {report.pages === 1 ? 'page' : 'pages'}
-            {report.target !== null && (
-              <>
-                {' '}
-                (target {report.target}) — <em>an estimate</em>
-              </>
-            )}
-          </p>
-
-          {report.target !== null && (
-            <p className="fit-hint">
-              {over
-                ? 'The app will not shrink the text to make this fit. Shorten the records below.'
-                : 'Nothing to shorten. If it prints over a page, it will say so here.'}
-            </p>
-          )}
-
-          {report.overLong.length > 0 && (
-            <div className="fit-records">
-              <p>
-                These will run to {report.overLong[0]?.lines} lines when most are{' '}
-                {report.typicalLines}:
-              </p>
-              <ul>
-                {report.overLong.map((record) => (
-                  <li key={record.achievementId}>
-                    <a href={`#/achievements/${record.achievementId}/edit`}>
-                      {jobName(model, record.jobId)}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="document-paper" ref={ref}>
-        <DocumentView model={model} />
+        <DocumentView model={doc} />
       </div>
     </section>
   )

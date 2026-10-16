@@ -297,6 +297,34 @@ async function main() {
       (await page.locator('.fit-report').count()) > 0,
     )
 
+    // What actually prints.
+    //
+    // Emulated print media rather than the built-in stylesheet: this asserts what
+    // the user gets on paper, which is the thing that was wrong.
+    await page.emulateMedia({ media: 'print' })
+    const printText = await page.locator('body').innerText()
+    check(
+      'the preset description does not print',
+      !printText.includes('What is sent to an employer'),
+      printText.slice(0, 120),
+    )
+    check('the preset buttons do not print', !printText.includes('Interview preparation'))
+    check('the fit report does not print', !printText.includes('Estimated'))
+    check('the include toggles do not print', !printText.includes('Also include'))
+    check(
+      'the print and export buttons do not print',
+      !printText.includes('Print / save as PDF'),
+    )
+    check(
+      'the navigation does not print',
+      !printText.includes('Document') || !printText.includes('Settings'),
+    )
+    check(
+      'the document itself does print',
+      printText.includes('Work history') || printText.includes('Awards and education'),
+    )
+    await page.emulateMedia({ media: 'screen' })
+
     await page.getByRole('button', { name: 'Interview preparation' }).click()
     await page.locator('.doc').waitFor()
     const interviewText = await page.locator('.doc').innerText()

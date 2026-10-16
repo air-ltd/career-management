@@ -940,14 +940,21 @@ code {
    * nav, no controls, and no multi-column or layout-table tricks that would
    * make an applicant tracking system parse the text wrongly.
    */
+  /*
+   * `.document-controls` is one container for every piece of interface around
+   * the document — presets, print and export buttons, the preset description,
+   * the include toggles and the fit report. Hiding the container rather than
+   * each of them is what stops the next one being missed: the preset description
+   * printed on the CV because this list had not caught up.
+   */
   .app-header,
   .app-nav,
   .app-header-controls,
-  .document-toolbar,
-  .document-options,
-  .fit-report,
-  .button-row,
+  .document-controls,
+  .all-in-one-head,
+  .inline-editor,
   .record-row-actions,
+  .button-row,
   .undo-bar {
     display: none;
   }
