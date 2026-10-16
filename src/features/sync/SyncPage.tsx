@@ -1,70 +1,18 @@
 /**
- * The sync page.
- *
- * Phase 3 wires this to the engine. What exists now is the connect/disconnect
- * surface and the environment badge, so the OAuth flow can be exercised against
- * the development app before the scheduler is written.
+ * The sync page: status, the manual trigger, and the activity log.
  */
 
-import { useEffect, useState } from 'react'
-import { DropboxProvider } from '../../sync/dropbox/DropboxProvider'
-import { describeKeySource, readAppKey } from '../../sync/appKey'
+import { useSync } from './syncContext'
 import { currentRedirectUri, deployedRedirectUri } from '../../sync/redirect'
-import { tokenStore } from '../../storage/secretsRepo'
-import { takeAuthError } from '../../sync/oauthCallback'
-import { SyncError } from '../../sync/provider'
+import { describeKeySource, isValidAppKey } from '../../sync/appKey'
 
 export function SyncPage() {
-  const [connected, setConnected] = useState<boolean | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<string | null>(takeAuthError())
+  const { status, connected, environment, syncNow, signOut, connect, log } = useSync()
 
-  const { environment, source } = describeKeySource()
-  const key = readAppKey()
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      const status = await new DropboxProvider({
-        clientId: key,
-        redirectUri: currentRedirectUri(),
-        storage: tokenStore,
-      }).status()
-      if (!cancelled) setConnected(status.authenticated)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [key])
-
-  async function connect() {
-    setBusy(true)
-    setMessage(null)
-    try {
-      const provider = new DropboxProvider({
-        clientId: key,
-        redirectUri: currentRedirectUri(),
-        storage: tokenStore,
-      })
-      const state = crypto.randomUUID()
-      const { url } = await provider.beginAuth(state)
-      window.location.assign(url)
-    } catch (error) {
-      setMessage(error instanceof SyncError ? error.message : 'Could not start the sign-in.')
-      setBusy(false)
-    }
-  }
-
-  async function disconnect() {
-    setBusy(true)
-    await new DropboxProvider({
-      clientId: key,
-      redirectUri: currentRedirectUri(),
-      storage: tokenStore,
-    }).signOut()
-    setConnected(false)
-    setBusy(false)
-  }
+  // The effective key, whether built in or supplied at build time — not just the
+  // environment variable, which is absent for the common case.
+  const { key } = describeKeySource()
+  const keyShapeValid = isValidAppKey(key)
 
   return (
     <section className="sync-page">
@@ -79,60 +27,105 @@ export function SyncPage() {
 
         <p>
           Status:{' '}
-          {connected === null ? (
-            <span className="hint">checking…</span>
-          ) : connected ? (
+          {connected ? (
             <span className="badge badge-ok">connected</span>
           ) : (
             <span className="badge">not connected</span>
           )}
+          {status.pending && !connected === false && (
+            <span className="badge badge-warn">changes waiting</span>
+          )}
         </p>
 
-        <p className="hint">
-          Environment <strong>{environment}</strong> ({source} key). Redirect URI:{' '}
-          <code>{currentRedirectUri()}</code>
-        </p>
-        <p className="hint">
-          Registered redirect URI: <code>{deployedRedirectUri()}</code>
-        </p>
+        {status.lastSyncAt !== null && (
+          <p className="hint">Last successful sync: {formatMoment(status.lastSyncAt)}</p>
+        )}
+
+        {status.message !== null && (
+          <p className="form-error" role="alert">
+            {status.message}
+          </p>
+        )}
 
         <div className="button-row">
           {connected ? (
-            <button
-              type="button"
-              className="button"
-              disabled={busy}
-              onClick={() => void disconnect()}
-            >
-              Disconnect
-            </button>
+            <>
+              <button type="button" className="button button-primary" onClick={syncNow}>
+                Sync now
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={() => {
+                  void signOut()
+                }}
+              >
+                Disconnect
+              </button>
+            </>
           ) : (
             <button
               type="button"
               className="button button-primary"
-              disabled={busy}
-              onClick={() => void connect()}
+              onClick={() => {
+                void connect()
+              }}
             >
               Connect to Dropbox
             </button>
           )}
         </div>
-
-        {message !== null && (
-          <p className="form-error" role="alert">
-            {message}
-          </p>
-        )}
       </div>
 
       <div className="panel">
-        <h3>What is not here yet</h3>
+        <h3>This build</h3>
+        <dl className="detail-list">
+          <dt>Environment</dt>
+          <dd>{environment}</dd>
+          <dt>Redirect URI</dt>
+          <dd>
+            <code>{currentRedirectUri()}</code>
+          </dd>
+          <dt>Registered</dt>
+          <dd>
+            <code>{deployedRedirectUri()}</code>
+          </dd>
+          {!keyShapeValid && (
+            <>
+              <dt>App key</dt>
+              <dd>No key set for this environment in the build.</dd>
+            </>
+          )}
+        </dl>
         <p className="hint">
-          The connect flow works; the automatic sync cycle does not. That is Phase 3 — the
-          engine and scheduler are written, but nothing calls them yet, so connecting will not
-          yet move data. The document is fully usable without it.
+          The environment is chosen by the host this page is served from, not by how it was
+          built, so a development build cannot reach the production document.
         </p>
       </div>
+
+      {log.length > 0 && (
+        <div className="panel">
+          <h3>Recent activity</h3>
+          <ul className="log-list">
+            {log.map((entry) => (
+              <li key={`${entry.at}-${entry.message}`} className={`log-${entry.level}`}>
+                <time dateTime={entry.at}>{formatTime(entry.at)}</time>
+                <span>{entry.message}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   )
+}
+
+function formatMoment(iso: string): string {
+  const parsed = new Date(iso)
+  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString()
+}
+
+function formatTime(iso: string): string {
+  const parsed = new Date(iso)
+  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleTimeString()
 }

@@ -20,6 +20,8 @@ import { RegistryEdit } from '../features/shared/RegistryEdit'
 import { HomePage } from '../features/document/HomePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { SyncPage } from '../features/sync/SyncPage'
+import { SyncIndicator } from '../features/sync/SyncIndicator'
+import { SyncProvider } from '../features/sync/SyncProvider'
 import { DocumentIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
 
@@ -99,45 +101,51 @@ export function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>
-          <a className="app-home" href="#/" aria-label="Career Management Document, home">
-            <DocumentIcon size={28} />
-            <span>Career Management Document</span>
-          </a>
-        </h1>
-        <nav aria-label="Sections">
-          <ul className="app-nav">
-            {SECTIONS.map((section) => (
-              <li key={section.href}>
-                <a
-                  href={`#${section.href}`}
-                  aria-current={path.startsWith(section.href) ? 'page' : undefined}
-                >
-                  {section.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="app-header-controls">
-          <a className="button" href="#/document">
-            Document
-          </a>
-          <a className="button" href="#/sync">
-            Sync
-          </a>
-          <a className="button" href="#/settings">
-            Settings
-          </a>
-        </div>
-      </header>
+    <SyncProvider>
+      <div className="app">
+        <header className="app-header">
+          <h1>
+            <a className="app-home" href="#/" aria-label="Career Management Document, home">
+              <DocumentIcon size={28} />
+              <span>Career Management Document</span>
+            </a>
+          </h1>
+          <nav aria-label="Sections">
+            <ul className="app-nav">
+              {SECTIONS.map((section) => (
+                <li key={section.href}>
+                  <a
+                    href={`#${section.href}`}
+                    aria-current={path.startsWith(section.href) ? 'page' : undefined}
+                  >
+                    {section.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <div className="app-header-controls">
+            <SyncIndicator />
+            <a className="button" href="#/document">
+              Document
+            </a>
+            <a className="button" href="#/settings">
+              Settings
+            </a>
+          </div>
+        </header>
 
-      <main className="app-main">
-        {renderRoute(match?.route.path ?? null, match?.params ?? {}, now, theme, onThemeChange)}
-      </main>
-    </div>
+        <main className="app-main">
+          {renderRoute(
+            match?.route.path ?? null,
+            match?.params ?? {},
+            now,
+            theme,
+            onThemeChange,
+          )}
+        </main>
+      </div>
+    </SyncProvider>
   )
 }
 

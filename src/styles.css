@@ -682,6 +682,69 @@ code {
   padding-left: 1.2rem;
 }
 
+/* --------------------------------------------------------------------- sync */
+
+.sync-indicator {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-warn {
+  background: var(--warning-bg);
+  color: var(--text);
+  border: 1px solid var(--warning-border);
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.detail-list dt {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.detail-list dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.log-list li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-list time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.log-warn span {
+  color: var(--warning-border);
+}
+
+.log-error span {
+  color: var(--danger);
+}
+
 /* ------------------------------------------------------------------- mobile */
 
 @media (max-width: 40rem) {

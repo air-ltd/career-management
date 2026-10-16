@@ -376,6 +376,35 @@ async function main() {
       (await page.locator('.form-error').count()) > 0,
     )
 
+    // -------------------------------------------------------------------- sync
+    // The scheduler starts with the app. With no credential it must settle as
+    // "not connected" rather than reporting an expired token — a first run has
+    // no token to have expired, and that message would send the user to
+    // reconnect a connection that never existed.
+    await go(page, origin, '/sync')
+    await page.locator('.sync-page').waitFor()
+    check('the sync page renders', (await page.locator('.sync-page').count()) === 1)
+    check(
+      'an unconnected app offers Connect',
+      (await page.getByRole('button', { name: 'Connect to Dropbox' }).count()) === 1,
+    )
+    const indicator = await page.locator('.sync-indicator').innerText()
+    check(
+      'the header reports the connection state',
+      /Not connected/i.test(indicator),
+      indicator,
+    )
+    const syncErrors = await page.locator('.sync-page .form-error').count()
+    check(
+      'a first run reports no error',
+      syncErrors === 0,
+      `${String(syncErrors)} errors shown`,
+    )
+    check(
+      'the environment shown matches the host it is served from (SY32)',
+      (await page.locator('.detail-list').innerText()).includes('development'),
+    )
+
     // ----------------------------------------------------------------- errors
     check(
       'nothing threw during the whole run',
