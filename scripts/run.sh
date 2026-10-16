@@ -4,10 +4,15 @@
 #
 # Usage:
 #   scripts/run.sh              start the dev server
-#   scripts/run.sh --host       listen on all interfaces, not just localhost
 #   scripts/run.sh --port 3000  use a different port
 #
-# Any other arguments are passed through to vite.
+# The server listens on all interfaces by default (see `server.host` in
+# vite.config.ts): `localhost` otherwise resolves to IPv6 only, and a browser
+# trying IPv4 first gets connection refused while `curl` works fine. That is a
+# failure worth fixing in configuration rather than diagnosing per machine, but
+# it does mean the dev server is reachable from the local network.
+#
+# Any unrecognised arguments are passed through to vite.
 
 set -euo pipefail
 
@@ -50,41 +55,43 @@ if [ ! -d node_modules ]; then
   npm ci
 fi
 
-# The dev server's default host is localhost, which is what the Dropbox consent
-# screen needs to be able to return to. The deployed origin is the one registered
-# in the Dropbox App Console; see the note below.
-HOST_ARGS=()
-DISPLAY_URL="http://localhost:5173/"
-
-if [ "${1:-}" = "--host" ]; then
-  shift
-  HOST_ARGS=(--host 0.0.0.0)
-  DISPLAY_URL="http://localhost:5173/ (also on your network)"
-fi
-
 PORT_ARGS=()
 if [ "${1:-}" = "--port" ]; then
   shift
   PORT_ARGS=(--port "${1:-5173}")
-  DISPLAY_URL="http://localhost:${1:-5173}/"
+  shift
 fi
+
+# Printed rather than assumed: the app lives under a base path, so the bare
+# origin is a redirect and typing it in by habit lands somewhere unexpected.
+BASE_PATH="/career-management/"
+LOCAL_URL="http://localhost:${1:-5173}"
 
 cat <<EOF
 
   Career Management Document — development
 
-  Serving:   ${DISPLAY_URL}
-  Base path: /career-management/
+  Open this in a browser:
+
+      ${LOCAL_URL}${BASE_PATH}
+
+  Not http://localhost:${1:-5173}/ — that is a redirect, not the app.
+
+  Base path: ${BASE_PATH}
   Dropbox:   development app (selected by host, not by build)
 
-  Note on Dropbox: the app is served from ${DISPLAY_URL} in development, and
-  Dropbox requires the redirect URI to match one registered in the App Console
-  exactly. Add "${DISPLAY_URL%/}" to the redirect URIs of the *development* app
-  (App key pfmrgy11xyykfqa) at https://www.dropbox.com/developers/apps, or the
-  consent screen will return "invalid_redirect_uri" and name nothing useful.
+  The dev server listens on all interfaces, so it is reachable from the local
+  network. It holds no data until you enter any, and it is a development server
+  only — but it is not firewalled.
+
+  Note on Dropbox: Dropbox requires the redirect URI to match one registered in
+  the App Console exactly. Add "http://localhost:${1:-5173}" to the redirect
+  URIs of the *development* app (App key pfmrgy11xyykfqa) at
+  https://www.dropbox.com/developers/apps, or the consent screen returns
+  "invalid_redirect_uri" and names nothing useful.
 
   Ctrl-C to stop.
 
 EOF
 
-exec npx vite "${HOST_ARGS[@]}" "${PORT_ARGS[@]}" "$@"
+exec npx vite "${PORT_ARGS[@]}" "$@"

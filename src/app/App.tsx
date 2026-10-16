@@ -21,6 +21,7 @@ import { HomePage } from '../features/document/HomePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { SyncPage } from '../features/sync/SyncPage'
 import { DocumentIcon } from './Icons'
+import { DocumentPage } from '../features/document/DocumentPage'
 
 const ROUTES: readonly Route[] = [
   { path: '/' },
@@ -187,7 +188,7 @@ function renderRoute(
     case '/':
       return <HomePage />
     case '/document':
-      return <p className="hint">The document view arrives in Phase 2.</p>
+      return <DocumentPage now={now} />
     case '/settings':
       return <SettingsPage now={now} theme={theme} onThemeChange={onThemeChange} />
     case '/sync':

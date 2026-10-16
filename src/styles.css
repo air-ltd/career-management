@@ -434,6 +434,254 @@ code {
   font-size: 0.9rem;
 }
 
+/* ----------------------------------------------------------------- document */
+/*
+ * The document classes (D11). One stylesheet for the editor and the document,
+ * so the export and the editor cannot drift apart — which is the failure the
+ * legacy app's parallel `*_cmd` class family was always one edit away from.
+ *
+ * Type size and spacing come from the document settings, applied as custom
+ * properties on `.doc` so a change in Settings re-lays out the whole document
+ * without a class per size.
+ */
+
+.doc {
+  background: var(--surface);
+  color: var(--text);
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  line-height: 1.45;
+}
+
+.doc-header {
+  border-bottom: 2px solid var(--text);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.doc-title {
+  margin: 0;
+  font-size: 1.5em;
+  line-height: 1.2;
+}
+
+.doc-contact {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.doc-section {
+  margin-top: 1.25rem;
+}
+
+.doc-section-title {
+  font-size: 1.15em;
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-job {
+  margin-bottom: 1rem;
+}
+
+.doc-job-title {
+  margin: 0;
+  font-size: 1.05em;
+}
+
+.doc-job-dates {
+  margin: 0.1rem 0 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.doc-body p {
+  margin: 0 0 0.5rem;
+}
+
+.doc-achievements {
+  margin: 0.4rem 0 0;
+  padding-left: 1.3rem;
+}
+
+.doc-achievement {
+  margin-bottom: 0.2rem;
+}
+
+.doc-achievement-story {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.doc-story {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* D16: awards and education as one combined table. */
+.doc-award-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.doc-award-table th,
+.doc-award-table td {
+  text-align: left;
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.doc-award-table th {
+  border-bottom: 2px solid var(--text);
+  font-weight: 600;
+}
+
+.doc-award-year {
+  white-space: nowrap;
+  width: 4.5rem;
+}
+
+.doc-award-story {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.doc-question-group {
+  margin-bottom: 1rem;
+}
+
+.doc-question-category {
+  margin: 0 0 0.3rem;
+  font-size: 1em;
+}
+
+.doc-questions {
+  margin: 0;
+}
+
+.doc-question {
+  margin-bottom: 0.6rem;
+}
+
+.doc-question dt {
+  font-weight: 600;
+}
+
+.doc-question dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+}
+
+.doc-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* D29: density is a spacing control, separate from type size. */
+.doc-density-compact {
+  line-height: 1.3;
+}
+.doc-density-compact .doc-job {
+  margin-bottom: 0.6rem;
+}
+.doc-density-compact .doc-section {
+  margin-top: 0.8rem;
+}
+.doc-density-compact .doc-header {
+  margin-bottom: 0.6rem;
+}
+
+.doc-density-comfortable {
+  line-height: 1.6;
+}
+.doc-density-comfortable .doc-job {
+  margin-bottom: 1.4rem;
+}
+.doc-density-comfortable .doc-section {
+  margin-top: 1.6rem;
+}
+
+/* ------------------------------------------------------------ document page */
+
+.document-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.document-presets {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.document-options {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.document-options summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.document-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 1rem;
+  margin-top: 0.4rem;
+}
+
+.document-paper {
+  overflow-x: auto;
+}
+
+.fit-report {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.fit-report p {
+  margin: 0.2rem 0;
+}
+
+.fit-over {
+  border-left-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.fit-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.fit-records ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
 /* ------------------------------------------------------------------- mobile */
 
 @media (max-width: 40rem) {
@@ -452,11 +700,19 @@ code {
 }
 
 @media print {
-  /* DEP3 / D34. The print view is single column and ATS-safe. */
+  /*
+   * DEP3 / D34. The print view is single column and ATS-safe: no header, no
+   * nav, no controls, and no multi-column or layout-table tricks that would
+   * make an applicant tracking system parse the text wrongly.
+   */
   .app-header,
   .app-nav,
-  .record-row-actions,
+  .app-header-controls,
+  .document-toolbar,
+  .document-options,
+  .fit-report,
   .button-row,
+  .record-row-actions,
   .undo-bar {
     display: none;
   }
@@ -464,5 +720,40 @@ code {
   body {
     background: #fff;
     color: #000;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .app-main {
+    padding: 0;
+  }
+
+  .doc {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  /*
+   * The page size and margins, generated from the document's settings. Set in
+   * JavaScript as a `<style>` element from the same geometry the fit report
+   * measures against, so the two cannot disagree.
+   */
+  .doc-section-title {
+    break-after: avoid;
+  }
+
+  .doc-job,
+  .doc-question-group,
+  .doc-question {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .doc-award-table tr {
+    break-inside: avoid;
   }
 }

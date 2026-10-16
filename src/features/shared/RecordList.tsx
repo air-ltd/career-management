@@ -57,7 +57,13 @@ export function RecordList({
       <header className="record-list-header">
         <h2 id={headingId}>{title}</h2>
         <div className="button-row">
-          <a className="button button-primary" href={newHref}>
+          {/*
+            Hash-prefixed, not a bare path. These are the same routes the router
+            matches against `location.hash`; without the `#` the browser makes a
+            real request for a path GitHub Pages does not serve, and the link
+            404s. `RegistryEdit` and the navigation use the same form.
+          */}
+          <a className="button button-primary" href={`#${newHref}`}>
             <AddIcon />
             {newLabel}
           </a>
@@ -92,13 +98,13 @@ export function RecordList({
 
               <div className="record-row-actions">
                 {children !== undefined && childrenLabel !== undefined && (
-                  <a className="button" href={`${editHref(item.id)}`}>
+                  <a className="button" href={`#${editHref(item.id)}`}>
                     {childrenLabel}
                   </a>
                 )}
                 <a
                   className="button"
-                  href={editHref(item.id)}
+                  href={`#${editHref(item.id)}`}
                   aria-label={`Edit ${item.heading}`}
                 >
                   <EditIcon />

@@ -142,6 +142,20 @@ function contentSecurityPolicy() {
 
 export default defineConfig({
   base,
+  /**
+   * All interfaces, not just one.
+   *
+   * Vite's default `host` is `localhost`, which Node resolves to `::1` on a
+   * dual-stack machine and binds *IPv6 only*. A browser trying `127.0.0.1`
+   * first then gets connection refused — so `npm run dev` looks broken while
+   * `curl http://localhost:.../` works fine, which is a confusing failure to
+   * diagnose.
+   *
+   * The cost is that the dev server is reachable from the local network, which
+   * run.sh says outright rather than leaving implicit. A production build is
+   * static and is not affected.
+   */
+  server: { host: true },
   plugins: [react(), contentSecurityPolicy(), pagesSpaFallback()],
   build: {
     // Source maps are not published. This app holds personal data and there is
