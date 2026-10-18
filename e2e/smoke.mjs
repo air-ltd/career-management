@@ -515,6 +515,14 @@ async function main() {
     )
 
     // The ink of the document's structure, against its body text.
+    const luminance = (rgb) => {
+      const [r, g, b] = rgb.match(/\d+/g).slice(0, 3).map(Number).map((v) => {
+        const c = v / 255
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
     const ink = await page.evaluate(() => {
       const colour = (sel) => {
         const el = document.querySelector(sel)
@@ -533,9 +541,20 @@ async function main() {
       [ink.title, ink.sectionTitle, ink.dates, ink.jobTitle].every((c) => c === 'rgb(0, 0, 0)'),
       JSON.stringify(ink),
     )
+
+    /*
+     * "Softer" is measured rather than asserted as "not black".
+     *
+     * The first version of this check only required the body not be black, which a
+     * body set to `#1a1a18` — grey enough to pass, and too light on paper — satisfied
+     * just as well as the right value. Comparing luminance against the headings
+     * catches both directions: body gone the same black as the structure, and body
+     * pulled back towards grey.
+     */
     check(
-      'the body text stays softer than the headings',
-      ink.body !== 'rgb(0, 0, 0)',
+      'the body text is measurably lighter than the headings',
+      ink.body !== null &&
+        luminance(ink.body) > luminance('rgb(0, 0, 0)') + 0.004,
       `${ink.body}`,
     )
 

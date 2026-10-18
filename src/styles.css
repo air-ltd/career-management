@@ -34,11 +34,16 @@
    * reserved for the two structural levels and giving the body the same ink would
    * flatten the very distinction the other two exist to draw.
    *
+   * Set darker than `--text` and then pulled back a step: the first darker value
+   * (`#101010`) read as a correction too far, because at these levels a few counts
+   * either way is most of the distance to black. Lighter than that, darker than
+   * `--text`, and still clearly not black.
+   *
    * Declared per theme rather than once, because black on black is invisible.
    */
   --doc-heading-ink: #000;
   --doc-job-ink: #000;
-  --doc-body-ink: #101010;
+  --doc-body-ink: #161614;
   --doc-date-column: 18ch;
   --radius: 6px;
   --gap: 1rem;
@@ -1502,7 +1507,7 @@ code {
     --border: #dcdcd4;
     --doc-heading-ink: #000;
     --doc-job-ink: #000;
-    --doc-body-ink: #101010;
+    --doc-body-ink: #161614;
   }
 
   .app {
