@@ -1,7 +1,7 @@
 /**
  * Inline SVG icons.
  *
- * Inline rather than an icon font or sprite sheet: there are six of them, an
+ * Inline rather than an icon font or sprite sheet: there are eight of them, an
  * external request each would be one more thing to load and to keep in step with
  * the CSP, and `currentColor` means theming is free.
  *
@@ -79,6 +79,34 @@ export const DownloadIcon = icon(
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
+  </>,
+)
+
+/**
+ * Settings.
+ *
+ * The gear outline rather than the filled one: every other icon here is a stroked
+ * outline, and a solid gear beside them would read as a different kind of thing.
+ */
+/**
+ * Dropbox.
+ *
+ * A cloud with an upward stroke through it, for the sync indicator: the upward
+ * stroke is what says this one uploads rather than simply being a shape for a
+ * computer, and it leaves room for the small state glyph in its corner.
+ */
+export const CloudIcon = icon(
+  <>
+    <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 7 19.5Z" />
+    <path d="M12 12v5" />
+    <polyline points="9.5 14.5 12 12 14.5 14.5" />
+  </>,
+)
+
+export const SettingsIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </>,
 )
 

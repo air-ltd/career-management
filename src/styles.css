@@ -153,6 +153,24 @@ code {
 }
 
 /*
+ * A nav-styled link outside the nav itself: the Document page is a destination
+ * like the ones the nav lists, so it is styled like them rather than as an action
+ * button. `app-nav-link` rather than a duplicate of `.app-nav a`, because the nav
+ * entries are generated from one list and this one sits in the controls.
+ */
+.app-nav-link {
+  text-decoration: none;
+  padding: 0.15rem 0;
+  border-bottom: 2px solid transparent;
+  color: inherit;
+}
+
+.app-nav-link[aria-current='page'] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/*
  * `aria-current` rather than a class, so the visual state and the accessible one
  * cannot come from different places.
  */
@@ -165,6 +183,15 @@ code {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  /*
+   * Pushed to the far end of the header rather than sitting beside the nav.
+   *
+   * `margin-left: auto` takes the free space, so the controls hold the right edge
+   * whatever the nav contains. With them in flow instead, adding a nav entry would
+   * have dragged the Document and Settings buttons along with it — the header's
+   * width is not ours to spend.
+   */
+  margin-left: auto;
 }
 
 .app-main {
@@ -186,6 +213,18 @@ code {
   font-size: 0.9rem;
   text-decoration: none;
   cursor: pointer;
+}
+
+/*
+ * A button that is only an icon.
+ *
+ * Square, because the padding around a one-character label is sized for that
+ * character and a gear in it looks like a mistake. The accessible name comes from
+ * the link's `aria-label`, so the button still announces "Settings" — the icon is
+ * `aria-hidden` and is not what a screen reader reads.
+ */
+.button-icon {
+  padding: 0.35rem;
 }
 
 .button:hover {
@@ -1285,29 +1324,47 @@ code {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  position: relative;
+  /* Square, and no bigger: the old bubble was three words wide and the header now
+   * also carries the route to the questions page. */
+  padding: 0.35rem;
 }
 
 /*
- * A fixed width, sized to the longest label the indicator can show.
+ * The state, as a small glyph in the cloud's corner.
  *
- * Without it the header reflows every time the status changes — "Synced" is six
- * characters and "Changes waiting" is fifteen, so the whole header shifts each
- * time a sync starts and finishes. An indicator you are trying to watch should
- * not move while you watch it, and a shorter label sitting in a fixed bubble with
- * the text centred reads better than a tight bubble that breathes.
+ * Shapes rather than colours alone: amber and red are easy to confuse, and the
+ * whole point of shrinking this was that it no longer has room to say anything.
+ * The words are not lost — they are the link's accessible name and its tooltip.
  */
-.sync-indicator .badge {
-  display: inline-block;
-  min-width: 19ch;
-  text-align: center;
-  /* Never wrap: a two-line bubble is worse than a slightly wide one. */
-  white-space: nowrap;
+.sync-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 0.65rem;
+  height: 0.65rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 }
 
-.badge-warn {
-  background: var(--warning-bg);
-  color: var(--text);
-  border: 1px solid var(--warning-border);
+.sync-badge-idle {
+  color: var(--text-muted);
+}
+.sync-badge-ok {
+  color: #14532d;
+}
+.sync-badge-warn {
+  color: #92400e;
+}
+.sync-badge-bad {
+  color: var(--danger);
 }
 
 .detail-list {

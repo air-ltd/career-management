@@ -22,7 +22,7 @@ import { SyncPage } from '../features/sync/SyncPage'
 import { SyncIndicator } from '../features/sync/SyncIndicator'
 import { describeKeySource } from '../sync/appKey'
 import { SyncProvider } from '../features/sync/SyncProvider'
-import { DocumentIcon } from './Icons'
+import { DocumentIcon, SettingsIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
 import { AllInOnePage } from '../features/document/AllInOnePage'
 import { QuestionsPage } from '../features/document/QuestionsPage'
@@ -151,12 +151,21 @@ export function App() {
             </ul>
           </nav>
           <div className="app-header-controls">
-            <SyncIndicator />
-            <a className="button" href="#/document">
+            <a
+              className="app-nav-link"
+              href="#/document"
+              aria-current={path === '/document' ? 'page' : undefined}
+            >
               Document
             </a>
-            <a className="button" href="#/settings">
-              Settings
+            <SyncIndicator />
+            <a
+              className="button button-icon"
+              href="#/settings"
+              title="Settings"
+              aria-label="Settings"
+            >
+              <SettingsIcon />
             </a>
           </div>
         </header>

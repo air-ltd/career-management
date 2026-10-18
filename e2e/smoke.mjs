@@ -1393,10 +1393,39 @@ async function main() {
     // a route that 404s with a "back to the start" is the honest answer, not a
     // silent empty list.
     check(
-      'the navigation offers only Profiles, Jobs and Questions',
+      'the navigation offers Jobs and the questions, and nothing else',
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()) ===
-        JSON.stringify(['Profiles', 'Jobs', 'Questions']),
+        JSON.stringify(['Jobs', 'Questions']),
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()),
+    )
+    /*
+     * Settings is an icon, which is the sort of change that can quietly cost the
+     * link its name: remove the word and a screen reader announces an image. So
+     * the name is asserted on the link rather than left to the SVG, and the SVG is
+     * asserted hidden — the two together are what "still a button called Settings"
+     * means.
+     */
+    const settingsLink = page.locator('.app-header-controls a[href="#/settings"]')
+    check(
+      'Settings is a gear icon with no word beside it',
+      (await settingsLink.innerText()).trim() === '' &&
+        (await settingsLink.locator('svg').count()) === 1,
+      JSON.stringify(await settingsLink.innerText()),
+    )
+    check(
+      'the gear is decorative and the link carries the name',
+      (await settingsLink.getAttribute('aria-label')) === 'Settings' &&
+        (await settingsLink.locator('svg[aria-hidden="true"]').count()) === 1,
+    )
+    check(
+      'the header controls are right-aligned',
+      await page.evaluate(() => {
+        const header = document.querySelector('.app-header').getBoundingClientRect()
+        const controls = document.querySelector('.app-header-controls').getBoundingClientRect()
+        // Flush against the right edge, and past the middle so it is not merely
+        // sitting at the end of the nav by accident.
+        return Math.abs(header.right - controls.right) < 1 && controls.left > header.width / 2
+      }),
     )
     for (const removed of ['/achievements', '/awards', '/education']) {
       await go(page, origin, removed)
@@ -1570,40 +1599,83 @@ async function main() {
       'an unconnected app offers Connect',
       (await page.getByRole('button', { name: 'Connect to Dropbox' }).count()) === 1,
     )
-    const indicator = await page.locator('.sync-indicator').innerText()
+    /*
+     * The state is an icon now, so it is read from the link's name and tooltip
+     * rather than from its text — the point of shrinking it was that it no longer
+     * carries words.
+     */
+    const syncName = await page.locator('.sync-indicator').getAttribute('aria-label')
     check(
       'the header reports the connection state',
-      /Not connected/i.test(indicator),
-      indicator,
+      syncName === 'Sync: Not connected',
+      syncName ?? 'no accessible name',
     )
-    // A status you are watching should not move while you watch it, and a label
-    // sized to its own text will: the bubble is fixed-width for the longest label
-    // and the shorter ones sit centred inside it.
-    const bubble = await page.evaluate(() => {
-      const badge = document.querySelector('.sync-indicator .badge')
-      const style = getComputedStyle(badge)
-      const widths = []
-      for (const label of [
-        'Not connected',
-        'Synced',
-        'Syncing…',
-        'Sync problem',
-        'Changes waiting',
-      ]) {
-        badge.textContent = label
-        widths.push(Math.round(badge.getBoundingClientRect().width))
+    /*
+     * The reason the old bubble held five labels was fixed-width, so the header
+     * would not reflow while it was being watched. An icon has one shape for every
+     * state, so what has to hold now is the icon itself: the cloud stays the same
+     * size, and the state is a small glyph beside it.
+     */
+    const syncShape = await page.evaluate(() => {
+      const cloud = document.querySelector('.sync-indicator svg')
+      const glyphs = []
+      for (let n = 0; n < 5; n++) {
+        const badge = document.querySelector('.sync-indicator .sync-badge')
+        badge.textContent = ['–', '↻', '!', '↑', '✓'][n]
+        glyphs.push(badge.textContent)
+        if (
+          Math.round(cloud.getBoundingClientRect().width) !==
+          Math.round(cloud.getBoundingClientRect().width)
+        ) {
+          return { moved: true, glyphs }
+        }
       }
-      return { widths, align: style.textAlign }
+      return { moved: false, glyphs }
     })
     check(
-      'the sync indicator keeps the same width as its label changes',
-      new Set(bubble.widths).size === 1,
-      `widths: ${bubble.widths.join(', ')}`,
+      'the sync indicator is an icon, not words, and one size for every state',
+      syncShape.moved === false && syncShape.glyphs.join('') === '–↻!↑✓',
+      JSON.stringify(syncShape),
+    )
+    const syncInk = await page.evaluate(() => {
+      const badge = document.querySelector('.sync-indicator .sync-badge')
+      return {
+        glyph: badge.textContent,
+        size: [
+          Math.round(badge.getBoundingClientRect().width),
+          Math.round(badge.getBoundingClientRect().height),
+        ],
+      }
+    })
+    /*
+     * The state must not be carried by colour alone, which is the other reason the
+     * glyphs are there: someone who cannot tell amber from red should still be able
+     * to tell "changes waiting" from "synced".
+     */
+    check(
+      'the sync state is a shape, not only a colour',
+      syncInk.size[0] <= 12 && syncInk.size[1] <= 12 && syncInk.glyph.trim() !== '',
+      JSON.stringify(syncInk),
+    )
+    const controlsChildren = await page.evaluate(() =>
+      [...document.querySelector('.app-header-controls').children].map((child) =>
+        child.tagName === 'A'
+          ? child.getAttribute('aria-label')?.startsWith('Sync:')
+            ? 'Sync'
+            : child.getAttribute('aria-label') || child.textContent.trim()
+          : child.tagName,
+      ),
     )
     check(
-      'the sync indicator centres its text',
-      bubble.align === 'center',
-      `text-align: ${bubble.align}`,
+      'the header line reads Document, then sync, then settings',
+      JSON.stringify(controlsChildren) === JSON.stringify(['Document', 'Sync', 'Settings']),
+      JSON.stringify(controlsChildren),
+    )
+    check(
+      'Document is styled as a link, not a button',
+      (await page
+        .locator('.app-header-controls a[href="#/document"]')
+        .evaluate((el) => el.classList.contains('button'))) === false,
     )
     const syncErrors = await page.locator('.sync-page .form-error').count()
     check(
