@@ -25,6 +25,7 @@ import { SyncProvider } from '../features/sync/SyncProvider'
 import { DocumentIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
 import { AllInOnePage } from '../features/document/AllInOnePage'
+import { QuestionsPage } from '../features/document/QuestionsPage'
 
 const ROUTES: readonly Route[] = [
   { path: '/' },
@@ -49,15 +50,31 @@ const ROUTES: readonly Route[] = [
   { path: '/questions/all/new' },
   { path: '/questions/:id/edit' },
   { path: '/document' },
+  // The career content and the interview questions are two editing pages, split
+  // because the questions are preparation rather than a record of employment,
+  // and because they sat below the fold of a page long enough to need
+  // scrolling. `/questions` and `/questions/all` are the list views.
   { path: '/edit' },
+  { path: '/interview' },
   { path: '/settings' },
   { path: '/sync' },
 ]
 
+/*
+ * The header's sections.
+ *
+ * Only Jobs. The Profiles and Questions links went because the header was offering
+ * two ways to reach something the editing pages already hold: profiles are the
+ * first section of the edit-all page, and questions have a page of their own, both
+ * reachable from the header's home link in one click. A nav entry that duplicates a
+ * page is a second thing to keep in step with it.
+ *
+ * The list routes themselves stay — a direct link to one still resolves, and the
+ * editor's fit report links into them.
+ */
 const SECTIONS = [
-  { href: '/profiles', label: 'Profiles' },
   { href: '/jobs', label: 'Jobs' },
-  { href: '/questions', label: 'Questions' },
+  { href: '/interview', label: 'Questions' },
 ] as const
 
 export function App() {
@@ -205,6 +222,8 @@ function renderRoute(
     case '/':
     case '/edit':
       return <AllInOnePage now={now} />
+    case '/interview':
+      return <QuestionsPage now={now} />
     case '/document':
       return <DocumentPage now={now} />
     case '/settings':

@@ -1233,6 +1233,19 @@ code {
   }
 }
 
+/*
+ * The way from one editing page to the other.
+ *
+ * A full-width rule and a label rather than a button in the rail, because it is
+ * not an action on anything on this page — it is a different page, and the rail
+ * holds the controls for *this* one. Sits under the sections so it is reached by
+ * finishing the work rather than by interrupting it.
+ */
+.page-cross-link {
+  margin: 1.5rem 0 0;
+  grid-column: 1 / -1;
+}
+
 .document-paper {
   overflow-x: auto;
 }

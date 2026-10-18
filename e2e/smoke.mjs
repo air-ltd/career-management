@@ -732,11 +732,43 @@ async function main() {
     await page.locator('.all-in-one').waitFor()
     const sections = await page.locator('.inline-section h2').allInnerTexts()
     check(
-      'the all-in-one page shows every section',
-      ['Profiles', 'Work history', 'Awards', 'Education', 'Question categories'].every((name) =>
+      'the edit-all page shows the career sections',
+      ['Profiles', 'Work history', 'Awards', 'Education'].every((name) =>
         sections.includes(name),
       ),
       JSON.stringify(sections),
+    )
+    check(
+      'the questions have their own page, not a section of the edit-all page',
+      !sections.includes('Question categories'),
+      JSON.stringify(sections),
+    )
+
+    // The other half of the split, and the reason it was worth doing: the questions
+    // were last on a page long enough that they sat below the fold.
+    await go(page, origin, '/interview')
+    await page.locator('.questions-page').waitFor()
+    const questionSections = await page.locator('.inline-section h2').allInnerTexts()
+    check(
+      'the questions page shows the question categories and nothing else',
+      questionSections.length === 1 && questionSections[0] === 'Question categories',
+      JSON.stringify(questionSections),
+    )
+    check(
+      'the career sections are not repeated on the questions page',
+      !questionSections.some((name) => ['Work history', 'Awards', 'Education'].includes(name)),
+      JSON.stringify(questionSections),
+    )
+    // Reachable both ways without typing a route, or the second page has no way in.
+    check(
+      'the questions page links back to the career content',
+      (await page.locator('.page-cross-link a[href="#/"]').count()) === 1,
+    )
+    await go(page, origin, '/edit')
+    await page.locator('.all-in-one').waitFor()
+    check(
+      'the career page links on to the questions',
+      (await page.locator('.page-cross-link a[href="#/interview"]').count()) === 1,
     )
     check(
       'nothing is expanded by default',
@@ -751,15 +783,48 @@ async function main() {
       'no achievement or question counts are shown',
       (await page.locator('.inline-children-label').count()) === 0,
     )
+    /*
+     * The same rule for a category, run on the page the categories are on.
+     *
+     * This used to run here, on the edit-all page, and it was already close to
+     * vacuous: the category was the only thing it looked for, so a locator
+     * matching nothing at all would pass it. The split made it entirely so — the
+     * category is on the questions page now, so this found nothing every time.
+     * A check that cannot see its subject cannot fail, so it says which row it
+     * measured instead.
+     */
+    await go(page, origin, '/interview')
+    await page.locator('.questions-page').waitFor()
     check(
-      'a parent with no children shows no empty-state box at all',
+      'a category lists its questions beneath it',
       (await page
-        .locator('.inline-row')
+        .locator('.inline-row-group')
         .filter({ hasText: 'Behavioural' })
         .first()
-        .locator('.inline-children')
-        .count()) === 0,
+        .locator('.inline-children > .inline-row')
+        .count()) === 1,
     )
+    /*
+     * The rule this replaced: a parent with no children renders no box at all.
+     *
+     * Written against every box on the page rather than against one parent,
+     * because the version before it asked a row for its own children -- and the
+     * children are a *sibling* of the row, under a shared `.inline-row-group`. So
+     * that lookup found nothing however the code behaved, and the check had passed
+     * for as long as it existed without ever looking at anything. Asserting that no
+     * empty box is rendered catches the thing the rule is actually about.
+     */
+    const emptyChildBoxes = await page
+      .locator('.inline-children')
+      .evaluateAll((els) => els.filter((el) => el.querySelector('.inline-row') === null).length)
+    check(
+      'a parent with no children shows no empty-state box at all',
+      emptyChildBoxes === 0,
+      `${emptyChildBoxes} empty boxes`,
+    )
+    await go(page, origin, '/edit')
+    await page.locator('.all-in-one').waitFor()
+
     const jobRow = page.locator('.inline-row').filter({ hasText: 'Acme' }).first()
     check(
       'the job responsibilities are readable without opening the record',
@@ -1776,8 +1841,8 @@ async function main() {
     // A question's answer is a story for this purpose: it is the prepared text
     // that only an interview document should carry.
     // Added from the editor, where the category's own button does it.
-    await go(page, origin, '/')
-    await page.locator('.all-in-one').waitFor()
+    await go(page, origin, '/interview')
+    await page.locator('.questions-page').waitFor()
     // Navigating here re-mounted the page, which resets the toggle to the CV
     // preset's own options.
     await stories().check()
