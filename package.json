@@ -20,7 +20,9 @@
     "verify": "npm run typecheck && npm run format:check && npm run lint && npm run check:secrets && npm run check:citations && npm run test && npm run build",
     "test:e2e": "node e2e/smoke.mjs",
     "check:secrets": "node scripts/check-no-bundled-secrets.mjs",
-    "check:citations": "node scripts/check-citations.mjs"
+    "check:citations": "node scripts/check-citations.mjs",
+    "migrate:sqlite": "node scripts/run-migration.mjs",
+    "migrate:fixture": "node scripts/migrate/fixture-check.mjs"
   },
   "dependencies": {
     "dexie": "^4.4.6",

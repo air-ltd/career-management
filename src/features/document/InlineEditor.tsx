@@ -119,6 +119,7 @@ export function InlineRow({
   fields,
   now,
   actions,
+  onDelete,
   onSaved,
 }: {
   registryKey: RegistryKey
@@ -141,13 +142,28 @@ export function InlineRow({
   now: Date
   /** Buttons shown beside Edit — "add achievement", and the like. */
   actions?: React.ReactNode
+  /**
+   * Deletes this record.
+   *
+   * Passed in rather than looked up, because the row does not know what the
+   * surrounding page does about undo. The list views and the editor both offer
+   * delete and both offer undo afterwards, and they are different components.
+   */
+  onDelete?: (id: string) => void
   onSaved: () => void
 }) {
   const [open, setOpen] = useState(false)
   const isDeleted = text(record, 'deletedAt') !== ''
 
   return (
-    <div className={isDeleted ? 'inline-row is-deleted' : 'inline-row'}>
+    <div
+      className={isDeleted ? 'inline-row is-deleted' : 'inline-row'}
+      // The record's id on the row itself. The row has no edit link to read it
+      // from — Edit expands in place — so this is what lets a test, or a user in
+      // devtools, confirm a record was saved under a real id rather than an empty
+      // one, which is the bug a nested add form can introduce.
+      data-record-id={text(record, 'id')}
+    >
       <div className="inline-row-head">
         <button
           type="button"
@@ -177,6 +193,17 @@ export function InlineRow({
           >
             {open ? 'Close' : 'Edit'}
           </button>
+          {onDelete !== undefined && (
+            <button
+              type="button"
+              className="button button-small"
+              onClick={() => {
+                onDelete(text(record, 'id'))
+              }}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -214,6 +241,7 @@ export function InlineSection({
   renderChildren,
   actionsFor,
   preview,
+  onDelete,
 }: {
   title: string
   registryKey: RegistryKey
@@ -228,6 +256,8 @@ export function InlineSection({
   actionsFor?: (record: Record<string, unknown>) => React.ReactNode
   /** Body text shown under the heading, so the record reads without opening. */
   preview?: (record: Record<string, unknown>) => React.ReactNode
+  /** Deletes one record; see `InlineRow`. */
+  onDelete?: (id: string) => void
 }) {
   const [adding, setAdding] = useState(false)
   const definition = REGISTRY[registryKey]
@@ -285,6 +315,7 @@ export function InlineSection({
                     ? { preview: previewNode }
                     : {})}
                   {...(recordActions !== undefined ? { actions: recordActions } : {})}
+                  {...(onDelete !== undefined ? { onDelete } : {})}
                 />
                 {renderChildren?.(record)}
               </div>

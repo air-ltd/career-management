@@ -85,6 +85,46 @@ The keys that are checked in are client ids, not credentials.
 
 The app works without Dropbox — everything except sync.
 
+## Bringing the old data across
+
+One-off. If you have a `career_management.sqlite3` from the legacy Flask app, this
+converts it into the file the app reads.
+
+```bash
+# See what it would do, without writing anything:
+npm run migrate:sqlite -- career_management.sqlite3 --dry-run
+
+# Do it:
+npm run migrate:sqlite -- career_management.sqlite3
+```
+
+It writes `career-management-document.json` and a `.report.json` beside it. Read
+the report before going further — it lists anything that could not be carried
+across, and why.
+
+Then put the file in your Dropbox app folder, replacing the name of whatever is
+there, and open the app. It syncs the file down and validates it before storing
+anything, so a bad file is refused rather than half-applied.
+
+**The exit code matters.** `0` is clean. `1` means something was skipped or
+substituted — read the report, then decide:
+
+- `--force` proceeds and exits `0` anyway, if you are happy with what was lost.
+
+Two things worth knowing before you start:
+
+- **Keep the legacy database.** It is the backup. If the conversion looks wrong,
+  that file is the only copy of the original.
+- **Take a copy of your current document file** first, if you have one. Importing
+  replaces it.
+
+What the conversion changes, and why, is written up in
+[§10 of the spec](specs/0001-plan.md). The short version: question categories were
+stored as jobs with a flag, so six of your jobs are really question categories and
+the 100 achievements under them are really interview questions; dates were stored
+as `YYYYMMDD` text and are now ISO; and text that the old app escaped but never
+unescaped (`Jared &amp; Church`) is decoded.
+
 ## Repository layout
 
 ```
@@ -97,7 +137,7 @@ src/
 └── features/     profiles, jobs, achievements, awards, education,
                  questions, document, settings, sync
 e2e/              Playwright smoke test against a production build
-scripts/          run.sh and the CI checks
+scripts/          run.sh, the CI checks, and the SQLite migration
 specs/            the design, as requirements
 tmp/cv/           the legacy app, kept as the migration source
 ```

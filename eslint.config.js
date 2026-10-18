@@ -50,6 +50,24 @@ export default tseslint.config(
     },
   },
   {
+    // The SQLite migration, which is a one-shot tool for exactly one database
+    // rather than a converter that has to survive whatever comes next.
+    //
+    // It is exempt from the type-safety rules below on purpose. They are the right
+    // rules for application code that runs on every keystroke forever; a script
+    // that reads a fixed schema, runs once, and whose every row is checked against
+    // Zod on the way out gains nothing from asserting `data['jobs']!` is defined,
+    // and loses the ability to read it. The rules that still apply are the ones
+    // about actual mistakes: unused variables, undefined names, and so on.
+    files: ['scripts/**/*.{ts,mjs}'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+  {
     // Plain JS config files and the e2e smoke test run in Node and belong to no
     // TS project, so they get the non-type-checked baseline only.
     files: ['**/*.{js,mjs}'],

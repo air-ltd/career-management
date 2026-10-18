@@ -152,6 +152,57 @@ async function createAndConfirm(page, origin, { path, label, fields, expect }) {
   }
 }
 
+/**
+ * Create a record from the all-in-one editor, for the entities whose standalone
+ * list and "new" routes were removed.
+ *
+ * The editor's per-section "Add" button opens the same form the removed routes
+ * used, with the same field labels, so the only difference is the route. Waiting
+ * on the new row in the section — not on the section heading — keeps the same
+ * guarantee the list-based helper had: a save that silently did nothing fails.
+ */
+async function createInEditor(page, origin, { section, label, fields, expect }) {
+  await go(page, origin, '/')
+  await page.locator('.all-in-one').waitFor()
+  /*
+   * Waited on before clicked, because `.all-in-one` renders before its records
+   * arrive from IndexedDB: on a cold read the section is briefly present and
+   * empty, and clicking then fails on a button that is not there yet. Waiting
+   * only on the container passed whenever the data happened to be warm.
+   */
+  // `.first()`, because "Add achievement" sits inside each job: once there is more
+  // than one job the section holds several, and the strict locator would throw
+  // rather than pick. The first job is a stable choice — the section is in
+  // document order and the tests below only care that *a* row appears.
+  const add = page
+    .locator('.inline-section')
+    .filter({ has: page.locator('h2', { hasText: section }) })
+    .getByRole('button', { name: `Add ${label}` })
+    .first()
+  await add.waitFor()
+  await add.click()
+  await page.locator('.inline-editor').waitFor()
+
+  for (const [field, value] of Object.entries(fields)) {
+    await fill(page, field, value)
+  }
+  await page
+    .locator('.inline-editor')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click()
+
+  const row = page
+    .locator('.all-in-one-content .inline-row')
+    .filter({ hasText: expect })
+    .first()
+  try {
+    await row.waitFor({ timeout: 10000 })
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function main() {
   if (!existsSync(join(DIST, 'index.html'))) {
     console.error('dist/index.html is missing. Run `npm run build` first.')
@@ -216,20 +267,28 @@ async function main() {
     )
 
     // The achievement form's job dropdown is populated from the jobs just saved.
-    // Checked by navigating to the form, not from the jobs list — which has no
-    // such control, so looking for one there would pass on zero matches.
-    await go(page, origin, '/achievements/new')
+    // Checked with the form open, not from a closed page — the achievement form
+    // has no standalone route any more, so it is opened from the editor.
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    await page
+      .locator('.inline-section')
+      .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
+      .getByRole('button', { name: 'Add achievement' })
+      .click()
+    await page.locator('.inline-editor').waitFor()
     const jobOption = await page
       .getByLabel('Job', { exact: true })
       .locator('option')
       .filter({ hasText: 'Acme' })
       .count()
     check('the achievement job dropdown is populated from the saved jobs', jobOption > 0)
+    await page.locator('.inline-editor').getByRole('button', { name: 'Cancel' }).click()
 
     check(
       'an achievement can be created',
-      await createAndConfirm(page, origin, {
-        path: '/achievements',
+      await createInEditor(page, origin, {
+        section: 'Work history',
         label: 'achievement',
         expect: 'Shipped the thing',
         fields: { Job: 'Acme - Engineer', Achievement: 'Shipped the thing' },
@@ -238,8 +297,8 @@ async function main() {
 
     check(
       'an award can be created',
-      await createAndConfirm(page, origin, {
-        path: '/awards',
+      await createInEditor(page, origin, {
+        section: 'Awards',
         label: 'award',
         expect: 'Body of Learning',
         fields: { Year: '2024', Institution: 'Body of Learning', What: 'Prize' },
@@ -248,8 +307,8 @@ async function main() {
 
     check(
       'an education entry can be created',
-      await createAndConfirm(page, origin, {
-        path: '/education',
+      await createInEditor(page, origin, {
+        section: 'Education',
         label: 'education',
         expect: 'A University',
         fields: { Year: '2016', Institution: 'A University', What: 'Degree' },
@@ -332,10 +391,286 @@ async function main() {
       'the navigation does not print',
       !printText.includes('Document') || !printText.includes('Settings'),
     )
+    check('the document itself does print', printText.includes('Awards and Education'))
+    // ------------------------------------------------------- printed layout
+    // Everything below asserts something that was changed in this document pass
+    // and previously had no test at all. The probes and screenshots confirmed
+    // each change once, but nothing here would fail if one regressed.
+    //
+    // A second job first: the rules being checked are about what happens
+    // *between* jobs, and one job cannot show that.
+    //
+    // Back to screen media to do it: the stylesheet hides every button when
+    // printing, so the form's Save cannot be clicked from under emulated print.
+    await page.emulateMedia({ media: 'screen' })
+    await createAndConfirm(page, origin, {
+      path: '/jobs',
+      label: 'job',
+      expect: 'Globex',
+      fields: {
+        Company: 'Globex',
+        'Job title': 'Warehouse Lead',
+        'Start date': '2015-01-01',
+        'End date': '2018-12-31',
+        Responsibilities: 'Ran the warehouse team.',
+      },
+    })
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    await page.emulateMedia({ media: 'print' })
+
+    const pageRuleText =
+      (await page.locator('style[data-page-rule]').first().textContent()) ?? ''
     check(
-      'the document itself does print',
-      printText.includes('Work history') || printText.includes('Awards and education'),
+      // The generator emits the shorthand `14mm` for all four sides, which is the
+      // form it collapses to when they are equal; the long form is accepted too so
+      // this does not fail on a future change that only varies one side.
+      'the page margin is 14mm on every side',
+      /margin:\s*14mm(\s+14mm){0,3}\s*;/.test(pageRuleText),
+      pageRuleText,
     )
+
+    // The heading was removed, but the section keeps its accessible name, so the
+    // structure is still announced. Nothing is drawn, though.
+    check(
+      'the Work history heading is not drawn, but the section is still named',
+      !printText.includes('Work history') &&
+        (await page.locator('section[aria-label="Work history"]').count()) === 1,
+    )
+
+    const jobs = page.locator('.doc-job')
+    check('both jobs are on the document', (await jobs.count()) === 2, `${await jobs.count()}`)
+
+    const jobGap = await jobs.evaluateAll((els) => {
+      if (els.length < 2) return null
+      const a = els[0].getBoundingClientRect()
+      const b = els[1].getBoundingClientRect()
+      return {
+        gap: b.top - a.bottom,
+        borders: els.map((el) => {
+          const s = getComputedStyle(el)
+          return [s.borderTopWidth, s.borderBottomWidth, s.boxShadow, s.backgroundColor]
+        }),
+      }
+    })
+    if (jobGap) {
+      check(
+        'consecutive jobs have no space between them',
+        jobGap.gap <= 1,
+        `${jobGap.gap.toFixed(1)}px`,
+      )
+      check(
+        'jobs are not separated by a rule',
+        jobGap.borders.every((b) => parseFloat(b[0]) === 0 && parseFloat(b[1]) === 0),
+        JSON.stringify(jobGap.borders),
+      )
+    }
+
+    // Single spacing, so the block does not open up on paper.
+    const spacing = await page.evaluate(() => {
+      const body = document.querySelector('.doc-body')
+      const li = document.querySelector('.doc-achievements li')
+      const ratio = (el) => {
+        if (!el) return null
+        const s = getComputedStyle(el)
+        return parseFloat(s.lineHeight) / parseFloat(s.fontSize)
+      }
+      return { body: ratio(body), achievement: ratio(li) }
+    })
+    check(
+      'responsibilities are single spaced',
+      spacing.body !== null && spacing.body < 1.3,
+      `${spacing.body}`,
+    )
+    check(
+      'achievements are single spaced',
+      spacing.achievement !== null && spacing.achievement < 1.3,
+      `${spacing.achievement}`,
+    )
+
+    // The awards table: rules off, columns fixed, institution narrow.
+    const table = await page.locator('.doc-award-table').evaluate((t) => {
+      const cells = [...t.querySelectorAll('td')]
+      const institution = t.querySelector('.doc-award-institution')
+      return {
+        borders: cells.flatMap((c) => {
+          const s = getComputedStyle(c)
+          return [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth]
+        }),
+        layout: getComputedStyle(t).tableLayout,
+        institutionShare:
+          (institution.getBoundingClientRect().width / t.getBoundingClientRect().width) * 100,
+      }
+    })
+    check(
+      'the awards table has no cell borders',
+      table.borders.every((w) => parseFloat(w) === 0),
+      JSON.stringify(table.borders.slice(0, 8)),
+    )
+    check('the awards table uses fixed layout', table.layout === 'fixed', table.layout)
+    check(
+      'the awards table gives the institution a narrow column',
+      Math.abs(table.institutionShare - 34) < 1.5,
+      `${table.institutionShare.toFixed(1)}%`,
+    )
+
+    // The ink of the document's structure, against its body text.
+    const ink = await page.evaluate(() => {
+      const colour = (sel) => {
+        const el = document.querySelector(sel)
+        return el ? getComputedStyle(el).color : null
+      }
+      return {
+        title: colour('.doc-title'),
+        sectionTitle: colour('.doc-section-title'),
+        dates: colour('.doc-job-dates'),
+        jobTitle: colour('.doc-job-title'),
+        body: colour('.doc'),
+      }
+    })
+    check(
+      'the document headings and job headers are pure black',
+      [ink.title, ink.sectionTitle, ink.dates, ink.jobTitle].every((c) => c === 'rgb(0, 0, 0)'),
+      JSON.stringify(ink),
+    )
+    check(
+      'the body text stays softer than the headings',
+      ink.body !== 'rgb(0, 0, 0)',
+      `${ink.body}`,
+    )
+
+    /*
+     * The contact details are body text, not a caption under the name, and the
+     * achievements are the reference for what body text looks like here — so the
+     * check is expressed as agreement with the achievements rather than as a
+     * literal colour, and will not need editing when the body's ink moves again.
+     */
+    const contactVsAchievement = await page.evaluate(() => {
+      const inkOf = (sel) => {
+        const el = document.querySelector(sel)
+        return el ? getComputedStyle(el).color : null
+      }
+      return { contact: inkOf('.doc-contact'), achievement: inkOf('.doc-achievement') }
+    })
+    check(
+      'the contact details are the same colour as the achievements',
+      contactVsAchievement.contact !== null &&
+        contactVsAchievement.contact === contactVsAchievement.achievement,
+      JSON.stringify(contactVsAchievement),
+    )
+    /*
+     * Every check above ran in the light theme, and that is exactly how the
+     * structural inks came to be hardcoded to black: right on white paper,
+     * invisible on the dark theme's own surface, where the document measures
+     * rgb(31, 31, 36). Nothing failed, because nothing looked.
+     *
+     * So the invariant is asserted in both themes, and as a contrast ratio rather
+     * than a literal colour: a hardcoded expectation would need replacing the next
+     * time a theme value moves, and this one holds whatever the ink is.
+     */
+    const readContrast = () =>
+      page.evaluate(() => {
+        const lum = (rgb) => {
+          const [r, g, b] = rgb
+            .match(/\d+/g)
+            .slice(0, 3)
+            .map(Number)
+            .map((v) => {
+              const c = v / 255
+              return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+            })
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b
+        }
+        const ratio = (a, b) => {
+          const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+          return (hi + 0.05) / (lo + 0.05)
+        }
+        const doc = document.querySelector('.doc')
+        const surface = getComputedStyle(doc).backgroundColor
+        const pick = (sel) => {
+          const el = document.querySelector(sel)
+          return el ? ratio(getComputedStyle(el).color, surface) : null
+        }
+        return {
+          surface,
+          heading: pick('.doc-title'),
+          job: pick('.doc-job-title'),
+          body: pick('.doc-body') ?? ratio(getComputedStyle(doc).color, surface),
+        }
+      })
+
+    const legible = (c) => [c.heading, c.job, c.body].every((r) => r !== null && r >= 4.5)
+    const lightContrast = await readContrast()
+    check(
+      'every level of document ink is legible in the light theme',
+      legible(lightContrast),
+      JSON.stringify(lightContrast),
+    )
+    /*
+     * Switch theme through the real control rather than by writing the attribute,
+     * so the check cannot pass against a theme the app would never actually apply.
+     *
+     * Every measurement below is taken under emulated *print*, which is the point:
+     * the document's appearance on paper must not depend on the theme on screen.
+     */
+    const screenTitleInk = async () => {
+      await page.emulateMedia({ media: 'screen' })
+      const ink = await page.evaluate(
+        () => getComputedStyle(document.querySelector('.doc-title')).color,
+      )
+      await page.emulateMedia({ media: 'print' })
+      return ink
+    }
+    const setTheme = async (theme) => {
+      await page.emulateMedia({ media: 'screen' })
+      await go(page, origin, '/settings')
+      await page.getByLabel('Theme').selectOption(theme)
+      await go(page, origin, '/document')
+      await page.locator('.doc').waitFor()
+      await page.emulateMedia({ media: 'print' })
+    }
+
+    // Read off the screen, because print is deliberately identical between the
+    // themes and so cannot tell us whether dark was ever applied. Without this the
+    // dark checks below would pass just as happily against the light theme.
+    const screenInk = { light: await screenTitleInk() }
+    await setTheme('dark')
+    screenInk.dark = await screenTitleInk()
+
+    check(
+      'the themes really do differ on screen, so the dark check was not a repeat',
+      screenInk.light === 'rgb(0, 0, 0)' && screenInk.dark === 'rgb(255, 255, 255)',
+      JSON.stringify(screenInk),
+    )
+
+    const darkContrast = await readContrast()
+    check(
+      'every level of document ink is legible in the dark theme',
+      legible(darkContrast),
+      JSON.stringify(darkContrast),
+    )
+
+    /*
+     * Printing is not themed, and this needs its own check rather than riding on
+     * the contrast one above: the broken output was near-white text on a near-black
+     * panel, which is a *high* contrast ratio and passes the legibility check
+     * comfortably. Legible and correct are different questions here — the printed
+     * document has to be the paper one.
+     */
+    check(
+      'the printed document is the paper one, from the dark theme as well',
+      darkContrast.surface === 'rgb(255, 255, 255)' &&
+        lightContrast.surface === 'rgb(255, 255, 255)',
+      `light ${lightContrast.surface}, dark ${darkContrast.surface}`,
+    )
+
+    await go(page, origin, '/settings')
+    await page.getByLabel('Theme').selectOption('light')
+    // Back to the document, because that is where the next check starts and it
+    // reaches for the preset control by label.
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+
     await page.emulateMedia({ media: 'screen' })
 
     await page.getByLabel('Document', { exact: true }).selectOption('interview')
@@ -462,22 +797,21 @@ async function main() {
       (await page.locator('.inline-editor h2').count()) === 0 ||
         (await page.locator('.inline-editor h2').first().innerText()).startsWith('Add'),
     )
-    await go(page, origin, '/achievements')
-    const nestedHref = await page
-      .locator('.record-row')
+    // The inline row's Edit expands in place and carries no href, so the id is
+    // read from the row's own data attribute instead — which is the same value
+    // the record was saved under, so this still catches an empty id.
+    const nestedId = await page
+      .locator('.all-in-one-content .inline-row')
       .filter({ hasText: 'NESTED_FROM_PARENT' })
       .first()
-      .getByRole('link', { name: /^Edit / })
-      .getAttribute('href')
+      .getAttribute('data-record-id')
     check(
       'a nested record added in place gets a real id, not an empty one',
-      nestedHref !== null && !nestedHref.includes('/achievements//'),
-      String(nestedHref),
+      nestedId !== null && nestedId !== '',
+      String(nestedId),
     )
 
     // Editing in place, and the change reaching the record.
-    // Back on the editor first: the id check above navigated to /achievements,
-    // and inline rows only exist on the editor.
     await go(page, origin, '/')
     await page
       .locator('.inline-row')
@@ -518,13 +852,15 @@ async function main() {
         check('saving on the all-in-one page closes the form', closed)
       })
 
-    await go(page, origin, '/awards')
-    await page
-      .locator('.record-row')
-      .filter({ hasText: 'Institute of Something' })
-      .first()
-      .waitFor({ timeout: 10000 })
-    check('a record added on the all-in-one page appears on its own page', true)
+    // The award's own route is gone, so "it reached the document" is the check:
+    // the record has to be findable somewhere once it is saved, and the document
+    // is where a saved record has to end up working.
+    await go(page, origin, '/document')
+    await page.locator('.doc-award-table').waitFor()
+    check(
+      'a record added on the all-in-one page reaches the document',
+      (await page.locator('.doc-award-table').innerText()).includes('Institute of Something'),
+    )
 
     // Print / save as PDF, offered here so the document can be printed from the
     // page the user is editing on.
@@ -873,17 +1209,15 @@ async function main() {
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.locator('.record-row').filter({ hasText: 'Storycheck' }).first().waitFor()
 
-    await go(page, origin, '/achievements/new')
-    await page.getByLabel('Job', { exact: true }).selectOption({ label: 'Storycheck - Role' })
-    await fill(page, 'Achievement', 'ACHIEVEMENT_TEXT')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    // Waited for, not counted: counting immediately would run before the
-    // redirect and the list render, and would pass against a save that failed.
-    await page
-      .locator('.record-row')
-      .filter({ hasText: 'ACHIEVEMENT_TEXT' })
-      .first()
-      .waitFor({ timeout: 10000 })
+    check(
+      'an achievement can be added from the editor',
+      await createInEditor(page, origin, {
+        section: 'Work history',
+        label: 'achievement',
+        expect: 'ACHIEVEMENT_TEXT',
+        fields: { Job: 'Storycheck - Role', Achievement: 'ACHIEVEMENT_TEXT' },
+      }),
+    )
 
     await go(page, origin, '/document')
     await page.getByLabel('Document', { exact: true }).selectOption('interview')
@@ -988,6 +1322,176 @@ async function main() {
       gap !== null && gap < 12,
       `gap was ${String(gap)}px`,
     )
+
+    // The removed list pages. Achievements, awards and education are edited only
+    // from the all-in-one editor, so their standalone routes must not resolve —
+    // a route that 404s with a "back to the start" is the honest answer, not a
+    // silent empty list.
+    check(
+      'the navigation offers only Profiles, Jobs and Questions',
+      JSON.stringify(await page.locator('.app-nav a').allInnerTexts()) ===
+        JSON.stringify(['Profiles', 'Jobs', 'Questions']),
+      JSON.stringify(await page.locator('.app-nav a').allInnerTexts()),
+    )
+    for (const removed of ['/achievements', '/awards', '/education']) {
+      await go(page, origin, removed)
+      check(
+        `the ${removed} list page is gone`,
+        (await page.locator('.app-main').innerText()).includes('Nothing is routed at'),
+      )
+    }
+
+    // Delete and undo from the editor (U5). The same behaviour as the list views:
+    // a delete that cannot be taken back is how a tombstone becomes data loss.
+    await go(page, origin, '/jobs/new')
+    await page.getByLabel('Company', { exact: true }).fill('Deletable Co')
+    await page.getByLabel('Start date', { exact: true }).fill('2020-01-01')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.locator('.record-row').first().waitFor()
+
+    await go(page, origin, '/')
+    const deletable = () =>
+      page.locator('.all-in-one-content .inline-row').filter({ hasText: 'Deletable Co' })
+    await deletable().first().getByRole('button', { name: 'Delete', exact: true }).click()
+    await page.waitForTimeout(500)
+    check('a record can be deleted from the edit-all page', (await deletable().count()) === 0)
+    check(
+      'deleting from the edit-all page offers undo',
+      (await page.locator('.undo-bar').count()) === 1,
+    )
+    await page.locator('.undo-bar').getByRole('button', { name: 'Undo' }).click()
+    await page.waitForTimeout(500)
+    check('undo brings the record back', (await deletable().count()) === 1)
+    check(
+      'the undo bar is dismissed once used',
+      (await page.locator('.undo-bar').count()) === 0,
+    )
+
+    // The job header line, which the earlier commit made dates-first and
+    // left-aligned; these are the two properties that were asked for and were
+    // verified by hand at the time.
+    await go(page, origin, '/document')
+    await page.locator('.doc-job').first().waitFor()
+    await page.emulateMedia({ media: 'print' })
+    const header = await page.evaluate(() => {
+      const head = document.querySelector('.doc-job-head')
+      if (head === null) return null
+      const dates = head.querySelector('.doc-job-dates')
+      const title = head.querySelector('.doc-job-title')
+      const body = getComputedStyle(head.closest('.doc'))
+      const datesStyle = getComputedStyle(dates)
+      const titleStyle = getComputedStyle(title)
+      return {
+        datesAtLeft:
+          Math.round(dates.getBoundingClientRect().left) ===
+          Math.round(head.getBoundingClientRect().left),
+        align: datesStyle.textAlign,
+        sameSize:
+          datesStyle.fontSize === titleStyle.fontSize && datesStyle.fontSize === body.fontSize,
+        bothBold: datesStyle.fontWeight === '700' && titleStyle.fontWeight === '700',
+        // The column must fit the longest possible range, or a long range wraps
+        // and breaks the alignment the column exists for.
+        fits: dates.scrollWidth <= dates.clientWidth,
+        // Narrow gap: the fixed date column already aligns every company name,
+        // so a wide gap on top of it reads as two separate fields.
+        gap: Math.round(
+          title.getBoundingClientRect().left - dates.getBoundingClientRect().right,
+        ),
+      }
+    })
+    check(
+      'the job header line is dates then title, same size, both bold, no wrapping',
+      header !== null &&
+        header.datesAtLeft &&
+        header.align === 'left' &&
+        header.sameSize &&
+        header.bothBold &&
+        header.fits,
+      JSON.stringify(header),
+    )
+    check(
+      'little space between the date range and the job title',
+      header !== null && header.gap <= 4,
+      `${header?.gap}px`,
+    )
+
+    // Achievement bullets are single-spaced. The body's 1.45 is right for prose
+    // and wrong for a short dense bullet, and it costs page space in the one
+    // document with a page target.
+    const bullet = await page.evaluate(() => {
+      const item = document.querySelector('.doc-achievement')
+      if (item === null) return null
+      const style = getComputedStyle(item)
+      return {
+        lineHeight: style.lineHeight,
+        fontSize: style.fontSize,
+        bodyLineHeight: getComputedStyle(item.closest('.doc')).lineHeight,
+      }
+    })
+    check(
+      'achievement bullets are single-spaced',
+      bullet !== null &&
+        parseFloat(bullet.lineHeight) <= parseFloat(bullet.fontSize) + 0.5 &&
+        parseFloat(bullet.lineHeight) < parseFloat(bullet.bodyLineHeight),
+      JSON.stringify(bullet),
+    )
+
+    // The responsibilities paragraph is the same kind of text as a bullet, so it
+    // is spaced the same way. Left at the prose setting it reads as a paragraph
+    // sitting above a list, in a document that is all one or the other.
+    const responsibilities = await page.evaluate(() => {
+      const paragraph = document.querySelector('.doc-body p')
+      if (paragraph === null) return null
+      const style = getComputedStyle(paragraph)
+      return {
+        lineHeight: style.lineHeight,
+        fontSize: getComputedStyle(paragraph.parentElement).fontSize,
+        bodyLineHeight: getComputedStyle(paragraph.closest('.doc')).lineHeight,
+      }
+    })
+    check(
+      'the responsibilities paragraph is single-spaced',
+      responsibilities !== null &&
+        parseFloat(responsibilities.lineHeight) <=
+          parseFloat(responsibilities.fontSize) + 0.5 &&
+        parseFloat(responsibilities.lineHeight) < parseFloat(responsibilities.bodyLineHeight),
+      JSON.stringify(responsibilities),
+    )
+
+    // The margin under an achievement separates it from the next one; on the last
+    // of a list it separated nothing and doubled the gap before the next job.
+    //
+    // Asserted as the rule, not as a measured gap between two named jobs: what is
+    // still in the document depends on what earlier checks deleted, so an adjacency
+    // assertion would quietly stop testing anything.
+    const trailingMargin = await page.evaluate(() => {
+      // The rule, read off a list with more than one bullet where there is one.
+      // With a single bullet there is nothing to separate it from, so the check
+      // reports that rather than passing on the absence of a comparison.
+      const all = [...document.querySelectorAll('.doc-achievement')]
+      if (all.length === 0) return null
+      const withSiblings = all.find((item) => item.previousElementSibling !== null)
+      const last = all.filter((item) => item.nextElementSibling === null).pop()
+      return {
+        withSiblings: withSiblings !== undefined,
+        lastMarginBottom: parseFloat(getComputedStyle(last).marginBottom),
+        siblingMarginBottom:
+          withSiblings !== undefined
+            ? parseFloat(getComputedStyle(withSiblings).marginBottom)
+            : null,
+      }
+    })
+    check(
+      'the last achievement in a list carries no trailing margin, others do',
+      trailingMargin !== null &&
+        trailingMargin.lastMarginBottom === 0 &&
+        (trailingMargin.withSiblings
+          ? trailingMargin.siblingMarginBottom > 0
+          : trailingMargin.siblingMarginBottom === null),
+      JSON.stringify(trailingMargin),
+    )
+
+    await page.emulateMedia({ media: 'screen' })
 
     // -------------------------------------------------------------------- sync
     // The scheduler starts with the app. With no credential it must settle as
@@ -1176,27 +1680,32 @@ async function main() {
 
     // Awards and education had no preview at all, so their stories could not
     // appear whatever the toggle said.
-    for (const [path, fields] of [
+    // Awards and education are created from the editor; their standalone routes
+    // are gone. These carry stories, to check they follow the stories toggle.
+    for (const [section, label, fields, expect] of [
       [
-        '/awards/new',
+        'Awards',
+        'award',
         { Year: '2024', Institution: 'Prize Body', What: 'Best thing', Story: 'AWARD-STORY' },
+        'Prize Body',
       ],
       [
-        '/education/new',
+        'Education',
+        'education',
         {
           Year: '2016',
-          Institution: 'A University',
+          Institution: 'A Degree Institution',
           What: 'A Degree',
           Story: 'EDUCATION-STORY',
         },
+        // Distinct from the education entry created earlier in this run: with the
+        // same institution, the wait after saving would match that older row and
+        // pass without anything having been created.
+        'A Degree Institution',
       ],
     ]) {
-      await go(page, origin, path)
-      for (const [label, value] of Object.entries(fields)) {
-        await page.getByLabel(label, { exact: true }).fill(value)
-      }
-      await page.getByRole('button', { name: 'Save', exact: true }).click()
-      await page.locator('.record-row').first().waitFor()
+      const created = await createInEditor(page, origin, { section, label, fields, expect })
+      check(`a ${label} can be created from the editor`, created === true)
     }
 
     await go(page, origin, '/')

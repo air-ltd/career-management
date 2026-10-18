@@ -26,6 +26,7 @@ import {
 } from 'docx'
 import type { DocumentModel } from '../model'
 import type { DocumentExporter } from './types'
+import { AWARDS_SECTION_TITLE } from '../model'
 import { pageGeometry, wordPageSize } from '../page'
 
 /**
@@ -198,7 +199,7 @@ export const docxExporter: DocumentExporter = {
     // --- awards and education -------------------------------------------
     // One combined table, because that is the shape a CV uses (D16).
     if (model.awardsEducation.length > 0) {
-      children.push(heading('Awards and education', HeadingLevel.HEADING_1))
+      children.push(heading(AWARDS_SECTION_TITLE, HeadingLevel.HEADING_1))
       children.push(
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },

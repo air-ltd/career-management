@@ -9,6 +9,7 @@
 
 import type { ReactNode } from 'react'
 import { AddIcon, EditIcon, TrashIcon } from '../../app/Icons'
+import { SORT_OPTIONS, filterRecords, type SortKey } from './sort'
 
 export interface ListItem {
   id: string
@@ -24,10 +25,17 @@ export interface RecordListProps {
   items: readonly ListItem[]
   /** The `editHref` for one item, given its id. */
   editHref: (id: string) => string
-  newHref: string
+  /** Absent for an entity with no standalone form; the Add button is then hidden. */
+  newHref?: string
   newLabel: string
   showDeleted: boolean
   onToggleShowDeleted: (value: boolean) => void
+  /** U7: the search term, and how to change it. Held by the caller so it survives. */
+  query: string
+  onQueryChange: (value: string) => void
+  /** U10: the chosen ordering. "Document order" is the default everywhere. */
+  sort: SortKey
+  onSortChange: (value: SortKey) => void
   onDelete: (id: string) => void
   /** Rendered under a row — nested lists, for jobs and their achievements. */
   children?: (id: string) => ReactNode
@@ -44,13 +52,26 @@ export function RecordList({
   newLabel,
   showDeleted,
   onToggleShowDeleted,
+  query,
+  onQueryChange,
+  sort,
+  onSortChange,
   onDelete,
   children,
   emptyText,
   childrenLabel,
 }: RecordListProps) {
   const headingId = `list-${title.replace(/\s+/g, '-').toLowerCase()}`
-  const visible = showDeleted ? items : items.filter((item) => !item.deleted)
+  const live = showDeleted ? items : items.filter((item) => !item.deleted)
+  /*
+   * Search the two lines the row actually shows, so a term the user can see in
+   * the list is a term that finds the row. Hidden records stay hidden unless Show
+   * deleted is on: searching is not a second way to reveal tombstones, because a
+   * search that quietly un-hides deleted records makes the two controls
+   * unpredictable.
+   */
+  const visible = filterRecords(live, query, (item) => [item.heading, item.detail])
+  const searching = query.trim() !== ''
 
   return (
     <section className="record-list" aria-labelledby={headingId}>
@@ -63,10 +84,12 @@ export function RecordList({
             real request for a path GitHub Pages does not serve, and the link
             404s. `RegistryEdit` and the navigation use the same form.
           */}
-          <a className="button button-primary" href={`#${newHref}`}>
-            <AddIcon />
-            {newLabel}
-          </a>
+          {newHref !== undefined && (
+            <a className="button button-primary" href={`#${newHref}`}>
+              <AddIcon />
+              {newLabel}
+            </a>
+          )}
           <label className="show-deleted">
             <input
               type="checkbox"
@@ -78,10 +101,52 @@ export function RecordList({
             Show deleted
           </label>
         </div>
+
+        <div className="record-list-tools">
+          <div className="field">
+            <label htmlFor={`${headingId}-search`}>Search {title.toLowerCase()}</label>
+            {/*
+              `type="search"` for the platform's own clear affordance, and because
+              a screen reader announces it as a search field rather than as a text
+              box the user has to guess the purpose of.
+            */}
+            <input
+              id={`${headingId}-search`}
+              type="search"
+              value={query}
+              placeholder="Search…"
+              onChange={(event) => {
+                onQueryChange(event.target.value)
+              }}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor={`${headingId}-sort`}>Order</label>
+            <select
+              id={`${headingId}-sort`}
+              value={sort}
+              onChange={(event) => {
+                onSortChange(event.target.value as SortKey)
+              }}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </header>
 
       {visible.length === 0 ? (
-        <p className="hint">{emptyText}</p>
+        <p className="hint">
+          {/* Two different sentences: "no jobs yet" invites creating one,
+              "nothing matches" invites changing the search, and they lead the
+              user to opposite places. */}
+          {searching ? `Nothing matches “${query.trim()}”.` : emptyText}
+        </p>
       ) : (
         <ul className="record-rows">
           {visible.map((item) => (

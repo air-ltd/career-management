@@ -10,6 +10,7 @@
  * markup (D13), which is the root cause of the legacy app's `&amp;` corruption.
  */
 
+import { AWARDS_SECTION_TITLE } from '../../export/model'
 import type { DocumentModel } from '../../export/model'
 import { pageGeometry } from '../../export/page'
 import { formatDateRange } from '../../domain/format'
@@ -52,12 +53,22 @@ export function DocumentView({ model }: { model: DocumentModel }) {
         </header>
       )}
 
+      {/*
+        Work history, with no visible section title.
+
+        "Work history" sat directly under the name and contact block, and the jobs
+        began immediately after it, so the heading was a second line saying what the
+        first job's own header — a date range and a company — already said. It
+        also cost a heading's worth of space on the one document with a page target.
+
+        The `aria-label` stays: the section is still named for a screen reader,
+        which is the one context where the heading does work that the job lines
+        themselves cannot.
+      */}
       {model.jobs.length === 0 ? (
         <p className="doc-empty">No jobs yet.</p>
       ) : (
-        <section className="doc-section" aria-label="Work history">
-          <h2 className="doc-section-title">Work history</h2>
-
+        <section className="doc-section doc-section-work" aria-label="Work history">
           {model.jobs.map((job) => (
             // D33: a job is never split across a page, and its heading is never
             // orphaned at the foot of one.
@@ -123,8 +134,8 @@ export function DocumentView({ model }: { model: DocumentModel }) {
       )}
 
       {model.awardsEducation.length > 0 && (
-        <section className="doc-section" aria-label="Awards and education">
-          <h2 className="doc-section-title">Awards and education</h2>
+        <section className="doc-section" aria-label={AWARDS_SECTION_TITLE}>
+          <h2 className="doc-section-title">{AWARDS_SECTION_TITLE}</h2>
           {/*
             D16: one combined table, real tabular data, which D34 allows.
 

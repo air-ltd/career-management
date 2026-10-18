@@ -30,6 +30,17 @@ export interface ExportOptions {
   includeDeleted: boolean
 }
 
+/**
+ * The heading for the combined awards and education table.
+ *
+ * Defined once because it appears in three places — the printed document, the
+ * Word export, and the section's accessible name — and because the first spelling
+ * used a lower-case "education" in a heading. A heading with one word in lower
+ * case reads as a typo even when it is a style choice, so it is the capitalised
+ * spelling here and the two other copies cannot forget.
+ */
+export const AWARDS_SECTION_TITLE = 'Awards and Education'
+
 export const PRESETS: Record<Preset, { label: string; hint: string; options: ExportOptions }> =
   {
     cv: {

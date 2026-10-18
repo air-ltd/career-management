@@ -28,8 +28,21 @@ export interface PageGeometry {
   contentWidthTwips: number
 }
 
-/** 18mm, which is what a CV expects. */
-export const MARGIN_MM = 18
+/**
+ * 14mm on every side.
+ *
+ * Down from 18mm. A margin is dead space at the top, bottom and edges of every
+ * page, and in a document with a one-page target that space is bought out of the
+ * content. 14mm is still comfortably outside the area a printer will clip and
+ * comfortable to turn a page into — and it widens the content column from 174mm
+ * to 182mm on A4, which fits more of a sentence on a line.
+ *
+ * Applied to all four sides rather than the top and sides alone: the geometry,
+ * the `@page` rule and the Word export all derive from this one number, and
+ * making them asymmetric to spare a bottom margin no one can see would mean three
+ * places to keep in step for no visible gain.
+ */
+export const MARGIN_MM = 14
 /** 1 point = 1/72 inch; 1 inch = 25.4mm. */
 const PT_PER_MM = 72 / 25.4
 

@@ -18,10 +18,12 @@ import { InlineEditor, InlineRow, InlineSection } from './InlineEditor'
 import { text } from './recordText'
 import { formatDateRange, formatYear } from '../../domain/format'
 import { REGISTRY } from '../shared/registry'
-import { useFieldContext, useRecords } from '../shared/data'
+import { deleteRecord, restoreRecord, useFieldContext, useRecords } from '../shared/data'
 import { PRESETS, type ExportOptions } from '../../export/model'
+import { UndoIcon } from '../../app/Icons'
 import type { Field } from '../shared/fields'
 import type { Mergeable } from '../../domain/types'
+import type { RegistryKey } from '../shared/registry'
 
 /** A record as it comes back from storage: loose, and narrowed where used. */
 type Row = Mergeable & Record<string, unknown>
@@ -57,6 +59,37 @@ export function AllInOnePage({ now }: { now: Date }) {
   const [options, setOptions] = useState<ExportOptions>(PRESETS['cv'].options)
   const { model, settings, saveSettings, liveProfiles } = useDocument(options, now)
   usePageRule(settings.pageSize)
+
+  /*
+   * The last deleted record, so the delete can be taken back.
+   *
+   * A tombstone is not an absence: the record is still in the database with a
+   * `deletedAt`, so undo is a second write rather than a reload, and nothing the
+   * user can still see behind "deleted records" is lost. Same behaviour as the
+   * list views, because a delete that is undoable in one place and not the other
+   * teaches the user which place not to trust.
+   */
+  const [undo, setUndo] = useState<{ key: RegistryKey; id: string; label: string } | null>(null)
+
+  /**
+   * A delete handler for one section.
+   *
+   * Built from the section's own records so the undo message can name what was
+   * deleted, which is the difference between "Deleted achievement" and something
+   * the user can act on.
+   */
+  const deleteFrom =
+    (key: RegistryKey, records: Row[]) =>
+    (id: string): void => {
+      const record = records.find((row) => text(row, 'id') === id)
+      void deleteRecord(key, id, now).then(() => {
+        setUndo({
+          key,
+          id,
+          label: record ? REGISTRY[key].describe(record, context).heading : 'Record',
+        })
+      })
+    }
 
   // Which parent, if any, has its "add a child" form open. Held here rather than
   // inside the child component so the button that opens it can sit beside the
@@ -140,6 +173,24 @@ export function AllInOnePage({ now }: { now: Date }) {
         model={model}
       />
 
+      {undo !== null && (
+        <div className="undo-bar" role="status">
+          <span>Deleted {undo.label}.</span>
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              const target = undo
+              setUndo(null)
+              void restoreRecord(target.key, target.id, now)
+            }}
+          >
+            <UndoIcon />
+            Undo
+          </button>
+        </div>
+      )}
+
       {/*
         One grid cell for every record.
 
@@ -154,6 +205,7 @@ export function AllInOnePage({ now }: { now: Date }) {
         <InlineSection
           title="Profiles"
           registryKey="profiles"
+          onDelete={deleteFrom('profiles', profiles)}
           records={profiles}
           describe={(record) => ({
             heading: text(record, 'name') || '(unnamed profile)',
@@ -167,6 +219,7 @@ export function AllInOnePage({ now }: { now: Date }) {
         <InlineSection
           title="Work history"
           registryKey="jobs"
+          onDelete={deleteFrom('jobs', rawJobs)}
           records={jobs}
           describe={(record) => ({
             heading: `${text(record, 'company')} - ${text(record, 'jobTitle')}`,
@@ -201,6 +254,7 @@ export function AllInOnePage({ now }: { now: Date }) {
             <AchievementsUnderJob
               job={job}
               records={visibleAchievements}
+              onDelete={deleteFrom('achievements', achievements)}
               showStories={showStories}
               fields={REGISTRY.achievements.fields(context)}
               now={now}
@@ -222,6 +276,7 @@ export function AllInOnePage({ now }: { now: Date }) {
         <InlineSection
           title="Awards"
           registryKey="awards"
+          onDelete={deleteFrom('awards', rawAwards)}
           records={awards}
           describe={(record) => ({
             heading: text(record, 'institution'),
@@ -240,6 +295,7 @@ export function AllInOnePage({ now }: { now: Date }) {
         <InlineSection
           title="Education"
           registryKey="education"
+          onDelete={deleteFrom('education', rawEducation)}
           records={education}
           describe={(record) => ({
             heading: text(record, 'institution'),
@@ -258,6 +314,7 @@ export function AllInOnePage({ now }: { now: Date }) {
         <InlineSection
           title="Question categories"
           registryKey="questionCategories"
+          onDelete={deleteFrom('questionCategories', categories)}
           records={visible(categories)}
           describe={(record) => ({ heading: text(record, 'title'), detail: '' })}
           fields={REGISTRY.questionCategories.fields(context)}
@@ -284,6 +341,7 @@ export function AllInOnePage({ now }: { now: Date }) {
             <QuestionsUnderCategory
               category={category}
               records={visibleQuestions}
+              onDelete={deleteFrom('questions', questions)}
               showStories={showStories}
               fields={REGISTRY.questions.fields(context)}
               now={now}
@@ -393,6 +451,7 @@ function AddChildButton({
 function AchievementsUnderJob({
   job,
   records,
+  onDelete,
   showStories,
   fields,
   now,
@@ -401,6 +460,7 @@ function AchievementsUnderJob({
 }: {
   job: Record<string, unknown>
   records: Row[]
+  onDelete: (id: string) => void
   showStories: boolean
   fields: readonly Field[]
   now: Date
@@ -423,6 +483,7 @@ function AchievementsUnderJob({
           record={achievement}
           heading={text(achievement, 'achievement')}
           detail=""
+          onDelete={onDelete}
           preview={storyPreview(text(achievement, 'story'), showStories)}
           fields={fields}
           now={now}
@@ -449,6 +510,7 @@ function AchievementsUnderJob({
 function QuestionsUnderCategory({
   category,
   records,
+  onDelete,
   showStories,
   fields,
   now,
@@ -457,6 +519,7 @@ function QuestionsUnderCategory({
 }: {
   category: Record<string, unknown>
   records: Row[]
+  onDelete: (id: string) => void
   showStories: boolean
   fields: readonly Field[]
   now: Date
@@ -477,6 +540,7 @@ function QuestionsUnderCategory({
           record={question}
           heading={text(question, 'question')}
           detail=""
+          onDelete={onDelete}
           preview={storyPreview(text(question, 'answer'), showStories)}
           fields={fields}
           now={now}

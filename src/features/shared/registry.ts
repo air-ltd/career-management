@@ -47,10 +47,24 @@ export interface EntityDefinition {
   /** Plural, for a list: "Jobs". */
   plural: string
   table: EntityTableName
-  /** The list route. */
+  /**
+   * Where "back" goes, and where a saved record returns to.
+   *
+   * Not always a list of its own: for achievements, awards and education the list
+   * route was removed, because the all-in-one editor is where those records are
+   * created and edited (D10). Those entities point here so that saving a record
+   * from a per-record edit route still returns the user to somewhere they can see
+   * it, rather than to a route that no longer exists.
+   */
   listPath: string
-  /** The new-record route. */
-  newPath: string
+  /**
+   * The new-record route, or absent when there is none.
+   *
+   * Optional because an entity reached only through the all-in-one editor has no
+   * standalone form to go to. Leaving a path here that resolves to nothing is how
+   * a dead link survives for years.
+   */
+  newPath?: string
   /** The edit route for one record. */
   editPath: (id: string) => string
   fields: (context: FieldContext) => readonly Field[]
@@ -161,8 +175,9 @@ export const achievements: EntityDefinition = {
   singular: 'Achievement',
   plural: 'Achievements',
   table: 'achievements',
-  listPath: '/achievements',
-  newPath: '/achievements/new',
+  // No list route of its own; the all-in-one editor is the list for this entity.
+  listPath: '/',
+
   editPath: (id) => `/achievements/${id}/edit`,
   fields: (context) => [
     {
@@ -222,8 +237,9 @@ export const awards: EntityDefinition = {
   singular: 'Award',
   plural: 'Awards',
   table: 'awards',
-  listPath: '/awards',
-  newPath: '/awards/new',
+  // No list route of its own; the all-in-one editor is the list for this entity.
+  listPath: '/',
+
   editPath: (id) => `/awards/${id}/edit`,
   fields: () => awardEducationFields(),
   describe: (row) => describeAwardEducation(as<Award>(row)),
@@ -233,8 +249,9 @@ export const education: EntityDefinition = {
   singular: 'Education',
   plural: 'Education',
   table: 'education',
-  listPath: '/education',
-  newPath: '/education/new',
+  // No list route of its own; the all-in-one editor is the list for this entity.
+  listPath: '/',
+
   editPath: (id) => `/education/${id}/edit`,
   fields: () => awardEducationFields(),
   describe: (row) => describeAwardEducation(as<Education>(row)),

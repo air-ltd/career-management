@@ -22,6 +22,24 @@
   --danger: #b42318;
   --warning-bg: #fff4e5;
   --warning-border: #f0b429;
+  /*
+   * The document's three levels of ink, in place of one body colour.
+   *
+   * A single body colour cannot make a document read as a page: the eye needs the
+   * structure to be louder than the prose it scans past. `--doc-heading-ink` and
+   * `--doc-job-ink` are the two structural levels, `--doc-body-ink` everything else.
+   *
+   * `--doc-body-ink` is *darker* than `--text`, which was chosen for the editor's
+   * controls rather than for paper. Darker rather than black, because black is
+   * reserved for the two structural levels and giving the body the same ink would
+   * flatten the very distinction the other two exist to draw.
+   *
+   * Declared per theme rather than once, because black on black is invisible.
+   */
+  --doc-heading-ink: #000;
+  --doc-job-ink: #000;
+  --doc-body-ink: #101010;
+  --doc-date-column: 18ch;
   --radius: 6px;
   --gap: 1rem;
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -39,6 +57,14 @@
   --danger: #f97066;
   --warning-bg: #3a2d10;
   --warning-border: #f0b429;
+  /*
+   * The same three levels, inverted. The structural inks go to pure white so they
+   * still lead, and the body takes the theme's own text colour — already close
+   * enough to white that there is no room above it to climb into without going flat.
+   */
+  --doc-heading-ink: #fff;
+  --doc-job-ink: #fff;
+  --doc-body-ink: #ececee;
 }
 
 * {
@@ -213,6 +239,7 @@ code {
 }
 
 .field input[type='text'],
+.field input[type='search'],
 .field input[type='date'],
 .field input[type='number'],
 .field select,
@@ -273,6 +300,37 @@ code {
 }
 
 /* -------------------------------------------------------------------- lists */
+
+/*
+ * The search and order controls, under the list's own heading and buttons.
+ *
+ * A separate row rather than inside `.button-row` because they are not actions on
+ * the list — they are a lens on it. Putting them with "Add job" and "Show deleted"
+ * made the three read as one kind of thing, and only one of the three is a button.
+ */
+.record-list-tools {
+  display: flex;
+  gap: var(--gap);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.record-list-tools .field {
+  margin-bottom: 0;
+}
+
+/* The search box grows; the order select stays its own size, because its longest
+   label is what sets its width and stretching it to match the search box looks
+   like there is more to it. */
+.record-list-tools .field:first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.record-list-tools .field:last-child {
+  flex: 0 1 12rem;
+}
 
 .record-list-header {
   display: flex;
@@ -655,28 +713,54 @@ code {
 
 .doc {
   background: var(--surface);
-  color: var(--text);
+  color: var(--doc-body-ink);
   padding: 1.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   line-height: 1.45;
 }
-
+/*
+ * The ink for the document's own headings: the name at the top, and the section
+ * titles beneath it.
+ *
+ * The same pure black as the job header line, for the same reason. These are the
+ * two places the eye turns first, and `--text` — a soft near-black chosen for the
+ * editor — is softer still on paper, which made the structure of the document
+ * legible on screen and mushy in the hand.
+ */
 .doc-header {
+  /*
+   * A tight gap under the rule.
+   *
+   * The header used to sit a full line above the section that followed it, and
+   * the section then added its own margin on top — so the name was a line away
+   * from the first job for no reason. The rule under the name is enough of a
+   * boundary; the air beneath it was just air.
+   */
   border-bottom: 2px solid var(--text);
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
 }
 
 .doc-title {
   margin: 0;
   font-size: 1.5em;
   line-height: 1.2;
+  color: var(--doc-heading-ink);
 }
 
 .doc-contact {
+  /*
+   * No colour of its own, on purpose: it inherits `--doc-body-ink` from `.doc`,
+   * which is exactly what the achievements do, and that is the requirement — the
+   * contact details read as body text rather than as a caption under the name.
+   *
+   * Set to `--text-muted` when it was a caption. Naming a token here would have
+   * looked tidier and would have been a second place to update the next time the
+   * body's ink moves, which is how the three levels of document ink drifted apart
+   * in the first place. Inheriting cannot drift.
+   */
   margin: 0.25rem 0 0;
-  color: var(--text-muted);
   font-size: 0.9em;
 }
 
@@ -684,17 +768,39 @@ code {
   margin-top: 1.25rem;
 }
 
+/*
+ * The section that follows the header directly.
+ *
+ * No top margin: the header's own bottom margin is the gap, and the section
+ * adding a second one is what put the first job a line below the name.
+ */
+.doc-section-work {
+  margin-top: 0;
+}
+
 .doc-section-title {
   font-size: 1.15em;
   margin: 0 0 0.5rem;
   padding-bottom: 0.2rem;
   border-bottom: 1px solid var(--border);
+  /* Darker than the body, so a section announces itself as one. */
+  color: var(--doc-heading-ink);
 }
 
 .doc-job {
-  margin-bottom: 1rem;
+  /*
+   * No rule, no margin, no gap between jobs.
+   *
+   * A hairline between the two was tried and then removed again: the header line is
+   * already bold, at the same size as everything else, and leads with the date
+   * range, so it announces itself without a rule above it. The rule was furniture
+   * between roles that the typography already separates.
+   *
+   * So nothing but typography separates one job from the next — which is the same
+   * thing that separates a heading from body text everywhere else in the document.
+   */
+  margin-bottom: 0;
 }
-
 /*
  * `<dates>  <company>: <job title>` on one line, dates in a leading column.
  *
@@ -706,21 +812,65 @@ code {
 .doc-job-head {
   display: flex;
   align-items: baseline;
-  gap: 0.6em;
+  /*
+   * A narrow gap. The dates already sit in a fixed column so every row's company
+   * starts in the same place, and a wide gap on top of that reads as two separate
+   * fields rather than as one line reading "when, at whom, doing what".
+   */
+  gap: 0.25em;
 }
 
 .doc-job-title {
   margin: 0;
-  font-size: 1.05em;
+  /*
+   * The same size as the body text below it, and bold.
+   *
+   * Not a size up. A heading a point larger than the prose reads as a heading to
+   * someone skimming, which is right, and as an unexplained inconsistency to the
+   * employer who is comparing this CV against four others. The weight is what
+   * separates the line from the paragraphs under it; the size does not need to.
+   */
+  font-size: 1em;
+  font-weight: 700;
+  /*
+   * `--doc-job-ink`, shared with the dates on this line.
+   *
+   * Pure black, where the rest of the document is `--text`. `--text` is a soft
+   * near-black chosen for the editor, and it is softer still once printed. On a
+   * page of work history where every line is the same size, this line is the only
+   * thing telling the eye where one role ends, so it gets the darkest ink the
+   * document has rather than the same ink as everything else.
+   *
+   * Not bold-harder — it is already 700, and pushing the weight further changes the
+   * texture of the word rather than its presence.
+   */
+  color: var(--doc-job-ink);
   min-width: 0;
 }
 
 .doc-job-dates {
-  flex: 0 0 20ch;
-  width: 20ch;
+  /*
+   * One measure, shared with the title, and both bold.
+   *
+   * The dates were once a size down and grey, which read as a caption for the
+   * line rather than as part of it — the eye found the company first and the dates
+   * second, on a line where the two are one fact: where, and doing what. Same size
+   * and same weight is what makes the line read as a unit.
+   */
+  flex: 0 0 auto;
+  width: var(--doc-date-column);
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.85em;
+  font-size: 1em;
+  font-weight: 700;
+  /*
+   * The same ink as the company and title on this line.
+   *
+   * It was `--text`, a shade lighter than the title, which read as a caption
+   * beside the thing it describes. The two halves of the line are one fact — where,
+   * at whom, doing what — and they are already set at the same weight and the same
+   * size, so they are the same colour too.
+   */
+  color: var(--doc-job-ink);
   /* Left-aligned, so the dates sit flush against the page margin. The column
      still holds a fixed measure, so the company names line up either way — but a
      range starting a third of the way across the page reads as indented rather
@@ -732,6 +882,29 @@ code {
 }
 
 /*
+/*
+ * The ink for a job header line: the date range, the company and the job title.
+ *
+ * One token for all three. They were set separately twice and drifted twice — the
+ * dates once a size down and grey, then one shade lighter than the title — and each
+ * drift had to be reported by whoever noticed it rather than prevented.
+ */
+/*
+ * How wide the date column is, and so how much air sits between the dates and the
+ * company.
+ *
+ * 18ch, which is the width of the widest range the document can produce,
+ * "Sept 1999 - Sept 2026", in the bold weight both halves of the line use.
+ *
+ * Measured, not guessed: at 12ch the longest range wrapped, and a wrapped range
+ * breaks the column alignment the width exists for.
+ *
+ * This number is a function of the font it sits in. `ch` is the width of a zero in
+ * the element's own face, so changing the date column to a fixed-width font made
+ * every character wider and this had to become 21ch to hold the same text. It is
+ * 18ch again because the dates are back in the document's own proportional face.
+ */
+/*
  * The responsibilities and the first achievement bullet are one thought, so the
  * air between them is only what the prose paragraph already carries.
  *
@@ -740,6 +913,22 @@ code {
  * paragraph's trailing margin is what actually closes the gap. Setting the list's
  * top margin alone would have changed nothing.
  */
+.doc-body {
+  /*
+   * Single-spaced, like the achievement bullets.
+   *
+   * These are the same kind of text — short, dense, read as a list of what the
+   * role involved — and setting them at the prose body spacing makes one look like
+   * a paragraph and the other look like a list, in a document that is all one or
+   * the other. It also costs page space in the CV, which is the one document with
+   * a page target.
+   *
+   * This is the class the job story uses too, so a story is single-spaced as well.
+   * That reads correctly: a story is a note under the role, not a body of prose.
+   */
+  line-height: 1;
+}
+
 .doc-body p {
   margin: 0 0 0.4rem;
 }
@@ -754,7 +943,29 @@ code {
 }
 
 .doc-achievement {
+  /*
+   * Single-spaced within a bullet.
+   *
+   * The document's body is 1.45, which is right for a paragraph of prose and
+   * wrong for an achievement bullet: those are short, dense and read as a list,
+   * and 1.45 pushes each one onto more lines than it needs — which costs page
+   * space in the one document with a page target.
+   */
+  line-height: 1;
   margin-bottom: 0.2rem;
+}
+
+/*
+ * No trailing margin on the last bullet of a list.
+ *
+ * The margin under an achievement is what separates one achievement from the next.
+ * On the last one it is not separating anything — it just adds to the gap before
+ * the next job heading, which already carries the job's own margin. So the space
+ * at the end of a job's achievements was being counted twice, and it is the gap
+ * the eye reads as "this role ended here" rather than as a separation.
+ */
+.doc-achievement:last-child {
+  margin-bottom: 0;
 }
 
 .doc-achievement-story {
@@ -775,18 +986,38 @@ code {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95em;
+  /*
+   * Fixed layout, so the columns are where they are put rather than wherever the
+   * content happens to push them. Auto layout gave the year column exactly what it
+   * needed and then spread the rest, which left "what it was for" stranded against
+   * the right margin, a hand's width away from the institution it belongs to.
+   */
+  table-layout: fixed;
 }
 
 .doc-award-table td {
   text-align: left;
-  padding: 0.3rem 0.5rem 0.3rem 0;
-  border-bottom: 1px solid var(--border);
+  /* A third of the old padding: this is a reference list, not a set of cards. */
+  padding: 0.1rem 0.4rem 0.1rem 0;
   vertical-align: top;
+  /* Single-spaced, like every other line of the document that is not prose. */
+  line-height: 1;
 }
 
 .doc-award-year {
   white-space: nowrap;
-  width: 4.5rem;
+  width: 3.2rem;
+}
+
+/*
+ * Narrow enough that the award sits close to the institution it belongs to.
+ *
+ * Wide enough for the longest institution in practice. Past this the degree wraps
+ * onto a second line, and one wrapped row costs more than the gap ever saved — so
+ * the column is sized for the data rather than for the prettiest gap.
+ */
+.doc-award-institution {
+  width: 34%;
 }
 
 .doc-award-story {
@@ -1176,6 +1407,32 @@ code {
   body {
     background: #fff;
     color: #000;
+  }
+
+  /*
+   * The theme on screen is not the theme on paper.
+   *
+   * The `body` rule above is not enough on its own, because the document sets its
+   * own colours from the tokens — and in dark theme those tokens are the dark
+   * values, so printing from dark theme produced near-white text on a near-black
+   * panel whatever the body said.
+   *
+   * Redefining the tokens, rather than overriding the rules that read them, is what
+   * makes the printed document identical from either theme: everything downstream
+   * picks up the light palette without having to be listed here, including whatever
+   * is added next. Same specificity as `[data-theme='dark']` and further down the
+   * file, so on the one element carrying both, this wins.
+   */
+  :root {
+    --bg: #f7f7f5;
+    --surface: #fff;
+    --surface-2: #f0f0ec;
+    --text: #1a1a18;
+    --text-muted: #5c5c56;
+    --border: #dcdcd4;
+    --doc-heading-ink: #000;
+    --doc-job-ink: #000;
+    --doc-body-ink: #101010;
   }
 
   .app {

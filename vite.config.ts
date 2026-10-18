@@ -169,7 +169,11 @@ export default defineConfig({
     // only fails at runtime. Every test imports what it uses instead.
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // `scripts/` is included because the SQLite migration's transformations are
+    // the only place a rule from spec §10.3 can be checked without a database,
+    // and a rule that is only ever exercised against one real file is a rule that
+    // silently stops holding when the data changes shape.
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.{ts,tsx}'],
     env: {
       // Pinned so date assertions mean the same thing everywhere. The document
       // displays month and year, so a runner's own locale must not decide what a

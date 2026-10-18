@@ -34,14 +34,13 @@ const ROUTES: readonly Route[] = [
   { path: '/jobs' },
   { path: '/jobs/new' },
   { path: '/jobs/:id/edit' },
-  { path: '/achievements' },
-  { path: '/achievements/new' },
+  // Achievements, awards and education have no list or "new" route. They are
+  // created and edited from the all-in-one editor, which is the primary editing
+  // surface (D10); a standalone list for each was a second way to do the same
+  // thing. Their per-record edit routes stay, because the editor and the fit
+  // report both link straight to one.
   { path: '/achievements/:id/edit' },
-  { path: '/awards' },
-  { path: '/awards/new' },
   { path: '/awards/:id/edit' },
-  { path: '/education' },
-  { path: '/education/new' },
   { path: '/education/:id/edit' },
   { path: '/questions' },
   { path: '/questions/new' },
@@ -58,9 +57,6 @@ const ROUTES: readonly Route[] = [
 const SECTIONS = [
   { href: '/profiles', label: 'Profiles' },
   { href: '/jobs', label: 'Jobs' },
-  { href: '/achievements', label: 'Achievements' },
-  { href: '/awards', label: 'Awards' },
-  { href: '/education', label: 'Education' },
   { href: '/questions', label: 'Questions' },
 ] as const
 
@@ -226,9 +222,6 @@ const LIST_ROUTES: Record<
 > = {
   '/profiles': 'profiles',
   '/jobs': 'jobs',
-  '/achievements': 'achievements',
-  '/awards': 'awards',
-  '/education': 'education',
   '/questions': 'questionCategories',
   '/questions/all': 'questions',
 }
@@ -239,9 +232,6 @@ const NEW_ROUTES: Record<
 > = {
   '/profiles/new': 'profiles',
   '/jobs/new': 'jobs',
-  '/achievements/new': 'achievements',
-  '/awards/new': 'awards',
-  '/education/new': 'education',
   '/questions/new': 'questionCategories',
   '/questions/all/new': 'questions',
 }

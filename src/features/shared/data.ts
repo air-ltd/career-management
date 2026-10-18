@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { bumpRevision, db, subscribeToRevision } from '../../storage/db'
-import { listActive, listAll, newId, softDelete } from '../../storage/repository'
+import { listActive, listAll, newId, restore, softDelete } from '../../storage/repository'
 import { REGISTRY, type FieldContext, type RegistryKey } from './registry'
 import type { Job, Mergeable, QuestionCategory, Settings } from '../../domain/types'
 import { defaultSettings } from '../../export/envelope'
@@ -119,6 +119,17 @@ export async function saveFields(
 
 export async function deleteRecord(key: RegistryKey, id: string, now: Date): Promise<void> {
   await softDelete(db.table(REGISTRY[key].table), id, now)
+}
+
+/**
+ * Undo a delete (U5).
+ *
+ * Clears the tombstone rather than re-inserting the record, so undo is the same
+ * last-write-wins edit every other change is, and a restore that arrives through
+ * sync resolves the same way whether it came from this device or another.
+ */
+export async function restoreRecord(key: RegistryKey, id: string, now: Date): Promise<void> {
+  await restore(db.table(REGISTRY[key].table), id, now)
 }
 
 /**
