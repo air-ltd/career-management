@@ -227,7 +227,6 @@ export class SyncScheduler {
     }
 
     this.running = true
-    this.emit({ state: 'syncing', pending: this.workOutstanding })
 
     try {
       const outcome = await runSync(this.engineDeps())
@@ -254,6 +253,12 @@ export class SyncScheduler {
       writeLastRev: this.deps.writeLastRev,
       now: this.deps.now,
       ...(this.deps.onLog ? { onLog: this.deps.onLog } : {}),
+      // Announce the sync here rather than when the cycle begins: a cycle that
+      // finds both sides already in agreement has nothing to sync, and saying
+      // otherwise makes the indicator flicker over every routine check.
+      onBeforePublish: () => {
+        this.emit({ state: 'syncing', pending: this.workOutstanding })
+      },
     }
   }
 

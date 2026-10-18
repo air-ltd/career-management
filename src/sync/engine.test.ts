@@ -62,7 +62,11 @@ class FakeProvider implements SyncProvider {
   }
 }
 
-function harness(local: Snapshot, provider = new FakeProvider()) {
+function harness(
+  local: Snapshot,
+  provider = new FakeProvider(),
+  extra: Partial<SyncDeps> = {},
+) {
   let written: Snapshot | null = null
   let lastRev: string | null = null
 
@@ -80,6 +84,7 @@ function harness(local: Snapshot, provider = new FakeProvider()) {
       return Promise.resolve()
     },
     now: () => new Date(0),
+    ...extra,
   }
 
   return { deps, provider, getWritten: () => written, getLastRev: () => lastRev }
@@ -140,6 +145,37 @@ describe('runSync', () => {
     // No revision to update against, so the first write is an overwrite.
     expect(provider.lastPush?.expectedRev).toBeNull()
     expect(getLastRev()).toBe('new-rev')
+  })
+
+  it('announces a publish only when there is one, never for agreement', async () => {
+    /*
+     * The header's "Syncing" hangs on this. A cycle that finds both sides already
+     * in agreement has nothing to sync, and announcing one anyway is how a routine
+     * check comes to flash "Syncing" over a comparison that changed nothing.
+     */
+    const agreed = snapshotOf([row('a', 1)])
+    const quiet = new FakeProvider()
+    quiet.remote = remoteOf(agreed, 'rev-1')
+    let announced = 0
+    const { deps: quietDeps } = harness(agreed, quiet, {
+      onBeforePublish: () => {
+        announced += 1
+      },
+    })
+    await runSync(quietDeps)
+    expect(announced).toBe(0)
+
+    const diverged = snapshotOf([row('a', 1), row('b', 2)])
+    const busy = new FakeProvider()
+    busy.remote = remoteOf(agreed, 'rev-1')
+    announced = 0
+    const { deps: busyDeps } = harness(diverged, busy, {
+      onBeforePublish: () => {
+        announced += 1
+      },
+    })
+    await runSync(busyDeps)
+    expect(announced).toBe(1)
   })
 
   it('reports up-to-date and writes nothing when both sides agree', async () => {

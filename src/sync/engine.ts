@@ -47,6 +47,14 @@ export interface SyncDeps {
   writeLastRev: (rev: string | null) => Promise<void>
   now: () => Date
   onLog?: (event: SyncLogEntry) => void
+  /**
+   * Invoked once the cycle has found something to publish and is about to.
+   *
+   * The one moment "syncing" can be shown truthfully. Before it a cycle may still
+   * conclude that both sides already agree, and advertising a sync for that is how
+   * the header comes to flash "Syncing" over a check that changed nothing at all.
+   */
+  onBeforePublish?: () => void
   /** The id source used to repair unusable records. Injected for testability. */
   makeId?: () => string
 }
@@ -90,6 +98,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
 
     // First run: there is nothing to merge with, so publish what is here.
     if (!remote) {
+      deps.onBeforePublish?.()
       const rev = await pushWithRetry(deps, local, null)
       await deps.writeLastRev(rev)
       log(deps, 'info', 'Published the local document as the first remote copy.')
@@ -178,6 +187,8 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
       log(deps, 'info', 'Local and remote are in agreement; nothing to publish.')
       return { status: 'up-to-date' }
     }
+
+    deps.onBeforePublish?.()
 
     const rev = await pushWithRetry(deps, merged, remote.rev)
     await deps.writeLastRev(rev)

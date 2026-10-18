@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEBOUNCE_MS, SyncScheduler, type SchedulerDeps, type SyncStatus } from './scheduler'
 import { SyncError, type RemoteFile, type SyncProvider } from './provider'
-import { SCHEMA_VERSION } from '../export/envelope'
+import { SCHEMA_VERSION, serialiseEnvelope, toEnvelope } from '../export/envelope'
 import { emptySnapshot } from '../domain/merge'
 import type { Mergeable, Snapshot } from '../domain/types'
 import { clearSyncMetaForTests } from '../storage/syncMeta'
@@ -61,6 +61,11 @@ class FakeProvider implements SyncProvider {
     if (this.pushError !== null) return Promise.reject(this.pushError)
     return Promise.resolve({ rev: 'rev-1' })
   }
+}
+
+/** A remote file holding exactly the local document, so a cycle finds agreement. */
+function agreeingRemote(local: Snapshot, rev = 'rev-1'): RemoteFile {
+  return { body: serialiseEnvelope(toEnvelope(local, new Date(0))), rev }
 }
 
 function harness(provider = new FakeProvider(), overrides: Partial<SchedulerDeps> = {}) {
@@ -342,6 +347,35 @@ describe('SyncScheduler', () => {
     const before = provider.pullCount
     await vi.advanceTimersByTimeAsync(600_000)
     expect(provider.pullCount).toBe(before)
+  })
+
+  it('shows syncing only when a cycle has something to publish', async () => {
+    /*
+     * The indicator's "Syncing" must mean something. A cycle that finds both sides
+     * already in agreement has nothing to sync, and announcing one anyway is how a
+     * routine check — the tab coming to the foreground, the page being hidden —
+     * comes to flash "Syncing" over a comparison that changed nothing at all.
+     */
+    const { deps } = harness()
+    const scheduler = new SyncScheduler(deps)
+    const seen: SyncStatus[] = []
+    scheduler.subscribe((next) => seen.push(next))
+
+    const local = snapshotOf([row('a')])
+    deps.readLocal = () => Promise.resolve(local)
+
+    // Already in agreement: a check, not a sync.
+    const provider = deps.provider as FakeProvider
+    provider.remote = agreeingRemote(local)
+    await scheduler.syncNow()
+    expect(seen.some((next) => next.state === 'syncing')).toBe(false)
+    expect(seen.at(-1)?.state).toBe('idle')
+
+    // The remote has fallen behind, so there is something to publish.
+    provider.remote = agreeingRemote(emptySnapshot(SCHEMA_VERSION))
+    await scheduler.syncNow()
+    expect(seen.some((next) => next.state === 'syncing')).toBe(true)
+    expect(seen.at(-1)?.state).toBe('idle')
   })
 
   it('uses the documented debounce by default', () => {
