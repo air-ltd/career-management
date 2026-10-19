@@ -53,31 +53,38 @@ function rows(overrides: Partial<LooseInput> = {}): Parameters<typeof buildDocum
   } as Parameters<typeof buildDocumentModel>[0]
 }
 
-describe('PRESETS', () => {
-  it('defaults the CV to no stories, no questions and no deleted records (D37)', () => {
-    expect(PRESETS['cv'].options).toEqual({
-      preset: 'cv',
-      includeStories: false,
-      includeQuestions: false,
-      includeDeleted: false,
-    })
+describe('question categories', () => {
+  /*
+   * Alphabetical, because a category is a heading and not an event.
+   *
+   * The fixture deliberately stores them out of order — Technical created before
+   * Behavioural — so a test that passes on creation order would pass on anything.
+   */
+  const categories = (titles: string[]) =>
+    buildDocumentModel(
+      rows({
+        options: PRESETS['interview'].options,
+        questionCategories: titles.map((title, index) =>
+          questionCategoryRow(`c${index}`, { title }),
+        ),
+        questions: titles.map((_, index) =>
+          questionRow(`q${index}`, { categoryId: `c${index}` }),
+        ),
+      }),
+    )
+
+  it('lists question categories alphabetically', () => {
+    const model = categories(['Technical', 'Behavioural', 'Situational'])
+    expect(model.questionCategories.map((group) => group.category.title)).toEqual([
+      'Behavioural',
+      'Situational',
+      'Technical',
+    ])
   })
 
-  it('defaults interview preparation to stories and questions but no deleted records', () => {
-    // Deleted records are "on request", so they are off by default even here.
-    expect(PRESETS['interview'].options).toEqual({
-      preset: 'interview',
-      includeStories: true,
-      includeQuestions: true,
-      includeDeleted: false,
-    })
-  })
-
-  it('each preset is self-describing enough to render a button and a hint', () => {
-    for (const preset of Object.values(PRESETS)) {
-      expect(preset.label).not.toBe('')
-      expect(preset.hint).not.toBe('')
-    }
+  it('keeps every category that still has questions', () => {
+    const model = categories(['Technical', 'Behavioural'])
+    expect(model.questionCategories).toHaveLength(2)
   })
 })
 

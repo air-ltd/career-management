@@ -201,6 +201,19 @@ export function buildDocumentModel(input: {
             .sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : 1)),
         }))
         .filter((group) => group.questions.length > 0)
+        /*
+         * Alphabetically, not in whatever order storage returned them.
+         *
+         * A category is a heading rather than an event: "Behavioural", "Situational",
+         * "Technical" have no chronology, so the order they come out in is an
+         * accident of when they were created. Reading them A to Z is the ordering a
+         * reader expects and the one that stays the same when a category is added in
+         * the middle.
+         *
+         * The questions *within* a category stay newest-first — those do have a
+         * chronology, and a question worked through recently is the one to re-read.
+         */
+        .sort((a, b) => a.category.title.localeCompare(b.category.title))
     : []
 
   return {

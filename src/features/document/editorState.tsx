@@ -210,6 +210,20 @@ export function useEditorState(now: Date): EditorState {
         (field) => field !== '',
       )
     })
+    /*
+     * Everything except question categories is a chronology: a job starts on a date,
+     * an award is in a year, so newest-first means something. A category is a
+     * heading, not an event — Behavioural and Technical have no order but the
+     * alphabet — and listing them by when they were created is an accident of use
+     * rather than anything the reader asked for. So those alone go A to Z.
+     */
+    if (key === 'questionCategories') {
+      return [...searched].sort((a, b) =>
+        REGISTRY[key]
+          .describe(a, context)
+          .heading.localeCompare(REGISTRY[key].describe(b, context).heading),
+      )
+    }
     return inDocumentOrder(searched)
   }
 
