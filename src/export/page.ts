@@ -29,20 +29,32 @@ export interface PageGeometry {
 }
 
 /**
- * 14mm on every side.
+ * 10.5mm on every side.
  *
- * Down from 18mm. A margin is dead space at the top, bottom and edges of every
- * page, and in a document with a one-page target that space is bought out of the
- * content. 14mm is still comfortably outside the area a printer will clip and
- * comfortable to turn a page into — and it widens the content column from 174mm
- * to 182mm on A4, which fits more of a sentence on a line.
+ * Measured from the document the legacy tool produced, rather than chosen: its page
+ * puts text 30pt — 10.58mm — from the left edge, and 10.5mm is that to within a
+ * tenth of a millimetre. Matching it is worth more than picking a rounder number,
+ * because the content column is 188.7mm against the 181.9mm a 14mm margin gave, and
+ * the whole point is that a line holds more of a sentence.
  *
- * Applied to all four sides rather than the top and sides alone: the geometry,
- * the `@page` rule and the Word export all derive from this one number, and
- * making them asymmetric to spare a bottom margin no one can see would mean three
- * places to keep in step for no visible gain.
+ * Was 14mm, down from 18mm before that. A margin is dead space bought out of the
+ * content, and in a document with a one-page target that space comes straight off
+ * the page. This is still comfortably outside the area a printer will clip and
+ * comfortable to turn a page into.
+ *
+ * The legacy document's top and bottom margins were not equal to its left margin —
+ * about 15.6mm and 11mm — and this is a single number, so those cannot be matched
+ * exactly. Only the left and right affect how much fits on a line, which is what
+ * this was changed for; the top and bottom end up a little roomier than the old
+ * document's, which costs a few lines vertically and buys back nothing to complain
+ * about.
+ *
+ * Applied to all four sides rather than the top and sides alone: the geometry, the
+ * `@page` rule and the Word export all derive from this one number, and making them
+ * asymmetric to spare a bottom margin no one can see would mean three places to keep
+ * in step for no visible gain.
  */
-export const MARGIN_MM = 14
+export const MARGIN_MM = 10.5
 /** 1 point = 1/72 inch; 1 inch = 25.4mm. */
 const PT_PER_MM = 72 / 25.4
 

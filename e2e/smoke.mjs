@@ -538,11 +538,13 @@ async function main() {
     const pageRuleText =
       (await page.locator('style[data-page-rule]').first().textContent()) ?? ''
     check(
-      // The generator emits the shorthand `14mm` for all four sides, which is the
-      // form it collapses to when they are equal; the long form is accepted too so
-      // this does not fail on a future change that only varies one side.
-      'the page margin is 14mm on every side',
-      /margin:\s*14mm(\s+14mm){0,3}\s*;/.test(pageRuleText),
+      // Matched to the legacy document's 10.58mm, so the line of measure is the same
+      // width the CVs this replaces were set at. The generator emits the shorthand
+      // for all four sides, which is the form it collapses to when they are equal;
+      // the long form is accepted too so this does not fail on a change that varies
+      // one side.
+      'the page margin matches the legacy document at 10.5mm on every side',
+      /margin:\s*10\.5mm(\s+10\.5mm){0,3}\s*;/.test(pageRuleText),
       pageRuleText,
     )
 
