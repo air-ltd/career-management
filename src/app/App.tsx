@@ -122,7 +122,14 @@ export function App() {
       <div className="app">
         <header className="app-header">
           <h1>
-            <a className="app-home" href="#/" aria-label="Career Management Document, home">
+            {/*
+              No aria-label. The visible text is the accessible name, which is what
+              voice control needs: a user saying "Career Management Document" is
+              saying exactly what is on screen, and overriding the name meant they
+              could not. The link's purpose is already clear from the text and its
+              position as the first thing in the header.
+            */}
+            <a className="app-home" href="#/">
               <DocumentIcon size={28} />
               <span>
                 Career Management Document

@@ -23,7 +23,8 @@
     "check:silent": "node scripts/check-bundle-silent.mjs",
     "check:citations": "node scripts/check-citations.mjs",
     "migrate:sqlite": "node scripts/run-migration.mjs",
-    "migrate:fixture": "node scripts/migrate/fixture-check.mjs"
+    "migrate:fixture": "node scripts/migrate/fixture-check.mjs",
+    "test:a11y": "node e2e/axe.mjs"
   },
   "dependencies": {
     "dexie": "^4.4.6",
@@ -33,6 +34,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

@@ -89,7 +89,7 @@ export function DocumentView({ model }: { model: DocumentModel }) {
               */}
               <div className="doc-job-head">
                 <p className="doc-job-dates">{formatDateRange(job.startDate, job.endDate)}</p>
-                <h3 className="doc-job-title">{jobHeading(job)}</h3>
+                <h2 className="doc-job-title">{jobHeading(job)}</h2>
               </div>
 
               {job.responsibilities !== '' && (

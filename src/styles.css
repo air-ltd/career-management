@@ -22,6 +22,8 @@
   --danger: #b42318;
   --warning-bg: #fff4e5;
   --warning-border: #f0b429;
+  /* Readable as text; see `.log-warn`. */
+  --warning-text: #7a4d00;
   /*
    * The document's three levels of ink, in place of one body colour.
    *
@@ -62,6 +64,7 @@
   --danger: #f97066;
   --warning-bg: #3a2d10;
   --warning-border: #f0b429;
+  --warning-text: #f0b429;
   /*
    * The same three levels, inverted. The structural inks go to pure white so they
    * still lead, and the body takes the theme's own text colour — already close
@@ -1413,8 +1416,20 @@ code {
   flex: 0 0 auto;
 }
 
+/*
+ * The warning level's text colour, which is not the warning level's *border*.
+ *
+ * `#f0b429` is the amber used for rules and fills, where it has to be light to read
+ * as a tint on white. As 13.6px text it measures 1.86:1 — well under the 4.5:1
+ * that body text needs — so the log line announcing a warning was the least legible
+ * text on the page, which is the wrong way round for the one a user most needs to
+ * read.
+ *
+ * A darker step of the same hue instead, so it still reads as "warning" rather than
+ * as body text that happens to be brown.
+ */
 .log-warn span {
-  color: var(--warning-border);
+  color: var(--warning-text);
 }
 
 .log-error span {
