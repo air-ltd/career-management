@@ -9,7 +9,7 @@
 
 import type { ReactNode } from 'react'
 import { AddIcon, EditIcon, TrashIcon } from '../../app/Icons'
-import { SORT_OPTIONS, filterRecords, type SortKey } from './sort'
+import { filterRecords } from './sort'
 
 export interface ListItem {
   id: string
@@ -34,8 +34,6 @@ export interface RecordListProps {
   query: string
   onQueryChange: (value: string) => void
   /** U10: the chosen ordering. "Document order" is the default everywhere. */
-  sort: SortKey
-  onSortChange: (value: SortKey) => void
   onDelete: (id: string) => void
   /** Rendered under a row — nested lists, for jobs and their achievements. */
   children?: (id: string) => ReactNode
@@ -54,8 +52,6 @@ export function RecordList({
   onToggleShowDeleted,
   query,
   onQueryChange,
-  sort,
-  onSortChange,
   onDelete,
   children,
   emptyText,
@@ -119,23 +115,6 @@ export function RecordList({
                 onQueryChange(event.target.value)
               }}
             />
-          </div>
-
-          <div className="field">
-            <label htmlFor={`${headingId}-sort`}>Order</label>
-            <select
-              id={`${headingId}-sort`}
-              value={sort}
-              onChange={(event) => {
-                onSortChange(event.target.value as SortKey)
-              }}
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
       </header>

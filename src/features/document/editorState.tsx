@@ -24,13 +24,24 @@ import { useDocument, usePageRule } from './useDocumentSource'
 import { deleteRecord, restoreRecord, useFieldContext, useRecords } from '../shared/data'
 import { REGISTRY, type RegistryKey } from '../shared/registry'
 import { PRESETS, type ExportOptions } from '../../export/model'
-import { SORT_OPTIONS, filterRecords, sortRecords, type SortKey } from '../shared/sort'
+import { filterRecords } from '../shared/sort'
 import type { Mergeable } from '../../domain/types'
 
 /** A record as it comes back from storage: loose, and narrowed where used. */
 export type Row = Mergeable & Record<string, unknown>
 
-/** Newest first, tombstones last, so the live document reads top to bottom. */
+/**
+ * Newest first, tombstones last.
+ *
+ * The one order every surface lists in. It is reverse chronological — a job's start
+ * date where it has one, and the last time a record changed where it does not — with
+ * deleted records after the live ones, because a list of a career should read as the
+ * current career first and the record of what was removed after it.
+ *
+ * Not adjustable, and no longer offered as an option. It is a fact about the data
+ * rather than a preference: nobody has ever wanted their oldest role first without
+ * also wanting to be told why.
+ */
 export function inDocumentOrder(records: Mergeable[]): Row[] {
   return [...records]
     .sort((a, b) => {
@@ -40,7 +51,7 @@ export function inDocumentOrder(records: Mergeable[]): Row[] {
       const left = 'startDate' in a ? String(a['startDate']) : ''
       const right = 'startDate' in b ? String(b['startDate']) : ''
       if (left !== right) return left < right ? 1 : -1
-      return a.updatedAt < b.updatedAt ? -1 : 1
+      return a.updatedAt < b.updatedAt ? 1 : -1
     })
     .map((record) => record as unknown as Row)
 }
@@ -59,9 +70,6 @@ export interface EditorState {
   /** The one search box for every section, and the order they are listed in. */
   query: string
   setQuery: (next: string) => void
-  sortKey: SortKey
-  setSortKey: (next: SortKey) => void
-  sortOptions: typeof SORT_OPTIONS
   /** Every table, keyed, so a page reads only the ones it shows. */
   records: Record<RegistryKey, Row[]>
   /** The same records in document order, which is how a page lists them. */
@@ -114,7 +122,6 @@ export function useEditorState(now: Date): EditorState {
    * the legacy app ordered jobs by start date in SQL, which nobody chose.
    */
   const [query, setQuery] = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('document')
 
   const { records: profiles, loading: profilesLoading } = useRecords<Row>('profiles')
   const { records: jobs, loading: jobsLoading } = useRecords<Row>('jobs')
@@ -203,14 +210,7 @@ export function useEditorState(now: Date): EditorState {
         (field) => field !== '',
       )
     })
-    // Document order first, because "Name A-Z" over an arbitrary order would be
-    // stable against a starting sequence nobody can predict; the sort is a
-    // comparison on top of it rather than a replacement for it.
-    return sortRecords(
-      inDocumentOrder(searched),
-      sortKey,
-      (record) => REGISTRY[key].describe(record, context).heading,
-    )
+    return inDocumentOrder(searched)
   }
 
   return {
@@ -225,9 +225,6 @@ export function useEditorState(now: Date): EditorState {
     showDeleted,
     query,
     setQuery,
-    sortKey,
-    setSortKey,
-    sortOptions: SORT_OPTIONS,
     records,
     ordered,
     visible,

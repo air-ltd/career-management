@@ -264,8 +264,6 @@ export function InlineSection({
   fields,
   now,
   emptyText,
-  /** The page's search term, which stops a section being folded out of its matches. */
-  query = '',
   renderChildren,
   actionsFor,
   preview,
@@ -278,8 +276,6 @@ export function InlineSection({
   fields: readonly Field[]
   now: Date
   emptyText: string
-  /** The page's search term; a section will not fold while it is set. */
-  query?: string
   /** Nested editors, rendered inside the matching row. */
   renderChildren?: (record: Record<string, unknown>) => React.ReactNode
   /** Buttons shown beside the row's Edit button. */
@@ -290,45 +286,13 @@ export function InlineSection({
   onDelete?: (id: string) => void
 }) {
   const [adding, setAdding] = useState(false)
-  /*
-   * Whether the section is folded away.
-   *
-   * For the two sections with children — jobs, which own achievements, and question
-   * categories, which own questions — a long CV is a scroll rather than a page, and
-   * the way to see what is in it is to fold the parts you are not looking at. This
-   * folds a whole section at once rather than each record separately: the point is to
-   * get an overview, and per-record folding would still leave every heading on screen.
-   *
-   * It yields to a search. Collapsing is a way of arranging what you can see, and a
-   * search that hid its own matches would be the arrangement losing to the question.
-   */
-  const [collapsed, setCollapsed] = useState(false)
-  const folded = collapsed && query === ''
   const definition = REGISTRY[registryKey]
 
   return (
-    <section className={folded ? 'inline-section is-collapsed' : 'inline-section'}>
+    <section className="inline-section">
       <header className="inline-section-head">
         <h2>{title}</h2>
         <div className="inline-section-actions">
-          {records.length > 0 && (
-            <button
-              type="button"
-              className="button button-small"
-              aria-expanded={!folded}
-              disabled={query !== ''}
-              title={
-                query === ''
-                  ? undefined
-                  : 'Clear the search to fold this section, so it cannot hide its own matches'
-              }
-              onClick={() => {
-                setCollapsed((previous) => !previous)
-              }}
-            >
-              {folded ? 'Expand' : 'Collapse'}
-            </button>
-          )}
           <button
             type="button"
             className="button button-primary"
@@ -342,7 +306,7 @@ export function InlineSection({
         </div>
       </header>
 
-      {adding && !folded && (
+      {adding && (
         <InlineEditor
           registryKey={registryKey}
           record={null}
@@ -357,7 +321,7 @@ export function InlineSection({
         />
       )}
 
-      {folded ? null : records.length === 0 ? (
+      {records.length === 0 ? (
         <p className="hint">{emptyText}</p>
       ) : (
         <div className="inline-rows">

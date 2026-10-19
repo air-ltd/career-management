@@ -51,7 +51,6 @@ export function QuestionsPage({ now }: { now: Date }) {
         fields={REGISTRY.questionCategories.fields(context)}
         now={now}
         emptyText="No question categories yet."
-        query={editor.query}
         preview={(record) => storyPreview(text(record, 'story'), showStories)}
         actionsFor={(category) => (
           <AddChildButton

@@ -90,22 +90,6 @@ export function EditorShell({
               }}
             />
           </div>
-          <div className="editor-order">
-            <label htmlFor="editor-order-input">Order</label>
-            <select
-              id="editor-order-input"
-              value={editor.sortKey}
-              onChange={(event) => {
-                editor.setSortKey(event.target.value as typeof editor.sortKey)
-              }}
-            >
-              {editor.sortOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {children}

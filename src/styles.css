@@ -606,23 +606,6 @@ code {
   margin-bottom: 0.7rem;
 }
 
-/*
- * A folded section needs no rule of its own.
- *
- * There was one here — `display: none` on the rows — and it did nothing: the section
- * stops rendering its rows rather than hiding them, so there is nothing for CSS to
- * hide. It survived a `git checkout` that took the rest of the stylesheet with it
- * and no check noticed, because every check was looking at the DOM rather than at
- * what was drawn. Left in, it is the kind of rule someone later trusts to be load
- * bearing.
- */
-
-.inline-section-actions {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-}
-
 .inline-section-head {
   display: flex;
   justify-content: space-between;
@@ -1201,10 +1184,11 @@ code {
 
 .document-paper,
 /*
- * The editor's search and order.
+ * The editor's search.
  *
- * A single row above the sections, spanning both columns, so it reads as belonging
- * to the whole page rather than to whichever section happens to be first.
+ * A single row above the sections, so it reads as belonging to the whole page
+ * rather than to whichever section happens to be first. There is no order control:
+ * the lists are newest-first and that is not adjustable.
  */
 .editor-controls {
   display: flex;
@@ -1218,18 +1202,13 @@ code {
   flex: 1 1 18rem;
 }
 
-.editor-order {
-  flex: 0 0 auto;
-}
-
 .editor-controls label {
   display: block;
   font-size: 0.85em;
   margin-bottom: 0.2rem;
 }
 
-.editor-controls input,
-.editor-controls select {
+.editor-controls input {
   width: 100%;
   padding: 0.35rem 0.5rem;
   font: inherit;

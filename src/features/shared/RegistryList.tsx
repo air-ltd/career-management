@@ -9,7 +9,6 @@ import { useMemo, useState } from 'react'
 import { RecordList } from './RecordList'
 import { deleteRecord, useFieldContext, useRecords } from './data'
 import { REGISTRY, type RegistryKey } from './registry'
-import { sortRecords, type SortKey } from './sort'
 import { UndoIcon } from '../../app/Icons'
 import type { Mergeable } from '../../domain/types'
 
@@ -29,7 +28,6 @@ export function RegistryList({ registryKey, now }: RegistryListProps) {
    * back to an empty search box is a small, repeated annoyance.
    */
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<SortKey>('document')
 
   // The undo target is held here rather than in a toast component, because a
   // deleted record is still in the database and can simply be marked live again.
@@ -44,9 +42,10 @@ export function RegistryList({ registryKey, now }: RegistryListProps) {
    * return is a hook that runs a different number of times on the first render
    * than on every one after it.
    */
+  // Newest first, and no way to change it.
   const ordered = useMemo(
-    () => sortRecords(records, sort, (record) => definition.describe(record, context).heading),
-    [records, sort, definition, context],
+    () => [...records].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
+    [records],
   )
 
   if (loading) return <p className="hint">Loading…</p>
@@ -82,8 +81,6 @@ export function RegistryList({ registryKey, now }: RegistryListProps) {
         onToggleShowDeleted={setShowDeleted}
         query={query}
         onQueryChange={setQuery}
-        sort={sort}
-        onSortChange={setSort}
         onDelete={(id) => {
           void handleDelete(id)
         }}

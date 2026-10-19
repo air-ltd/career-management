@@ -1431,15 +1431,19 @@ async function main() {
       `before ${JSON.stringify(before)}`,
     )
 
-    // The section's own rows only. A nested achievement is a child of its job, so
-    // comparing orderings that included them would compare two different sets.
-    // Each section-level group, read for its *own* heading.
-    //
-    // A job group also contains its achievements' groups, so a descendant selector
-    // picks those up too and the two orderings being compared are different sets.
-    // Taking the first heading inside each top-level group avoids that: a job's own
-    // heading comes before anything nested under it.
-    const jobHeadings = async () => {
+    /*
+     * The list order, now that there is no control for it.
+     *
+     * Was: A-Z and Z-A of a dropdown. Now: newest first, fixed. The check is on the
+     * order rather than on the absence of a widget, because "the selector is gone" is
+     * a thing undone by adding a selector back, and "the jobs come out newest first"
+     * is the claim a user actually has.
+     *
+     * The section's own rows only — a job's achievements live inside its row group,
+     * so a descendant lookup would mix two sets and compare orderings of different
+     * things.
+     */
+    const newestFirst = async () => {
       await page.waitForTimeout(300)
       return page.evaluate(() =>
         [...document.querySelectorAll('.inline-section > .inline-rows > .inline-row-group')]
@@ -1449,108 +1453,24 @@ async function main() {
               ?.querySelector('h2')
               ?.textContent?.includes('Work history'),
           )
-          .map((group) => group.querySelector('.inline-row-heading')?.textContent ?? '')
-          .filter((heading) => heading !== ''),
+          .map((group) => ({
+            heading: group.querySelector('.inline-row-heading')?.textContent ?? '',
+            // The start date is what reverse chronology means for a job.
+            start: group.querySelector('.inline-row-detail')?.textContent ?? '',
+          })),
       )
     }
-    await page.getByLabel('Order', { exact: true }).selectOption('az')
-    const azOrder = await jobHeadings()
-    await page.getByLabel('Order', { exact: true }).selectOption('za')
-    const zaOrder = await jobHeadings()
-    const alphabetical = [...azOrder].sort((left, right) =>
-      left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }),
-    )
+    const asListed = await newestFirst()
+    const years = asListed.map((row) => Number((row.start.match(/\d{4}/) ?? ['0'])[0]))
     check(
-      'ordering reverses the rows and leaves the same ones',
-      azOrder.length > 1 &&
-        JSON.stringify(zaOrder) === JSON.stringify([...azOrder].reverse()) &&
-        new Set(azOrder).size === azOrder.length,
-      `A-Z ${JSON.stringify(azOrder)} / Z-A ${JSON.stringify(zaOrder)}`,
+      'jobs are listed newest first, and there is no way to change it',
+      years.length > 1 &&
+        years.every((year, index) => index === 0 || years[index - 1] >= year) &&
+        (await page.getByLabel('Order', { exact: true }).count()) === 0,
+      `${JSON.stringify(asListed.map((row) => row.start))}, order control: ${await page
+        .getByLabel('Order', { exact: true })
+        .count()}`,
     )
-    /*
-     * Folding a section away.
-     *
-     * The two sections that own children — jobs, and question categories — are the
-     * ones worth folding, and the check asserts the heading survives it, because a
-     * fold that hid the heading would leave no way to unfold it.
-     */
-    const workHistory = page
-      .locator('.inline-section')
-      .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
-    const jobRows = workHistory.locator(':scope > .inline-rows > .inline-row-group')
-    const rowsBefore = await jobRows.count()
-    await workHistory.getByRole('button', { name: 'Collapse' }).click()
-    await page.waitForTimeout(300)
-    check(
-      'collapsing a section hides its rows but keeps its heading',
-      rowsBefore > 0 &&
-        (await jobRows.count()) === 0 &&
-        (await workHistory.locator('h2').isVisible()) &&
-        (await workHistory.getAttribute('class'))?.includes('is-collapsed') === true,
-      `${rowsBefore} rows before`,
-    )
-    check(
-      'a collapsed section offers to expand itself',
-      (await workHistory.getByRole('button', { name: 'Expand' }).count()) === 1,
-    )
-    await workHistory.getByRole('button', { name: 'Expand' }).click()
-    await page.waitForTimeout(300)
-    check(
-      'expanding brings every row back',
-      (await jobRows.count()) === rowsBefore,
-      `${await jobRows.count()} of ${rowsBefore}`,
-    )
-
-    /*
-     * A search may not be foldable away. Folding is a way of arranging what is on
-     * screen, and if it can hide the matches for the term someone just typed, the
-     * arrangement has overridden the question.
-     */
-    await page.getByLabel('Search', { exact: true }).fill('Globex')
-    await page.waitForTimeout(300)
-    check(
-      'a section cannot be folded while a search is running against it',
-      (await workHistory.getByRole('button', { name: 'Collapse' }).isDisabled()) === true,
-    )
-    check(
-      'a search still finds its match with collapsing unavailable',
-      (await jobRows.count()) >= 1,
-      `${await jobRows.count()} rows`,
-    )
-    await page.getByLabel('Search', { exact: true }).fill('')
-    await page.waitForTimeout(300)
-
-    /*
-     * The harder half, and the one that actually needs the rule: fold first, then
-     * search. The disabled button stops a section being folded *while* a search is
-     * running, but it does nothing about a section that was already folded when the
-     * search started — which would otherwise stay folded and hide every match for
-     * the term just typed, with the user having no idea why the page looked empty.
-     */
-    await workHistory.getByRole('button', { name: 'Collapse' }).click()
-    await page.waitForTimeout(300)
-    check('the section is folded before the search starts', (await jobRows.count()) === 0)
-    await page.getByLabel('Search', { exact: true }).fill('Globex')
-    await page.waitForTimeout(300)
-    check(
-      'searching unfolds a section that was folded, so the matches are not hidden',
-      (await jobRows.count()) >= 1,
-      `${await jobRows.count()} rows while folded and searching`,
-    )
-    await page.getByLabel('Search', { exact: true }).fill('')
-    await page.waitForTimeout(300)
-
-    await page.getByLabel('Search', { exact: true }).fill('')
-    await page.waitForTimeout(300)
-
-    check(
-      'A to Z really is alphabetical',
-      JSON.stringify(azOrder) === JSON.stringify(alphabetical),
-      `A-Z ${JSON.stringify(azOrder)} / sorted ${JSON.stringify(alphabetical)}`,
-    )
-    await page.getByLabel('Order', { exact: true }).selectOption('document')
-    await page.waitForTimeout(300)
-
     /*
      * Reachable by Tab, rather than reachable by `.focus()`.
      *

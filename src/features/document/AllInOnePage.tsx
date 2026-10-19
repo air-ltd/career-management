@@ -53,7 +53,6 @@ export function AllInOnePage({ now }: { now: Date }) {
         fields={REGISTRY.profiles.fields(context)}
         now={now}
         emptyText="No profiles yet."
-        query={editor.query}
       />
 
       <InlineSection
@@ -68,7 +67,6 @@ export function AllInOnePage({ now }: { now: Date }) {
         fields={REGISTRY.jobs.fields(context)}
         now={now}
         emptyText="No jobs yet."
-        query={editor.query}
         // The responsibilities, so a role can be read without opening it. Line
         // breaks collapse to spaces so the preview stays one block. The story
         // joins them when stories are included, which is what makes a job agree
@@ -113,7 +111,6 @@ export function AllInOnePage({ now }: { now: Date }) {
         fields={REGISTRY.awards.fields(context)}
         now={now}
         emptyText="No awards yet."
-        query={editor.query}
       />
 
       <InlineSection
@@ -130,7 +127,6 @@ export function AllInOnePage({ now }: { now: Date }) {
         fields={REGISTRY.education.fields(context)}
         now={now}
         emptyText="No education entries yet."
-        query={editor.query}
       />
 
       <p className="page-cross-link">
