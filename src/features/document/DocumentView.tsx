@@ -74,7 +74,15 @@ export function DocumentView({ model }: { model: DocumentModel }) {
             // orphaned at the foot of one.
             <article
               key={job.id}
-              className={classFor('doc-job', job.deletedAt)}
+              className={[
+                classFor('doc-job', job.deletedAt),
+                // Recorded on the job itself rather than by filtering it out, so the
+                // role is still in the document as a line — and so the editor can
+                // show what is happening rather than the user finding out from the PDF.
+                job.hideDetail === true ? 'doc-job-summarised' : '',
+              ]
+                .filter((name) => name !== '')
+                .join(' ')}
               style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
             >
               {/*

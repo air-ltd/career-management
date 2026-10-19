@@ -163,6 +163,12 @@ export const jobs: EntityDefinition = {
       label: 'Story',
       hint: 'Interview preparation. Left out of the CV document and included in the preparation document.',
     },
+    {
+      kind: 'checkbox',
+      name: 'hideDetail',
+      label: 'Hide responsibilities and achievements from the document',
+      hint: 'Keeps the role as one line — company, title and dates — without the detail under it. The editor still shows everything.',
+    },
   ],
   describe: (row) => {
     const record = as<Job>(row)

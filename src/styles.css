@@ -489,6 +489,19 @@ code {
   vertical-align: middle;
 }
 
+/*
+ * A state the row is in, rather than a warning.
+ *
+ * Deliberately not the amber used for warnings: this says the record is doing
+ * something on purpose, and colouring it like a problem would train the eye to
+ * ignore the one that matters.
+ */
+.badge-note {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
 .badge-ok {
   background: #dcfce7;
   color: #14532d;
@@ -1004,6 +1017,18 @@ code {
 
 .doc-body p:last-child {
   margin-bottom: 0;
+}
+
+/*
+ * A role the user chose to keep without its detail.
+ *
+ * Hides the responsibilities, the story and the achievements, and leaves the header
+ * line: company, title and dates. The role is still in the CV — it was in the
+ * career, and a CV that quietly omits a year of it is worse than a long one.
+ */
+.doc-job-summarised > .doc-body,
+.doc-job-summarised > .doc-achievements {
+  display: none;
 }
 
 .doc-achievements {

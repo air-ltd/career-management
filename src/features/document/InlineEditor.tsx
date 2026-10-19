@@ -198,6 +198,18 @@ export function InlineRow({
           <ChevronIcon size={14} />
           <span className="inline-row-heading">
             {isDeleted && <span className="badge">deleted</span>}
+            {/*
+              On the row, not only in the form.
+
+              Hiding a role's detail from the document is invisible everywhere except
+              the printed page, so a user looking at the editor has no way of telling
+              a role they summarised from one they never filled in. The checkbox
+              records it when they set it and nothing reminds them afterwards; this is
+              what says, at a glance, which roles are one liners.
+            */}
+            {text(record, 'hideDetail') === 'true' && (
+              <span className="badge badge-note">summary only</span>
+            )}
             {heading}
           </span>
           {detail !== '' && <span className="inline-row-detail">{detail}</span>}

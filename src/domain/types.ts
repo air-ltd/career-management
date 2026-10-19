@@ -65,6 +65,17 @@ export const jobSchema = z.looseObject({
   jobTitle: z.string(),
   responsibilities: z.string(),
   story: z.string(),
+  /**
+   * Whether this role appears in the document with its detail, or as a line on its own.
+   *
+   * For a job the user still wants remembered — a one-line role in a career that runs
+   * over several pages — without the responsibilities and achievements that push it
+   * over. The header still prints, so the CV stays complete; the body is what goes.
+   *
+   * Optional, and so is the answer for a record written before this existed: false,
+   * which is what those records already looked like.
+   */
+  hideDetail: z.boolean().optional(),
 })
 
 /** An achievement hanging off exactly one job. */

@@ -80,6 +80,27 @@ describe('parseEnvelope', () => {
     expect(kept?.['pageSize']).toBe('A4')
   })
 
+  it('keeps a job row written before the summary setting existed', () => {
+    /*
+     * `hideDetail` was added after documents were already in circulation. A job
+     * without it is a job that prints in full — the only behaviour there was — so
+     * making the field required would reject those rows and take the role with them.
+     */
+    const jobWithoutIt = job('j1')
+    const jobWithIt = job('j2', { hideDetail: true })
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, jobs: [jobWithoutIt, jobWithIt] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.jobs).toHaveLength(2)
+    const plain = entities.jobs[0] as Record<string, unknown> | undefined
+    const summarised = entities.jobs[1] as Record<string, unknown> | undefined
+    expect(plain?.['hideDetail']).toBeUndefined()
+    expect(summarised?.['hideDetail']).toBe(true)
+  })
+
   it('round-trips a document this build wrote', () => {
     const snapshot = snapshotOf([job('a'), job('b', { deletedAt: AT(5) })])
     const result = parseEnvelope(envelopeOf(snapshot), 1)

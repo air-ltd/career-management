@@ -410,6 +410,86 @@ async function main() {
       }),
     )
 
+    /*
+     * Hiding a role's detail is the one edit that changes the document without
+     * changing anything visible in the editor — the responsibilities and the
+     * achievement are still there, in full, on the page where they were typed. So
+     * the checks below go to the document to see what actually printed, and come
+     * back to the row for the badge that is the editor's only signal.
+     */
+    const workHistory = page
+      .locator('.inline-section')
+      .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
+    const acmeRow = workHistory.locator('.inline-row').filter({ hasText: 'Acme' }).first()
+
+    await acmeRow.getByRole('button', { name: 'Edit', exact: true }).click()
+    await page.locator('.inline-editor').waitFor()
+    const hideDetail = page.getByLabel(
+      'Hide responsibilities and achievements from the document',
+      { exact: true },
+    )
+    check('the job form offers to hide its detail', (await hideDetail.count()) === 1)
+
+    check(
+      'the row does not claim to be a summary before it is one',
+      (await acmeRow.locator('.badge-note').count()) === 0,
+    )
+
+    await hideDetail.check()
+    await page
+      .locator('.inline-editor')
+      .getByRole('button', { name: 'Save', exact: true })
+      .click()
+    await page.waitForTimeout(700)
+
+    check(
+      'the editor says which roles print as one line',
+      (await acmeRow.locator('.badge-note').count()) === 1,
+    )
+
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    const acmeJob = page.locator('.doc-job').filter({ hasText: 'Acme' }).first()
+    check('the role itself is still in the document', (await acmeJob.count()) === 1)
+    check(
+      'the job is marked as a summary on the printed page',
+      (await page.locator('.doc-job-summarised').count()) === 1,
+    )
+    // Visibility, not presence: `hasText` matches an element whether it is shown or
+    // not, so counting it would pass against a paragraph that is merely hidden.
+    const printedResponsibilities = page.locator('.doc-body', { hasText: 'Did things' }).first()
+    const printedAchievement = page
+      .locator('.doc-achievement', { hasText: 'Shipped the thing' })
+      .first()
+    check('its responsibilities did not print', !(await printedResponsibilities.isVisible()))
+    check('its achievements did not print', !(await printedAchievement.isVisible()))
+    check(
+      'the header still printed, so the role is not silently missing',
+      (await acmeJob.getByText('Acme', { exact: false }).count()) >= 1,
+    )
+
+    // And back again, so the test does not depend on the order it runs in.
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    await acmeRow.getByRole('button', { name: 'Edit', exact: true }).click()
+    await page.locator('.inline-editor').waitFor()
+    await hideDetail.uncheck()
+    await page
+      .locator('.inline-editor')
+      .getByRole('button', { name: 'Save', exact: true })
+      .click()
+    await page.waitForTimeout(700)
+    check(
+      'the badge goes when the detail comes back',
+      (await acmeRow.locator('.badge-note').count()) === 0,
+    )
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    check(
+      'the detail prints again',
+      await page.locator('.doc-body', { hasText: 'Did things' }).first().isVisible(),
+    )
+
     check(
       'an award can be created',
       await createInEditor(page, origin, {
