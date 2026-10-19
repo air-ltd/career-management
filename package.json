@@ -17,9 +17,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "verify": "npm run typecheck && npm run format:check && npm run lint && npm run check:secrets && npm run check:citations && npm run test && npm run build",
+    "verify": "npm run typecheck && npm run format:check && npm run lint && npm run check:citations && npm run test && npm run build && npm run check:secrets && npm run check:silent",
     "test:e2e": "node e2e/smoke.mjs",
     "check:secrets": "node scripts/check-no-bundled-secrets.mjs",
+    "check:silent": "node scripts/check-bundle-silent.mjs",
     "check:citations": "node scripts/check-citations.mjs",
     "migrate:sqlite": "node scripts/run-migration.mjs",
     "migrate:fixture": "node scripts/migrate/fixture-check.mjs"
