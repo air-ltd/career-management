@@ -150,6 +150,21 @@ export const settingsSchema = z.looseObject({
 
   /** Page target for the CV preset. Interview preparation has none (D35, D40). */
   targetPages: z.number().int().min(1).max(10),
+
+  /**
+   * How the document is laid out: compressed, or expanded.
+   *
+   * Optional because a document written before this existed has no value for it, and
+   * it must keep parsing — an absent value means compressed, which is what those
+   * documents already looked like. Making it required would refuse every document
+   * anyone already has.
+   *
+   * `density` is the other half of this and a different axis: density is how tight
+   * the type is set, this is whether a role is given room to breathe when it has
+   * achievements to show. The first step towards letting a user build their own
+   * template, which is why it is a document property rather than a view setting.
+   */
+  format: z.enum(['compressed', 'expanded']).optional(),
 })
 
 export type Profile = z.infer<typeof profileSchema>

@@ -255,5 +255,6 @@ export function defaultSettings(now: Date) {
     fontSizePt: 10,
     density: 'normal' as const,
     targetPages: 1,
+    format: 'compressed' as const,
   }
 }

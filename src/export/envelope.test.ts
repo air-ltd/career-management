@@ -46,6 +46,40 @@ function envelopeOf(snapshot: Snapshot): RawEnvelope {
 }
 
 describe('parseEnvelope', () => {
+  it('keeps a settings row written before the format setting existed', () => {
+    /*
+     * `format` was added after documents were already in circulation, and a document
+     * without it has to keep working. Required, `narrowTables` would reject the
+     * settings row — and a rejected settings row takes the page size, the type size
+     * and the profile with it, for a setting that only decides spacing.
+     *
+     * Checked here rather than through `parseEnvelope` because that is the layer
+     * that decides: it validates `id` and leaves every other field alone. The
+     * per-record schemas, this one included, are applied by `narrowTables`.
+     */
+    const settings = {
+      id: 'settings',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      deletedAt: null,
+      activeProfileId: null,
+      pageSize: 'A4',
+      fontSizePt: 10,
+      density: 'normal',
+      targetPages: 1,
+      // No `format`. That absence is the entire point.
+    }
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, settings: [settings] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.settings).toHaveLength(1)
+    const kept = entities.settings[0] as Record<string, unknown> | undefined
+    expect(kept?.['format']).toBeUndefined()
+    expect(kept?.['pageSize']).toBe('A4')
+  })
+
   it('round-trips a document this build wrote', () => {
     const snapshot = snapshotOf([job('a'), job('b', { deletedAt: AT(5) })])
     const result = parseEnvelope(envelopeOf(snapshot), 1)

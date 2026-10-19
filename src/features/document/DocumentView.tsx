@@ -22,7 +22,7 @@ export function DocumentView({ model }: { model: DocumentModel }) {
 
   return (
     <div
-      className={`doc doc-density-${model.settings.density}`}
+      className={`doc doc-density-${model.settings.density} doc-format-${model.settings.format ?? 'compressed'}`}
       // The measurement width, in points. `getComputedStyle` then reads it back
       // as pixels, which is how the fit report converts to the page box without
       // assuming a viewport.

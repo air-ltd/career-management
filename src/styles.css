@@ -1011,6 +1011,18 @@ code {
   padding-left: 1.3rem;
 }
 
+/*
+ * Expanded: one blank line after a role's achievements.
+ *
+ * The margin is on the list itself rather than on the job, so a role with no
+ * achievements does not get one: there is no list, so there is nothing to put space
+ * under. That is the whole of the difference between the two formats — the same
+ * rule, and a role without bullets is simply not affected by it.
+ */
+.doc-format-expanded .doc-achievements {
+  margin-bottom: 1em;
+}
+
 .doc-achievement {
   /*
    * Single-spaced within a bullet.

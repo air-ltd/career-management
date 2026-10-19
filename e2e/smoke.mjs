@@ -2009,6 +2009,60 @@ async function main() {
     await go(page, origin, '/sync')
     await page.locator('.sync-page').waitFor()
     check('the sync page renders', (await page.locator('.sync-page').count()) === 1)
+
+    /*
+     * Compressed and expanded differ by exactly one thing: a blank line under a
+     * role's achievements. Measured on the gap under the list, because that is the
+     * only difference between the two formats.
+     */
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    const achievementGap = async () =>
+      page.evaluate(() => {
+        const list = document.querySelector('.doc-achievements')
+        return {
+          bottom: list === null ? null : parseFloat(getComputedStyle(list).marginBottom),
+          // A role with no achievements has no list, so there is nothing to space.
+          lists: document.querySelectorAll('.doc-achievements').length,
+          jobs: document.querySelectorAll('.doc-job').length,
+        }
+      })
+    const compressed = await achievementGap()
+    await go(page, origin, '/settings')
+    await page.getByLabel('Format', { exact: true }).selectOption('expanded')
+    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
+    await page.getByText('Saved.', { exact: true }).waitFor()
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    await page.waitForTimeout(300)
+    const expanded = await achievementGap()
+
+    check(
+      'compressed is the default, with no space under the achievements',
+      compressed.bottom !== null && compressed.bottom <= 4,
+      JSON.stringify(compressed),
+    )
+    check(
+      'expanded puts about a line of space under the achievements',
+      expanded.bottom !== null &&
+        expanded.bottom > 12 &&
+        expanded.bottom < 24 &&
+        expanded.lists === compressed.lists &&
+        expanded.jobs === compressed.jobs,
+      `compressed ${JSON.stringify(compressed)} / expanded ${JSON.stringify(expanded)}`,
+    )
+    check(
+      'a role with no achievements gets no blank line, because there is no list under it',
+      compressed.jobs > compressed.lists,
+      `${compressed.jobs} jobs, ${compressed.lists} with achievements`,
+    )
+    await go(page, origin, '/settings')
+    await page.getByLabel('Format', { exact: true }).selectOption('compressed')
+    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
+    await page.getByText('Saved.', { exact: true }).waitFor()
+    await go(page, origin, '/sync')
+    await page.locator('.sync-page').waitFor()
+
     check(
       'an unconnected app offers Connect',
       (await page.getByRole('button', { name: 'Connect to Dropbox' }).count()) === 1,

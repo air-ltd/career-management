@@ -126,6 +126,25 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
         </div>
 
         <div className="field">
+          <label htmlFor="format">Format</label>
+          <select
+            id="format"
+            value={settings.format ?? 'compressed'}
+            onChange={(event) => {
+              update({ format: event.target.value as NonNullable<Settings['format']> })
+            }}
+          >
+            <option value="compressed">Compressed</option>
+            <option value="expanded">Expanded</option>
+          </select>
+          <p className="field-hint">
+            Expanded puts a blank line under a role's achievements. A role with no achievements
+            is unchanged either way. The first step towards being able to build your own
+            template.
+          </p>
+        </div>
+
+        <div className="field">
           <label htmlFor="density">Spacing</label>
           <select
             id="density"
