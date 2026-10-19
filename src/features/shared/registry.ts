@@ -130,8 +130,10 @@ export const jobs: EntityDefinition = {
   singular: 'Job',
   plural: 'Jobs',
   table: 'jobs',
-  listPath: '/jobs',
-  newPath: '/jobs/new',
+  // As for achievements, awards and education: the all-in-one editor is where jobs
+  // are created and listed, so there is no jobs list to return to and no standalone
+  // form to go to. The per-record edit route stays, for the same reason theirs do.
+  listPath: '/',
   editPath: (id) => `/jobs/${id}/edit`,
   fields: () => [
     {

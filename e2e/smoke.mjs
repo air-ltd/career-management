@@ -251,8 +251,8 @@ async function main() {
 
     check(
       'a job can be created',
-      await createAndConfirm(page, origin, {
-        path: '/jobs',
+      await createInEditor(page, origin, {
+        section: 'Work history',
         label: 'job',
         expect: 'Acme',
         fields: {
@@ -343,10 +343,11 @@ async function main() {
     // A reload is the real test of the storage layer: anything held only in
     // component state is gone at this point.
     await page.reload({ waitUntil: 'networkidle' })
-    await go(page, origin, '/jobs')
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
     check(
       'records survive a reload',
-      (await page.locator('.record-row').filter({ hasText: 'Acme' }).count()) > 0,
+      (await page.locator('.inline-row').filter({ hasText: 'Acme' }).count()) > 0,
     )
 
     // --------------------------------------------------------------- document
@@ -403,8 +404,8 @@ async function main() {
     // Back to screen media to do it: the stylesheet hides every button when
     // printing, so the form's Save cannot be clicked from under emulated print.
     await page.emulateMedia({ media: 'screen' })
-    await createAndConfirm(page, origin, {
-      path: '/jobs',
+    await createInEditor(page, origin, {
+      section: 'Work history',
       label: 'job',
       expect: 'Globex',
       fields: {
@@ -516,10 +517,14 @@ async function main() {
 
     // The ink of the document's structure, against its body text.
     const luminance = (rgb) => {
-      const [r, g, b] = rgb.match(/\d+/g).slice(0, 3).map(Number).map((v) => {
-        const c = v / 255
-        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-      })
+      const [r, g, b] = rgb
+        .match(/\d+/g)
+        .slice(0, 3)
+        .map(Number)
+        .map((v) => {
+          const c = v / 255
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+        })
       return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 
@@ -553,8 +558,7 @@ async function main() {
      */
     check(
       'the body text is measurably lighter than the headings',
-      ink.body !== null &&
-        luminance(ink.body) > luminance('rgb(0, 0, 0)') + 0.004,
+      ink.body !== null && luminance(ink.body) > luminance('rgb(0, 0, 0)') + 0.004,
       `${ink.body}`,
     )
 
@@ -705,19 +709,21 @@ async function main() {
     )
 
     // ---------------------------------------------------------------- editing
-    await go(page, origin, '/jobs')
+    // On the profiles list: jobs have no list of their own any more, and this is
+    // about the list-to-edit-route path, not about jobs.
+    await go(page, origin, '/profiles')
     // Scoped to the record row: the navigation contains links whose names also
     // begin "Edit", and DOM order would pick one of those instead of this one.
     await page
       .locator('.record-row')
-      .filter({ hasText: 'Acme' })
+      .filter({ hasText: 'Domestic' })
       .first()
       .getByRole('link', { name: /^Edit / })
       .click()
-    await page.getByRole('heading', { name: 'Edit job' }).waitFor()
-    await fill(page, 'Job title', 'Staff Engineer')
+    await page.getByRole('heading', { name: 'Edit profile' }).waitFor()
+    await fill(page, 'Email', 'edited@example.com')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
-    const edited = page.locator('.record-row').filter({ hasText: 'Staff Engineer' }).first()
+    const edited = page.locator('.record-row').filter({ hasText: 'edited@example.com' }).first()
     const editedOk = await edited.waitFor({ timeout: 10000 }).then(
       () => true,
       () => false,
@@ -725,7 +731,7 @@ async function main() {
     check('an existing record can be edited', editedOk)
 
     // ------------------------------------------------------------ validation
-    await go(page, origin, '/jobs/new')
+    await go(page, origin, '/profiles/new')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     check(
       'a required field blocks saving and says why',
@@ -1168,9 +1174,10 @@ async function main() {
     // ----------------------------------------------------------------- delete
     // After the all-in-one checks, which need this job alive: deleted records are
     // no longer listed there by default.
-    await go(page, origin, '/jobs')
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
     await page
-      .locator('.record-row')
+      .locator('.inline-row')
       .filter({ hasText: 'Principal Engineer' })
       .first()
       .getByRole('button', { name: /Delete/ })
@@ -1179,7 +1186,7 @@ async function main() {
     // an immediate count is taken before React re-renders and would pass against
     // a delete that never happened.
     const goneFromList = await page
-      .locator('.record-row')
+      .locator('.inline-row')
       .filter({ hasText: 'Principal Engineer' })
       .first()
       .waitFor({ state: 'detached', timeout: 10000 })
@@ -1187,7 +1194,7 @@ async function main() {
         () => true,
         () => false,
       )
-    check('a deleted record leaves the list', goneFromList)
+    check('a deleted record leaves the editor', goneFromList)
 
     const undoShown = await page
       .locator('.undo-bar')
@@ -1198,9 +1205,9 @@ async function main() {
       )
     check('deleting offers an undo rather than vanishing silently', undoShown)
 
-    await page.getByLabel('Show deleted').check()
+    await page.getByLabel('Deleted records').check()
     const stillFindable = await page
-      .locator('.record-row.is-deleted')
+      .locator('.inline-row.is-deleted')
       .filter({ hasText: 'Principal Engineer' })
       .first()
       .waitFor({ timeout: 10000 })
@@ -1284,14 +1291,18 @@ async function main() {
     // The job story belongs between the responsibilities and the achievements.
     // A job of its own, so the check does not depend on what earlier steps left
     // behind or on how much of it was edited.
-    await go(page, origin, '/jobs/new')
-    await fill(page, 'Company', 'Storycheck')
-    await fill(page, 'Job title', 'Role')
-    await fill(page, 'Start date', '2019-01-01')
-    await fill(page, 'Responsibilities', 'RESPONSIBILITIES_TEXT')
-    await fill(page, 'Story', 'JOB_STORY_TEXT')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page.locator('.record-row').filter({ hasText: 'Storycheck' }).first().waitFor()
+    await createInEditor(page, origin, {
+      section: 'Work history',
+      label: 'job',
+      expect: 'Storycheck',
+      fields: {
+        Company: 'Storycheck',
+        'Job title': 'Role',
+        'Start date': '2019-01-01',
+        Responsibilities: 'RESPONSIBILITIES_TEXT',
+        Story: 'JOB_STORY_TEXT',
+      },
+    })
 
     check(
       'an achievement can be added from the editor',
@@ -1412,9 +1423,9 @@ async function main() {
     // a route that 404s with a "back to the start" is the honest answer, not a
     // silent empty list.
     check(
-      'the navigation offers Jobs and the questions, and nothing else',
+      'the navigation offers the work history and the questions, and nothing else',
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()) ===
-        JSON.stringify(['Jobs', 'Questions']),
+        JSON.stringify(['Work history', 'Questions']),
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()),
     )
     /*
@@ -1446,21 +1457,36 @@ async function main() {
         return Math.abs(header.right - controls.right) < 1 && controls.left > header.width / 2
       }),
     )
-    for (const removed of ['/achievements', '/awards', '/education']) {
+    // The point of retiring the jobs list: work history is edited on the edit-all
+    // page, so the list route has to actually be gone rather than merely unlinked.
+    for (const removed of ['/jobs', '/jobs/new', '/achievements', '/awards', '/education']) {
       await go(page, origin, removed)
       check(
         `the ${removed} list page is gone`,
-        (await page.locator('.app-main').innerText()).includes('Nothing is routed at'),
+        (await page.locator('.record-row').count()) === 0 &&
+          (await page.getByText('Nothing is routed at').count()) === 1,
+        await page
+          .locator('.app-main')
+          .innerText()
+          .catch(() => ''),
       )
     }
-
+    // And the nav entry that replaced it has to arrive somewhere.
+    await go(page, origin, '/')
+    await page.locator('.app-nav a').filter({ hasText: 'Work history' }).click()
+    await page.locator('.all-in-one').waitFor()
+    check(
+      'the Work history link opens the edit-all page',
+      (await page.locator('.inline-section h2').allInnerTexts()).includes('Work history'),
+    )
     // Delete and undo from the editor (U5). The same behaviour as the list views:
     // a delete that cannot be taken back is how a tombstone becomes data loss.
-    await go(page, origin, '/jobs/new')
-    await page.getByLabel('Company', { exact: true }).fill('Deletable Co')
-    await page.getByLabel('Start date', { exact: true }).fill('2020-01-01')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page.locator('.record-row').first().waitFor()
+    await createInEditor(page, origin, {
+      section: 'Work history',
+      label: 'job',
+      expect: 'Deletable Co',
+      fields: { Company: 'Deletable Co', 'Start date': '2020-01-01' },
+    })
 
     await go(page, origin, '/')
     const deletable = () =>
@@ -1760,9 +1786,10 @@ async function main() {
     // A record shown because "include deleted records" is on has to look like one:
     // a page of them that looks like live records reads as the current state of a
     // career rather than a record of what was removed.
-    await go(page, origin, '/jobs')
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
     await page
-      .locator('.record-row')
+      .locator('.inline-row')
       .filter({ hasText: 'Storycheck' })
       .first()
       .getByRole('button', { name: /Delete/i })
@@ -1824,15 +1851,17 @@ async function main() {
 
     // The edit-all page's toggles have to change what it prints, not merely exist:
     // it claims to print the document, and the document is what these control.
-    await go(page, origin, '/jobs/new')
-    await page.getByLabel('Company', { exact: true }).fill('Toggle Co')
-    await page.getByLabel('Job title', { exact: true }).fill('Toggle Role')
-    await page.getByLabel('Start date', { exact: true }).fill('2020-01-01')
-    await page
-      .getByLabel('Story', { exact: true })
-      .fill('A distinctive story that the preset leaves out.')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page.locator('.record-row').first().waitFor()
+    await createInEditor(page, origin, {
+      section: 'Work history',
+      label: 'job',
+      expect: 'Toggle Co',
+      fields: {
+        Company: 'Toggle Co',
+        'Job title': 'Toggle Role',
+        'Start date': '2020-01-01',
+        Story: 'A distinctive story that the preset leaves out.',
+      },
+    })
 
     // Awards and education had no preview at all, so their stories could not
     // appear whatever the toggle said.
@@ -1976,15 +2005,15 @@ async function main() {
     )
 
     // Tombstones were always listed, so Show deleted could not change anything.
-    await go(page, origin, '/jobs')
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
     await page
-      .locator('.record-row')
+      .locator('.inline-row')
       .filter({ hasText: 'Toggle Co' })
       .first()
       .getByRole('button', { name: /Delete/i })
       .click()
     await page.waitForTimeout(500)
-    await go(page, origin, '/')
     await page.locator('.all-in-one').waitFor()
     const paneHas = async () =>
       (await page.locator('.all-in-one-content').innerText()).includes('Toggle Co')

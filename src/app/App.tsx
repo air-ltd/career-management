@@ -32,8 +32,9 @@ const ROUTES: readonly Route[] = [
   { path: '/profiles' },
   { path: '/profiles/new' },
   { path: '/profiles/:id/edit' },
-  { path: '/jobs' },
-  { path: '/jobs/new' },
+  // Jobs have no list or "new" route, for the same reason achievements, awards and
+  // education have none: they are created and listed in the edit-all page, which
+  // the header reaches as "Work history". The per-record edit route stays.
   { path: '/jobs/:id/edit' },
   // Achievements, awards and education have no list or "new" route. They are
   // created and edited from the all-in-one editor, which is the primary editing
@@ -73,7 +74,7 @@ const ROUTES: readonly Route[] = [
  * editor's fit report links into them.
  */
 const SECTIONS = [
-  { href: '/jobs', label: 'Jobs' },
+  { href: '/', label: 'Work history' },
   { href: '/interview', label: 'Questions' },
 ] as const
 
@@ -142,7 +143,11 @@ export function App() {
                 <li key={section.href}>
                   <a
                     href={`#${section.href}`}
-                    aria-current={path.startsWith(section.href) ? 'page' : undefined}
+                    aria-current={
+                      (section.href === '/' ? path === '/' : path.startsWith(section.href))
+                        ? 'page'
+                        : undefined
+                    }
                   >
                     {section.label}
                   </a>
@@ -249,7 +254,6 @@ const LIST_ROUTES: Record<
   Parameters<typeof RegistryList>[0]['registryKey'] | undefined
 > = {
   '/profiles': 'profiles',
-  '/jobs': 'jobs',
   '/questions': 'questionCategories',
   '/questions/all': 'questions',
 }
@@ -259,7 +263,6 @@ const NEW_ROUTES: Record<
   Parameters<typeof RegistryEdit>[0]['registryKey'] | undefined
 > = {
   '/profiles/new': 'profiles',
-  '/jobs/new': 'jobs',
   '/questions/new': 'questionCategories',
   '/questions/all/new': 'questions',
 }
