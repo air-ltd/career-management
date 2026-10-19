@@ -1344,7 +1344,7 @@ async function main() {
       await page.evaluate(() => {
         const active = document.activeElement
         return (
-          active instanceof HTMLElement &&
+          active !== null &&
           active.closest('.inline-row-actions') !== null &&
           active.textContent?.trim() === 'Edit'
         )
