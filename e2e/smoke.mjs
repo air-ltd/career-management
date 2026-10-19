@@ -1279,6 +1279,48 @@ async function main() {
         editorRows: doc.querySelectorAll('.record-row').length,
       }
     })
+    /*
+     * The two print buttons must produce the same page.
+     *
+     * Compared as text, all of it, rather than by the presence of particular
+     * elements: an earlier version of this area checked that the editor's records
+     * were absent, which passed while the print still carried a stray search box and
+     * a list of sort orders, because those are not records. The reported symptom was
+     * "extra artifacts at the end of the document" and this is the check that would
+     * have caught it.
+     *
+     * The comparison is what makes the stylesheet rule maintainable. `display: none`
+     * on a hand-picked list of editor classes loses to the next control anyone adds;
+     * comparing what actually prints does not, because anything new that leaks shows
+     * up here rather than in someone's PDF.
+     */
+    const printTextOf = async (route) => {
+      await go(page, origin, route)
+      await page.emulateMedia({ media: 'print' })
+      const text = await page.locator('body').innerText()
+      await page.emulateMedia({ media: 'screen' })
+      return text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+    }
+    const printedFromDocument = await printTextOf('/document')
+    const printedFromEditAll = await printTextOf('/')
+    const firstDifference = printedFromDocument.find(
+      (line, index) => line !== printedFromEditAll[index],
+    )
+    check(
+      'printing from the work history page gives the same document as printing from the document page',
+      JSON.stringify(printedFromEditAll) === JSON.stringify(printedFromDocument),
+      firstDifference === undefined
+        ? `${printedFromDocument.length} lines each`
+        : `first difference: document has ${JSON.stringify(firstDifference)}, work history has ${JSON.stringify(
+            printedFromEditAll[printedFromDocument.indexOf(firstDifference)],
+          )}`,
+    )
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+
     check(
       'the printed output is the formatted document',
       printed.hasHeader && printed.sections > 0 && printed.editorRows === 0,

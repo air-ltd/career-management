@@ -1533,6 +1533,24 @@ code {
     display: none;
   }
 
+  /*
+   * The editor, gone entirely.
+   *
+   * Hiding `.inline-section` on its own was not enough: the search and order controls
+   * and the link to the questions page sit outside the sections, so a print from this
+   * page came out as the document followed by a stray search box, a list of sort
+   * orders and an arrow — the "extra artifacts at the end" that started this.
+   *
+   * So it hides the container rather than naming what is inside it. That is the same
+   * reasoning as the controls list further down, and it is the only version of this
+   * rule that a future control cannot defeat by existing: everything the editor shows
+   * is inside `.all-in-one-content`, and everything the document shows is inside
+   * `.all-in-one-print`, which is the only thing being printed.
+   */
+  .all-in-one-content {
+    display: none;
+  }
+
   body {
     background: #fff;
     color: #000;
