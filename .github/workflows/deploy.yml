@@ -1,0 +1,144 @@
+name: Deploy
+
+# Every push and pull request to main runs the full gate. Deployment runs only
+# from main, and only after that gate passes (DEP3).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only by default. The Pages deployment needs more, so it is scoped to the
+# deploy job only rather than widened repository-wide.
+permissions:
+  contents: read
+
+concurrency:
+  # One deploy at a time. A superseded Pages deployment failing is noise.
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Must match .nvmrc, package.json#engines and the devcontainer feature.
+          node-version-file: '.nvmrc'
+          # Install from the committed lockfile, so CI builds what was tested
+          # rather than whatever the registry serves today.
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check citations
+        run: npm run check:citations
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      # Both of these read the built bundle, so they have to follow it.
+      - name: Check for bundled secrets
+        run: npm run check:secrets
+
+      - name: Check the bundle names no host beyond Dropbox (SEC1)
+        run: npm run check:silent
+
+  smoke:
+    name: Browser smoke test
+    runs-on: ubuntu-latest
+    # Blocking. A real browser catches what jsdom cannot — notably a wrong base
+    # path producing a blank page behind a completely green build, which is exactly
+    # how this project's first deploy failed. This was non-blocking while the suite
+    # was finding its feet, and is not any more: it runs against the built bundle,
+    # so it is the only check here that sees what actually gets deployed.
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Serve and check
+        run: npm run test:e2e
+
+      - name: Accessibility
+        run: npm run test:a11y
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [verify, smoke]
+    # Only from a push to main. Without this the job ran on pull requests too, and
+    # every one of them showed a red X from a deploy nobody asked for.
+    #
+    # Both halves stated rather than inferred. `github.event_name == 'push'` on its
+    # own means "any push this workflow listens for", which happens to be main only
+    # today — and would quietly stop meaning that the day a second branch is added
+    # to the trigger. Naming the ref is what actually encodes "from main".
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -1,0 +1,1637 @@
+/*
+ * One stylesheet for the editor and the document (D11).
+ *
+ * The document classes are prefixed `doc-` rather than being a separate
+ * template tree, so the export and the editor cannot drift apart — which is the
+ * failure the legacy app's parallel `*_cmd` class family was always one edit away
+ * from.
+ *
+ * Colours are defined once as custom properties and re-declared for the dark
+ * theme, so a token is never written twice (D14).
+ */
+
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --text: #1a1a18;
+  --text-muted: #5c5c56;
+  --border: #dcdcd4;
+  --accent: #2563eb;
+  --accent-text: #ffffff;
+  --danger: #b42318;
+  --warning-bg: #fff4e5;
+  --warning-border: #f0b429;
+  /* Readable as text; see `.log-warn`. */
+  --warning-text: #7a4d00;
+  /*
+   * The document's three levels of ink, in place of one body colour.
+   *
+   * A single body colour cannot make a document read as a page: the eye needs the
+   * structure to be louder than the prose it scans past. `--doc-heading-ink` and
+   * `--doc-job-ink` are the two structural levels, `--doc-body-ink` everything else.
+   *
+   * `--doc-body-ink` is *darker* than `--text`, which was chosen for the editor's
+   * controls rather than for paper. Darker rather than black, because black is
+   * reserved for the two structural levels and giving the body the same ink would
+   * flatten the very distinction the other two exist to draw.
+   *
+   * Set darker than `--text` and then pulled back a step: the first darker value
+   * (`#101010`) read as a correction too far, because at these levels a few counts
+   * either way is most of the distance to black. Lighter than that, darker than
+   * `--text`, and still clearly not black.
+   *
+   * Declared per theme rather than once, because black on black is invisible.
+   */
+  --doc-heading-ink: #000;
+  --doc-job-ink: #000;
+  --doc-body-ink: #444440;
+  --doc-date-column: 18ch;
+  --radius: 6px;
+  --gap: 1rem;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /*
+   * The document's typeface, which is not the application's.
+   *
+   * Times New Roman because that is what the document is *of*: a CV in this face is
+   * the ordinary thing, it is what the legacy tool produced, and it is narrow enough
+   * to hold a whole achievement on one line. The app's own interface keeps the sans
+   * stack above, because a UI wants to read as a UI.
+   *
+   * The stack after it is what happens on a machine without Times. `Liberation Serif`
+   * is metric-compatible with Times — same advance widths for every glyph — so a
+   * Linux or CI machine lays the document out to the same measurements as one with
+   * the real thing, which is what makes a printed page reproducible across machines.
+   * `serif` last is the safety net, and the only part that is allowed to differ.
+   *
+   * Set on `.doc` rather than on print, so the preview on screen is the page that
+   * comes out. A preview that used one face and the print another would make the
+   * wrapping on screen a lie.
+   */
+  --font-doc:
+    'Times New Roman', Times, 'Liberation Serif', 'Nimbus Roman', 'DejaVu Serif', serif;
+}
+
+[data-theme='dark'] {
+  --bg: #16161a;
+  --surface: #1f1f24;
+  --surface-2: #2a2a31;
+  --text: #ececee;
+  --text-muted: #a2a2ac;
+  --border: #3a3a43;
+  --accent: #5b8dff;
+  --accent-text: #0b0b0d;
+  --danger: #f97066;
+  --warning-bg: #3a2d10;
+  --warning-border: #f0b429;
+  --warning-text: #f0b429;
+  /*
+   * The same three levels, inverted. The structural inks go to pure white so they
+   * still lead, and the body takes the theme's own text colour — already close
+   * enough to white that there is no room above it to climb into without going flat.
+   */
+  --doc-heading-ink: #fff;
+  --doc-job-ink: #fff;
+  --doc-body-ink: #ececee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--surface-2);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.app {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap);
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.app-home {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Non-production says so, in the title, where it cannot be missed (SY33). */
+.env-badge {
+  margin-left: 0.4rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--warning-border);
+  color: #1a1a18;
+  vertical-align: middle;
+}
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+}
+
+.app-nav a {
+  text-decoration: none;
+  padding: 0.15rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+/*
+ * A nav-styled link outside the nav itself: the Document page is a destination
+ * like the ones the nav lists, so it is styled like them rather than as an action
+ * button. `app-nav-link` rather than a duplicate of `.app-nav a`, because the nav
+ * entries are generated from one list and this one sits in the controls.
+ */
+.app-nav-link {
+  text-decoration: none;
+  padding: 0.15rem 0;
+  border-bottom: 2px solid transparent;
+  color: inherit;
+}
+
+.app-nav-link[aria-current='page'] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/*
+ * `aria-current` rather than a class, so the visual state and the accessible one
+ * cannot come from different places.
+ */
+.app-nav a[aria-current='page'] {
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.app-header-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  /*
+   * Pushed to the far end of the header rather than sitting beside the nav.
+   *
+   * `margin-left: auto` takes the free space, so the controls hold the right edge
+   * whatever the nav contains. With them in flow instead, adding a nav entry would
+   * have dragged the Document and Settings buttons along with it — the header's
+   * width is not ours to spend.
+   */
+  margin-left: auto;
+}
+
+.app-main {
+  padding-bottom: 4rem;
+}
+
+/* ----------------------------------------------------------------- controls */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/*
+ * A button that is only an icon.
+ *
+ * Square, because the padding around a one-character label is sized for that
+ * character and a gear in it looks like a mistake. The accessible name comes from
+ * the link's `aria-label`, so the button still announces "Settings" — the icon is
+ * `aria-hidden` and is not what a screen reader reads.
+ */
+.button-icon {
+  padding: 0.35rem;
+}
+
+.button:hover {
+  background: var(--surface-2);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.button-primary:hover {
+  filter: brightness(1.1);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.icon {
+  flex: 0 0 auto;
+}
+
+/* -------------------------------------------------------------------- forms */
+
+.field {
+  margin-bottom: 1rem;
+  max-width: 40rem;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.field input[type='text'],
+.field input[type='search'],
+.field input[type='date'],
+.field input[type='number'],
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-checkbox label {
+  margin: 0;
+  font-weight: 400;
+}
+
+.record-form {
+  max-width: 44rem;
+}
+
+.form-error {
+  border: 1px solid var(--danger);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  margin: 1rem 0;
+  color: var(--danger);
+}
+
+.form-error ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+/* -------------------------------------------------------------------- lists */
+
+/*
+ * The search and order controls, under the list's own heading and buttons.
+ *
+ * A separate row rather than inside `.button-row` because they are not actions on
+ * the list — they are a lens on it. Putting them with "Add job" and "Show deleted"
+ * made the three read as one kind of thing, and only one of the three is a button.
+ */
+.record-list-tools {
+  display: flex;
+  gap: var(--gap);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.record-list-tools .field {
+  margin-bottom: 0;
+}
+
+/* The search box grows; the order select stays its own size, because its longest
+   label is what sets its width and stretching it to match the search box looks
+   like there is more to it. */
+.record-list-tools .field:first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.record-list-tools .field:last-child {
+  flex: 0 1 12rem;
+}
+
+.record-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.record-list-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.show-deleted {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.record-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1rem;
+  align-items: start;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.record-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.record-row-heading {
+  font-weight: 600;
+}
+
+.record-row-detail {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.record-row-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.record-row-children {
+  grid-column: 1 / -1;
+}
+
+/*
+ * A deleted record is struck through and dimmed, rather than hidden. The legacy
+ * app's `obsolete` checkbox hid records with no way to find them again; a record
+ * that has simply vanished is indistinguishable from one that was never saved.
+ */
+.is-deleted .record-row-heading {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.is-deleted .record-row-detail {
+  opacity: 0.65;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+.badge-ok {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+[data-theme='dark'] .badge-ok {
+  background: #14351f;
+  color: #86efac;
+}
+
+.undo-bar {
+  position: sticky;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  margin-top: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+}
+
+/* -------------------------------------------------------------------- panels */
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.25rem;
+}
+
+.panel h3 {
+  margin-top: 0;
+}
+
+.section-cards {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+
+.section-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+}
+
+.section-card:hover {
+  border-color: var(--accent);
+}
+
+.section-card-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.hint {
+  color: var(--text-muted);
+}
+
+.env-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* ------------------------------------------------------------- all in one */
+/*
+ * The single-page editor. Disclosure-based rather than always-open: one button
+ * per row is what you would have drawn anyway, whereas the legacy app's always-
+ * rendered forms meant a CV with thirty achievements shipped thirty forms.
+ */
+
+/* The editor, in the second column of the same grid the document page uses. */
+.all-in-one > .inline-section:first-of-type {
+  margin-top: 0;
+}
+
+/*
+ * The document, for printing only.
+ *
+ * Hidden on screen because the user is here to edit, not to read the document,
+ * and printing it would be a second copy of the document page below the button.
+ * Revealed when printing, in place of the editor, so the Print button on this
+ * page produces the same document as the one on the document page rather than a
+ * printout of the editor.
+ */
+.all-in-one-print {
+  display: none;
+}
+
+.inline-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
+}
+
+.inline-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.35rem;
+}
+
+.inline-section-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.inline-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.inline-row-group + .inline-row-group {
+  border-top: 1px solid var(--border);
+}
+
+.inline-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+.inline-row-actions {
+  display: flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  flex: 0 0 auto;
+}
+
+/*
+ * The body text under a heading, so the record can be read without opening it.
+ *
+ * Clamped rather than truncated in script: the full text is still stored and
+ * still printed, and only the display is shortened (D31 — no text is cut to
+ * achieve a layout).
+ */
+.inline-row-preview {
+  margin: 0 0 0.2rem 1.35rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  /* Not the `-webkit-box` clamp used elsewhere: the preview holds one block per
+     paragraph, and clamping a box of blocks cuts the story off mid-sentence
+     while claiming the job's responsibilities are complete. Two lines is the
+     right limit, and a block count is the only honest way to count them. */
+  display: block;
+  max-height: 3.1em;
+  overflow: hidden;
+}
+
+.inline-row-preview p {
+  margin: 0;
+}
+
+.inline-row-preview p + p {
+  margin-top: 0.15rem;
+}
+
+/*
+ * A story in the pane, styled the way a story is styled in the document
+ * (`.doc-story`).
+ *
+ * Italic and quieter, and the same in both places on purpose: the pane is where
+ * you read what you are about to send, and a story that is italic in the PDF and
+ * upright on the screen invites you to misread the screen.
+ */
+.inline-row-story {
+  font-style: italic;
+}
+
+.inline-row-toggle {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  background: none;
+  border: 0;
+  padding: 0.2rem 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.inline-row-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.inline-row-heading {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.inline-row-detail {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* The chevron sits with the text baseline rather than vertically centred, which
+   is what a text row needs. */
+.inline-row-toggle svg {
+  align-self: center;
+  transition: transform 120ms ease;
+  color: var(--text-muted);
+}
+
+.inline-row-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.is-deleted .inline-row-heading {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.inline-editor {
+  border-left: 3px solid var(--accent);
+  padding: 0.25rem 0 0.25rem 0.9rem;
+  margin: 0.35rem 0 0.6rem;
+}
+
+/* The compact variant, used by the single-page editor's row controls. */
+.button-small {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.78rem;
+}
+
+.inline-editor .record-form h2 {
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.saved-note {
+  margin-top: -0.5rem;
+}
+
+/* Nested records are indented, because the parent is what gives them meaning:
+   an achievement with no job cannot be displayed anywhere. */
+.inline-children {
+  margin: 0 0 0.35rem 1.4rem;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--border);
+}
+
+.inline-children-empty {
+  margin: 0.15rem 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------- document */
+/*
+ * The document classes (D11). One stylesheet for the editor and the document,
+ * so the export and the editor cannot drift apart — which is the failure the
+ * legacy app's parallel `*_cmd` class family was always one edit away from.
+ *
+ * Type size and spacing come from the document settings, applied as custom
+ * properties on `.doc` so a change in Settings re-lays out the whole document
+ * without a class per size.
+ */
+
+.doc {
+  font-family: var(--font-doc);
+  background: var(--surface);
+  color: var(--doc-body-ink);
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  line-height: 1.45;
+}
+/*
+ * The ink for the document's own headings: the name at the top, and the section
+ * titles beneath it.
+ *
+ * The same pure black as the job header line, for the same reason. These are the
+ * two places the eye turns first, and `--text` — a soft near-black chosen for the
+ * editor — is softer still on paper, which made the structure of the document
+ * legible on screen and mushy in the hand.
+ */
+.doc-header {
+  /*
+   * A tight gap under the rule.
+   *
+   * The header used to sit a full line above the section that followed it, and
+   * the section then added its own margin on top — so the name was a line away
+   * from the first job for no reason. The rule under the name is enough of a
+   * boundary; the air beneath it was just air.
+   */
+  border-bottom: 2px solid var(--text);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.doc-title {
+  margin: 0;
+  font-size: 1.5em;
+  line-height: 1.2;
+  color: var(--doc-heading-ink);
+}
+
+.doc-contact {
+  /*
+   * No colour of its own, on purpose: it inherits `--doc-body-ink` from `.doc`,
+   * which is exactly what the achievements do, and that is the requirement — the
+   * contact details read as body text rather than as a caption under the name.
+   *
+   * Set to `--text-muted` when it was a caption. Naming a token here would have
+   * looked tidier and would have been a second place to update the next time the
+   * body's ink moves, which is how the three levels of document ink drifted apart
+   * in the first place. Inheriting cannot drift.
+   */
+  margin: 0.25rem 0 0;
+  font-size: 0.9em;
+}
+
+.doc-section {
+  margin-top: 1.25rem;
+}
+
+/*
+ * The section that follows the header directly.
+ *
+ * No top margin: the header's own bottom margin is the gap, and the section
+ * adding a second one is what put the first job a line below the name.
+ */
+.doc-section-work {
+  margin-top: 0;
+}
+
+.doc-section-title {
+  font-size: 1.15em;
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+  /* Darker than the body, so a section announces itself as one. */
+  color: var(--doc-heading-ink);
+}
+
+.doc-job {
+  /*
+   * No rule, no margin, no gap between jobs.
+   *
+   * A hairline between the two was tried and then removed again: the header line is
+   * already bold, at the same size as everything else, and leads with the date
+   * range, so it announces itself without a rule above it. The rule was furniture
+   * between roles that the typography already separates.
+   *
+   * So nothing but typography separates one job from the next — which is the same
+   * thing that separates a heading from body text everywhere else in the document.
+   */
+  margin-bottom: 0;
+}
+/*
+ * `<dates>  <company>: <job title>` on one line, dates in a leading column.
+ *
+ * The fixed width is the point: it is what lines the company names up. Sized to
+ * the longest range the format can produce ("Jan 2020 - present" and
+ * "Jan 2024 - Feb 2024"), in `ch` so it tracks the type size rather than being
+ * a magic pixel count that stops fitting when the size changes.
+ */
+.doc-job-head {
+  display: flex;
+  align-items: baseline;
+  /*
+   * A narrow gap. The dates already sit in a fixed column so every row's company
+   * starts in the same place, and a wide gap on top of that reads as two separate
+   * fields rather than as one line reading "when, at whom, doing what".
+   */
+  gap: 0.25em;
+}
+
+.doc-job-title {
+  margin: 0;
+  /*
+   * The same size as the body text below it, and bold.
+   *
+   * Not a size up. A heading a point larger than the prose reads as a heading to
+   * someone skimming, which is right, and as an unexplained inconsistency to the
+   * employer who is comparing this CV against four others. The weight is what
+   * separates the line from the paragraphs under it; the size does not need to.
+   */
+  font-size: 1em;
+  font-weight: 700;
+  /*
+   * `--doc-job-ink`, shared with the dates on this line.
+   *
+   * Pure black, where the rest of the document is `--text`. `--text` is a soft
+   * near-black chosen for the editor, and it is softer still once printed. On a
+   * page of work history where every line is the same size, this line is the only
+   * thing telling the eye where one role ends, so it gets the darkest ink the
+   * document has rather than the same ink as everything else.
+   *
+   * Not bold-harder — it is already 700, and pushing the weight further changes the
+   * texture of the word rather than its presence.
+   */
+  color: var(--doc-job-ink);
+  min-width: 0;
+}
+
+.doc-job-dates {
+  /*
+   * One measure, shared with the title, and both bold.
+   *
+   * The dates were once a size down and grey, which read as a caption for the
+   * line rather than as part of it — the eye found the company first and the dates
+   * second, on a line where the two are one fact: where, and doing what. Same size
+   * and same weight is what makes the line read as a unit.
+   */
+  flex: 0 0 auto;
+  width: var(--doc-date-column);
+  margin: 0;
+  font-size: 1em;
+  font-weight: 700;
+  /*
+   * The same ink as the company and title on this line.
+   *
+   * It was `--text`, a shade lighter than the title, which read as a caption
+   * beside the thing it describes. The two halves of the line are one fact — where,
+   * at whom, doing what — and they are already set at the same weight and the same
+   * size, so they are the same colour too.
+   */
+  color: var(--doc-job-ink);
+  /* Left-aligned, so the dates sit flush against the page margin. The column
+     still holds a fixed measure, so the company names line up either way — but a
+     range starting a third of the way across the page reads as indented rather
+     than as the start of a line. */
+  text-align: left;
+  /* Never wrap: a wrapped date range would break the column the alignment
+     depends on. The width above is sized so this does not happen. */
+  white-space: nowrap;
+}
+
+/*
+/*
+ * The ink for a job header line: the date range, the company and the job title.
+ *
+ * One token for all three. They were set separately twice and drifted twice — the
+ * dates once a size down and grey, then one shade lighter than the title — and each
+ * drift had to be reported by whoever noticed it rather than prevented.
+ */
+/*
+ * How wide the date column is, and so how much air sits between the dates and the
+ * company.
+ *
+ * 18ch, which is the width of the widest range the document can produce,
+ * "Sept 1999 - Sept 2026", in the bold weight both halves of the line use.
+ *
+ * Measured, not guessed: at 12ch the longest range wrapped, and a wrapped range
+ * breaks the column alignment the width exists for.
+ *
+ * This number is a function of the font it sits in. `ch` is the width of a zero in
+ * the element's own face, so changing the date column to a fixed-width font made
+ * every character wider and this had to become 21ch to hold the same text. It is
+ * 18ch again because the dates are back in the document's own proportional face.
+ */
+/*
+ * The responsibilities and the first achievement bullet are one thought, so the
+ * air between them is only what the prose paragraph already carries.
+ *
+ * Sibling vertical margins collapse, so the gap here is the *larger* of the
+ * paragraph's bottom margin and the list's top margin — which means clearing the
+ * paragraph's trailing margin is what actually closes the gap. Setting the list's
+ * top margin alone would have changed nothing.
+ */
+.doc-body {
+  /*
+   * Single-spaced, like the achievement bullets.
+   *
+   * These are the same kind of text — short, dense, read as a list of what the
+   * role involved — and setting them at the prose body spacing makes one look like
+   * a paragraph and the other look like a list, in a document that is all one or
+   * the other. It also costs page space in the CV, which is the one document with
+   * a page target.
+   *
+   * This is the class the job story uses too, so a story is single-spaced as well.
+   * That reads correctly: a story is a note under the role, not a body of prose.
+   */
+  line-height: 1;
+}
+
+.doc-body p {
+  margin: 0 0 0.4rem;
+}
+
+.doc-body p:last-child {
+  margin-bottom: 0;
+}
+
+.doc-achievements {
+  margin: 0.25rem 0 0;
+  padding-left: 1.3rem;
+}
+
+.doc-achievement {
+  /*
+   * Single-spaced within a bullet.
+   *
+   * The document's body is 1.45, which is right for a paragraph of prose and
+   * wrong for an achievement bullet: those are short, dense and read as a list,
+   * and 1.45 pushes each one onto more lines than it needs — which costs page
+   * space in the one document with a page target.
+   */
+  line-height: 1;
+  margin-bottom: 0.2rem;
+}
+
+/*
+ * No trailing margin on the last bullet of a list.
+ *
+ * The margin under an achievement is what separates one achievement from the next.
+ * On the last one it is not separating anything — it just adds to the gap before
+ * the next job heading, which already carries the job's own margin. So the space
+ * at the end of a job's achievements was being counted twice, and it is the gap
+ * the eye reads as "this role ended here" rather than as a separation.
+ */
+.doc-achievement:last-child {
+  margin-bottom: 0;
+}
+
+.doc-achievement-story {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.doc-story {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* D16: awards and education as one combined table. */
+.doc-award-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  /*
+   * Fixed layout, so the columns are where they are put rather than wherever the
+   * content happens to push them. Auto layout gave the year column exactly what it
+   * needed and then spread the rest, which left "what it was for" stranded against
+   * the right margin, a hand's width away from the institution it belongs to.
+   */
+  table-layout: fixed;
+}
+
+.doc-award-table td {
+  text-align: left;
+  /* A third of the old padding: this is a reference list, not a set of cards. */
+  padding: 0.1rem 0.4rem 0.1rem 0;
+  vertical-align: top;
+  /* Single-spaced, like every other line of the document that is not prose. */
+  line-height: 1;
+}
+
+.doc-award-year {
+  white-space: nowrap;
+  width: 3.2rem;
+}
+
+/*
+ * Narrow enough that the award sits close to the institution it belongs to.
+ *
+ * Wide enough for the longest institution in practice. Past this the degree wraps
+ * onto a second line, and one wrapped row costs more than the gap ever saved — so
+ * the column is sized for the data rather than for the prettiest gap.
+ */
+.doc-award-institution {
+  width: 34%;
+}
+
+.doc-award-story {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.doc-question-group {
+  margin-bottom: 1rem;
+}
+
+.doc-question-category {
+  margin: 0 0 0.3rem;
+  font-size: 1em;
+}
+
+.doc-questions {
+  margin: 0;
+}
+
+.doc-question {
+  margin-bottom: 0.6rem;
+}
+
+.doc-question dt {
+  font-weight: 600;
+}
+
+.doc-question dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+}
+
+.doc-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* D29: density is a spacing control, separate from type size. */
+.doc-density-compact {
+  line-height: 1.3;
+}
+.doc-density-compact .doc-job {
+  margin-bottom: 0.6rem;
+}
+.doc-density-compact .doc-section {
+  margin-top: 0.8rem;
+}
+.doc-density-compact .doc-header {
+  margin-bottom: 0.6rem;
+}
+
+.doc-density-comfortable {
+  line-height: 1.6;
+}
+.doc-density-comfortable .doc-job {
+  margin-bottom: 1.4rem;
+}
+.doc-density-comfortable .doc-section {
+  margin-top: 1.6rem;
+}
+
+/* ------------------------------------------------------------ document page */
+
+/*
+ * The document with a sidebar beside it, rather than controls stacked above it.
+ *
+ * The paper is the tall scrolling thing and the controls are a short list beside
+ * it. Stacked, the controls pushed the top of the document off screen and the fit
+ * report — which grows as it lists records to shorten — pushed it further.
+ *
+ * The sidebar is on the right, which is where the eye finishes: you read the
+ * document, then reach for what to change about it or send it. On the left it
+ * sits between the document and the scrollbar, which is the worst of both.
+ *
+ * Placement is by grid line rather than by source order. Auto-placement fills
+ * columns before starting a new row, so the first child after the toolbar would
+ * take the wide column and the document would land in the rail — the columns
+ * would have to be rewritten to get this back.
+ */
+.document-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 15rem);
+  align-items: start;
+  gap: var(--gap);
+}
+
+/* Everything that is not the document lives in the right rail. */
+.document-controls {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.document-paper,
+/*
+ * The editor's search.
+ *
+ * A single row above the sections, so it reads as belonging to the whole page
+ * rather than to whichever section happens to be first. There is no order control:
+ * the lists are newest-first and that is not adjustable.
+ */
+.editor-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.editor-search {
+  flex: 1 1 18rem;
+}
+
+.editor-controls label {
+  display: block;
+  font-size: 0.85em;
+  margin-bottom: 0.2rem;
+}
+
+.editor-controls input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.all-in-one-content {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.document-print {
+  /*
+   * Directly under the fit report, not pushed to the foot of the rail.
+   *
+   * Pinning it to the bottom meant forcing the rail to the full height of the
+   * window, which put the page's one action below the fold on a short document —
+   * the very case where you most want to print it.
+   */
+  margin-top: 0;
+}
+
+.document-print .button {
+  width: 100%;
+  justify-content: center;
+}
+
+.document-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  /* Sticky so the controls stay reachable while scrolling a long document. */
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+}
+
+/*
+ * Below this width there is no room for two columns, and a sidebar that squeezes
+ * the paper to nothing is worse than no sidebar.
+ */
+@media (max-width: 48rem) {
+  .document-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column, so the explicit lines have to go with it. */
+  .document-controls,
+  .document-paper,
+  .all-in-one-content {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .document-sidebar {
+    position: static;
+    max-height: none;
+  }
+}
+
+.document-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.document-field select {
+  width: 100%;
+}
+
+.document-options {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.document-options summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.document-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 1rem;
+  margin-top: 0.4rem;
+}
+
+/*
+ * A record shown because "include deleted records" is on.
+ *
+ * Muted red plus a left rule, for two reasons. The rule is the load-bearing one:
+ * printing is frequently configured to drop background colours, and a tint that
+ * vanishes on paper leaves deleted records indistinguishable from live ones —
+ * which is the exact failure the marker exists to prevent. Red is not relied on
+ * alone for that, and it is not the only cue either, so this still reads in
+ * greyscale and for anyone who cannot distinguish the colour.
+ */
+.doc-deleted {
+  color: var(--danger);
+  border-left: 2px solid currentColor;
+  padding-left: 0.5rem;
+}
+
+.doc-job.doc-deleted,
+.doc-question-group.doc-deleted {
+  border-left-width: 3px;
+  padding-left: 0.6rem;
+}
+
+@media print {
+  /* `-webkit-print-color-adjust` is about backgrounds; the text colour itself is
+     printed, so the rule and the muted text survive either way. This is here so
+     the colour is not adjusted away on the engines that would. */
+  .doc-deleted {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/*
+ * The way from one editing page to the other.
+ *
+ * A full-width rule and a label rather than a button in the rail, because it is
+ * not an action on anything on this page — it is a different page, and the rail
+ * holds the controls for *this* one. Sits under the sections so it is reached by
+ * finishing the work rather than by interrupting it.
+ */
+.page-cross-link {
+  margin: 1.5rem 0 0;
+  grid-column: 1 / -1;
+}
+
+.document-paper {
+  overflow-x: auto;
+}
+
+.fit-report {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.fit-report p {
+  margin: 0.2rem 0;
+}
+
+.fit-over {
+  border-left-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.fit-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.fit-records ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+/* --------------------------------------------------------------------- sync */
+
+.sync-indicator {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  /* Square, and no bigger: the old bubble was three words wide and the header now
+   * also carries the route to the questions page. */
+  padding: 0.35rem;
+}
+
+/*
+ * The state, as a small glyph in the cloud's corner.
+ *
+ * Shapes rather than colours alone: amber and red are easy to confuse, and the
+ * whole point of shrinking this was that it no longer has room to say anything.
+ * The words are not lost — they are the link's accessible name and its tooltip.
+ */
+.sync-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 0.65rem;
+  height: 0.65rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.sync-badge-idle {
+  color: var(--text-muted);
+}
+.sync-badge-ok {
+  color: #14532d;
+}
+.sync-badge-warn {
+  color: #92400e;
+}
+.sync-badge-bad {
+  color: var(--danger);
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.detail-list dt {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.detail-list dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.log-list li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-list time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+/*
+ * The warning level's text colour, which is not the warning level's *border*.
+ *
+ * `#f0b429` is the amber used for rules and fills, where it has to be light to read
+ * as a tint on white. As 13.6px text it measures 1.86:1 — well under the 4.5:1
+ * that body text needs — so the log line announcing a warning was the least legible
+ * text on the page, which is the wrong way round for the one a user most needs to
+ * read.
+ *
+ * A darker step of the same hue instead, so it still reads as "warning" rather than
+ * as body text that happens to be brown.
+ */
+.log-warn span {
+  color: var(--warning-text);
+}
+
+.log-error span {
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------- mobile */
+
+@media (max-width: 40rem) {
+  .app-header {
+    align-items: flex-start;
+  }
+
+  .app-nav {
+    order: 3;
+    width: 100%;
+  }
+
+  .record-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  /*
+   * DEP3 / D34. The print view is single column and ATS-safe: no header, no
+   * nav, no controls, and no multi-column or layout-table tricks that would
+   * make an applicant tracking system parse the text wrongly.
+   */
+  /*
+   * `.document-controls` is one container for every piece of interface around
+   * the document — presets, print and export buttons, the preset description,
+   * the include toggles and the fit report. Hiding the container rather than
+   * each of them is what stops the next one being missed: the preset description
+   * printed on the CV because this list had not caught up.
+   */
+  .app-header,
+  .app-nav,
+  .app-header-controls,
+  .document-controls,
+  .inline-editor,
+  .record-row-actions,
+  .button-row,
+  .undo-bar {
+    display: none;
+  }
+
+  .all-in-one-print {
+    display: block;
+  }
+
+  .document-page {
+    display: block;
+  }
+
+  /*
+   * The records themselves are the editor, and the editor is not the output —
+   * `.all-in-one-print` is. Printing both would give a document followed by every
+   * record again, which is two pages of the same content in two formats.
+   */
+  .inline-section {
+    display: none;
+  }
+
+  /*
+   * The editor, gone entirely.
+   *
+   * Hiding `.inline-section` on its own was not enough: the search and order controls
+   * and the link to the questions page sit outside the sections, so a print from this
+   * page came out as the document followed by a stray search box, a list of sort
+   * orders and an arrow — the "extra artifacts at the end" that started this.
+   *
+   * So it hides the container rather than naming what is inside it. That is the same
+   * reasoning as the controls list further down, and it is the only version of this
+   * rule that a future control cannot defeat by existing: everything the editor shows
+   * is inside `.all-in-one-content`, and everything the document shows is inside
+   * `.all-in-one-print`, which is the only thing being printed.
+   */
+  .all-in-one-content {
+    display: none;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  /*
+   * The theme on screen is not the theme on paper.
+   *
+   * The `body` rule above is not enough on its own, because the document sets its
+   * own colours from the tokens — and in dark theme those tokens are the dark
+   * values, so printing from dark theme produced near-white text on a near-black
+   * panel whatever the body said.
+   *
+   * Redefining the tokens, rather than overriding the rules that read them, is what
+   * makes the printed document identical from either theme: everything downstream
+   * picks up the light palette without having to be listed here, including whatever
+   * is added next. Same specificity as `[data-theme='dark']` and further down the
+   * file, so on the one element carrying both, this wins.
+   */
+  :root {
+    --bg: #f7f7f5;
+    --surface: #fff;
+    --surface-2: #f0f0ec;
+    --text: #1a1a18;
+    --text-muted: #5c5c56;
+    --border: #dcdcd4;
+    --doc-heading-ink: #000;
+    --doc-job-ink: #000;
+    --doc-body-ink: #444440;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .app-main {
+    padding: 0;
+  }
+
+  .doc {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  /*
+   * The page size and margins, generated from the document's settings. Set in
+   * JavaScript as a `<style>` element from the same geometry the fit report
+   * measures against, so the two cannot disagree.
+   */
+  .doc-section-title {
+    break-after: avoid;
+  }
+
+  .doc-job,
+  .doc-question-group,
+  .doc-question {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .doc-award-table tr {
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,182 @@
+/**
+ * Document settings.
+ *
+ * These are properties of the document, not of the device: a CV tuned to fit one
+ * A4 page has to print the same way on every machine (D28, D41). They sync, like
+ * everything else.
+ */
+
+import { useEffect, useState } from 'react'
+import { MAX_FONT_SIZE_PT, MIN_FONT_SIZE_PT, type Settings } from '../../domain/types'
+import { readSettings, writeSettings } from '../shared/data'
+import type { ThemePreference } from '../../app/theme'
+import { db } from '../../storage/db'
+import type { Profile } from '../../domain/types'
+
+export interface SettingsPageProps {
+  now: Date
+  onThemeChange: (next: ThemePreference) => void
+  theme: ThemePreference
+}
+
+export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const [current, allProfiles] = await Promise.all([readSettings(), db.profiles.toArray()])
+      if (cancelled) return
+      setSettings(current)
+      setProfiles(allProfiles.filter((profile) => profile.deletedAt === null))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (settings === null) return <p className="hint">Loading…</p>
+
+  function update(patch: Partial<Settings>) {
+    setSettings((previous) => (previous === null ? previous : { ...previous, ...patch }))
+    setSaved(false)
+  }
+
+  return (
+    <section className="settings-page">
+      <h2>Settings</h2>
+
+      <div className="panel">
+        <h3>Document</h3>
+
+        <div className="field">
+          <label htmlFor="active-profile">Profile used in the document header</label>
+          <select
+            id="active-profile"
+            value={settings.activeProfileId ?? ''}
+            onChange={(event) => {
+              update({ activeProfileId: event.target.value === '' ? null : event.target.value })
+            }}
+          >
+            {/*
+              The same rule as the picker on the document page: no way to select "no
+              profile". Where several exist and none is chosen, this prompts instead.
+            */}
+            {profiles.length > 1 && settings.activeProfileId === null && (
+              <option value="" disabled>
+                Choose a profile
+              </option>
+            )}
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name || '(unnamed)'}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h3>Print</h3>
+
+        <div className="field">
+          <label htmlFor="page-size">Page size</label>
+          <select
+            id="page-size"
+            value={settings.pageSize}
+            onChange={(event) => {
+              update({ pageSize: event.target.value as Settings['pageSize'] })
+            }}
+          >
+            <option value="A4">A4</option>
+            <option value="Letter">US Letter</option>
+            <option value="Legal">Legal</option>
+          </select>
+          {/**
+           * D43. Browsers default the print dialog to the printer's own paper
+           * size and most people never change it, so a document set to A4 prints
+           * on whatever is in the tray while the layout was computed for A4.
+           * The app cannot detect or correct what the dialog does.
+           */}
+          <p className="field-hint">
+            The print dialog has to be set to the same size. Browsers default it to the
+            printer's own setting, and the layout is computed for the size chosen here.
+          </p>
+        </div>
+
+        <div className="field">
+          <label htmlFor="font-size">Type size: {settings.fontSizePt}pt</label>
+          <input
+            id="font-size"
+            type="range"
+            min={MIN_FONT_SIZE_PT}
+            max={MAX_FONT_SIZE_PT}
+            step={1}
+            value={settings.fontSizePt}
+            onChange={(event) => {
+              update({ fontSizePt: Number(event.target.value) })
+            }}
+          />
+          <p className="field-hint">
+            Printed only. The app will not shrink text to make the document fit — it will tell
+            you what to shorten instead.
+          </p>
+        </div>
+
+        <div className="field">
+          <label htmlFor="density">Spacing</label>
+          <select
+            id="density"
+            value={settings.density}
+            onChange={(event) => {
+              update({ density: event.target.value as Settings['density'] })
+            }}
+          >
+            <option value="compact">Compact</option>
+            <option value="normal">Normal</option>
+            <option value="comfortable">Comfortable</option>
+          </select>
+          <p className="field-hint">
+            Changes spacing rather than type size, so a page can be reclaimed without making the
+            text harder to read.
+          </p>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h3>Appearance</h3>
+        <div className="field">
+          <label htmlFor="theme">Theme</label>
+          <select
+            id="theme"
+            value={theme}
+            onChange={(event) => {
+              onThemeChange(event.target.value as ThemePreference)
+            }}
+          >
+            <option value="system">Follow the system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="button-row">
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={() => {
+            void writeSettings(settings, now).then(() => {
+              setSaved(true)
+            })
+          }}
+        >
+          Save settings
+        </button>
+        {saved && <span className="hint">Saved.</span>}
+      </div>
+    </section>
+  )
+}
