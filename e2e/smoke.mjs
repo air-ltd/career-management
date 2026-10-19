@@ -1304,6 +1304,36 @@ async function main() {
         .map((line) => line.trim())
         .filter((line) => line !== '')
     }
+    /*
+     * The document's typeface.
+     *
+     * Asserted because it failed silently once already: the document inherited the
+     * application's sans stack, so printing produced a CV in the wrong face with
+     * nothing to indicate it had. The page looked correct on screen precisely because
+     * it agreed with itself.
+     *
+     * Checked on the rendered element rather than in the stylesheet, since what
+     * matters is the font the document actually resolved to. The application chrome
+     * is asserted to still be the sans it is meant to be, so this cannot be satisfied
+     * by changing everything.
+     */
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    const fonts = await page.evaluate(() => ({
+      document: getComputedStyle(document.querySelector('.doc')).fontFamily,
+      chrome: getComputedStyle(document.querySelector('.app-header')).fontFamily,
+    }))
+    check(
+      'the document is set in Times New Roman, not the interface sans',
+      /times/i.test(fonts.document) && !/system-ui|-apple-system/i.test(fonts.document),
+      fonts.document,
+    )
+    check(
+      'the interface keeps its own sans, so the check above is not satisfied by changing everything',
+      /system-ui|-apple-system/i.test(fonts.chrome),
+      fonts.chrome,
+    )
+
     const printedFromDocument = await printTextOf('/document')
     const printedFromEditAll = await printTextOf('/')
     const firstDifference = printedFromDocument.find(

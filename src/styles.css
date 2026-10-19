@@ -50,6 +50,27 @@
   --radius: 6px;
   --gap: 1rem;
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /*
+   * The document's typeface, which is not the application's.
+   *
+   * Times New Roman because that is what the document is *of*: a CV in this face is
+   * the ordinary thing, it is what the legacy tool produced, and it is narrow enough
+   * to hold a whole achievement on one line. The app's own interface keeps the sans
+   * stack above, because a UI wants to read as a UI.
+   *
+   * The stack after it is what happens on a machine without Times. `Liberation Serif`
+   * is metric-compatible with Times — same advance widths for every glyph — so a
+   * Linux or CI machine lays the document out to the same measurements as one with
+   * the real thing, which is what makes a printed page reproducible across machines.
+   * `serif` last is the safety net, and the only part that is allowed to differ.
+   *
+   * Set on `.doc` rather than on print, so the preview on screen is the page that
+   * comes out. A preview that used one face and the print another would make the
+   * wrapping on screen a lie.
+   */
+  --font-doc:
+    'Times New Roman', Times, 'Liberation Serif', 'Nimbus Roman', 'DejaVu Serif', serif;
 }
 
 [data-theme='dark'] {
@@ -759,6 +780,7 @@ code {
  */
 
 .doc {
+  font-family: var(--font-doc);
   background: var(--surface);
   color: var(--doc-body-ink);
   padding: 1.5rem;

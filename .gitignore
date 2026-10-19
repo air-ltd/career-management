@@ -32,3 +32,6 @@ scripts/migrate/dry.json
 # user's own path to choose.
 /career-management-document.json
 /career-management-document.json.report.json
+
+# Reference PDFs the user supplied for a formatting comparison.
+*.pdf
