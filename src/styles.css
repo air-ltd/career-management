@@ -45,7 +45,7 @@
    */
   --doc-heading-ink: #000;
   --doc-job-ink: #000;
-  --doc-body-ink: #161614;
+  --doc-body-ink: #444440;
   --doc-date-column: 18ch;
   --radius: 6px;
   --gap: 1rem;
@@ -1597,7 +1597,7 @@ code {
     --border: #dcdcd4;
     --doc-heading-ink: #000;
     --doc-job-ink: #000;
-    --doc-body-ink: #161614;
+    --doc-body-ink: #444440;
   }
 
   .app {
