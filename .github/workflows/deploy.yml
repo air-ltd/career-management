@@ -47,9 +47,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Check for bundled secrets
-        run: npm run check:secrets
-
       - name: Check citations
         run: npm run check:citations
 
@@ -58,6 +55,13 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Both of these read the built bundle, so they have to follow it.
+      - name: Check for bundled secrets
+        run: npm run check:secrets
+
+      - name: Check the bundle names no host beyond Dropbox (SEC1)
+        run: npm run check:silent
 
   smoke:
     name: Browser smoke test
