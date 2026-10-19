@@ -11,7 +11,7 @@
  * `/jobs/:id/edit` route renders, so the two cannot drift apart.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { RecordForm } from '../shared/RecordForm'
 import { saveFields } from '../shared/data'
 import { REGISTRY, type RegistryKey } from '../shared/registry'
@@ -78,8 +78,28 @@ export function InlineEditor({
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
+  /*
+   * Take focus when the form appears.
+   *
+   * The form is a disclosure, and a disclosure that opens without moving focus
+   * leaves the keyboard user where they were — on the button that is now labelled
+   * "Close", with the fields somewhere after it in the tab order and no indication
+   * that anything opened at all. Focusing the first control is the one thing that
+   * makes it obvious.
+   *
+   * Not a `<fieldset autofocus>`: autofocus on mount fights a screen reader's own
+   * announcement of the region, and this is the same interaction by any means.
+   */
+  const shell = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const first = shell.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]), select, textarea, button',
+    )
+    first?.focus()
+  }, [])
+
   return (
-    <div className="inline-editor">
+    <div className="inline-editor" ref={shell}>
       <RecordForm
         title={
           isNew
@@ -152,6 +172,8 @@ export function InlineRow({
   onDelete?: (id: string) => void
   onSaved: () => void
 }) {
+  const toggle = useRef<HTMLButtonElement | null>(null)
+
   const [open, setOpen] = useState(false)
   const isDeleted = text(record, 'deletedAt') !== ''
 
@@ -187,6 +209,7 @@ export function InlineRow({
             type="button"
             className="button button-small"
             aria-expanded={open}
+            ref={toggle}
             onClick={() => {
               setOpen((previous) => !previous)
             }}
@@ -222,6 +245,9 @@ export function InlineRow({
           onDone={onSaved}
           onCancel={() => {
             setOpen(false)
+            // Back where the user was, so cancelling does not strand them at the
+            // top of the document with no memory of which row they were in.
+            toggle.current?.focus()
           }}
         />
       )}

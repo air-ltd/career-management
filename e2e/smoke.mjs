@@ -1289,6 +1289,74 @@ async function main() {
     // ----------------------------------------------------------------- delete
     // After the all-in-one checks, which need this job alive: deleted records are
     // no longer listed there by default.
+    /*
+     * Keyboard-only use of the disclosure that every edit goes through.
+     *
+     * Asserted by pressing Tab rather than by calling `.focus()`: the question is
+     * not whether something in the form can take focus, it is whether a user who
+     * never touches a mouse lands in the form, which is what Tab from the toggle
+     * is.
+     */
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    const firstRowToggle = page.locator('.inline-row-toggle').first()
+    await firstRowToggle.focus()
+    const landedIn = async () =>
+      page.evaluate(() => {
+        const active = document.activeElement
+        if (active === null) return 'none'
+        return active.closest('.inline-editor') === null
+          ? 'outside the form'
+          : 'inside the form'
+      })
+    check(
+      'the row toggle is reachable and focused before opening a form',
+      (await page.evaluate(() => document.activeElement?.className ?? '')).includes(
+        'inline-row-toggle',
+      ),
+    )
+    await firstRowToggle.press('Enter')
+    await page.locator('.inline-editor').first().waitFor()
+    check(
+      'opening a form with the keyboard moves focus into it',
+      (await landedIn()) === 'inside the form',
+      await landedIn(),
+    )
+    // Escape is the browser's, not the app's, and what it does with focus is
+    // Chromium's to decide — asserting that would be testing the browser. What is
+    // the app's business is that a key it does not handle does not close a form the
+    // user is part-way through filling in.
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(200)
+    check(
+      'Escape does not close a form that has unsaved input',
+      (await page.locator('.inline-editor').count()) > 0,
+      `${await page.locator('.inline-editor').count()} forms`,
+    )
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click()
+    await page.waitForTimeout(200)
+    // To the Edit button specifically, which is the control that opened the form —
+    // the row also has a heading disclosure, and returning focus to that one would
+    // leave the user somewhere that looks like the right row but is the wrong
+    // control for what they were doing.
+    check(
+      'cancelling returns focus to the control that opened the form',
+      await page.evaluate(() => {
+        const active = document.activeElement
+        return (
+          active instanceof HTMLElement &&
+          active.closest('.inline-row-actions') !== null &&
+          active.textContent?.trim() === 'Edit'
+        )
+      }),
+      await page.evaluate(() => {
+        const active = document.activeElement
+        return active === null
+          ? 'none'
+          : `${active.tagName}.${active.className || '(no class)'}`
+      }),
+    )
+
     await go(page, origin, '/')
     await page.locator('.all-in-one').waitFor()
     await page
