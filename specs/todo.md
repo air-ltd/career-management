@@ -3,4 +3,4 @@
 3. [x] replace the link to "Jobs" to have title "Work History" and point it to the default page. remove http://localhost:5173/career-management/#/jobs.
 4. [ ] I still see a little flash on the dropbox sync status when it checks.
 5. [x] when I do the print from Work History page it should generate a pdf identical to doing print from the Document page - on the work history page it has some extra artifacts at the end of the document.
-6. [ ] provide a method to collapse/expand question categories & jobs.
+6. [x] provide a method to collapse/expand question categories & jobs.

@@ -1467,6 +1467,82 @@ async function main() {
         new Set(azOrder).size === azOrder.length,
       `A-Z ${JSON.stringify(azOrder)} / Z-A ${JSON.stringify(zaOrder)}`,
     )
+    /*
+     * Folding a section away.
+     *
+     * The two sections that own children — jobs, and question categories — are the
+     * ones worth folding, and the check asserts the heading survives it, because a
+     * fold that hid the heading would leave no way to unfold it.
+     */
+    const workHistory = page
+      .locator('.inline-section')
+      .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
+    const jobRows = workHistory.locator(':scope > .inline-rows > .inline-row-group')
+    const rowsBefore = await jobRows.count()
+    await workHistory.getByRole('button', { name: 'Collapse' }).click()
+    await page.waitForTimeout(300)
+    check(
+      'collapsing a section hides its rows but keeps its heading',
+      rowsBefore > 0 &&
+        (await jobRows.count()) === 0 &&
+        (await workHistory.locator('h2').isVisible()) &&
+        (await workHistory.getAttribute('class'))?.includes('is-collapsed') === true,
+      `${rowsBefore} rows before`,
+    )
+    check(
+      'a collapsed section offers to expand itself',
+      (await workHistory.getByRole('button', { name: 'Expand' }).count()) === 1,
+    )
+    await workHistory.getByRole('button', { name: 'Expand' }).click()
+    await page.waitForTimeout(300)
+    check(
+      'expanding brings every row back',
+      (await jobRows.count()) === rowsBefore,
+      `${await jobRows.count()} of ${rowsBefore}`,
+    )
+
+    /*
+     * A search may not be foldable away. Folding is a way of arranging what is on
+     * screen, and if it can hide the matches for the term someone just typed, the
+     * arrangement has overridden the question.
+     */
+    await page.getByLabel('Search', { exact: true }).fill('Globex')
+    await page.waitForTimeout(300)
+    check(
+      'a section cannot be folded while a search is running against it',
+      (await workHistory.getByRole('button', { name: 'Collapse' }).isDisabled()) === true,
+    )
+    check(
+      'a search still finds its match with collapsing unavailable',
+      (await jobRows.count()) >= 1,
+      `${await jobRows.count()} rows`,
+    )
+    await page.getByLabel('Search', { exact: true }).fill('')
+    await page.waitForTimeout(300)
+
+    /*
+     * The harder half, and the one that actually needs the rule: fold first, then
+     * search. The disabled button stops a section being folded *while* a search is
+     * running, but it does nothing about a section that was already folded when the
+     * search started — which would otherwise stay folded and hide every match for
+     * the term just typed, with the user having no idea why the page looked empty.
+     */
+    await workHistory.getByRole('button', { name: 'Collapse' }).click()
+    await page.waitForTimeout(300)
+    check('the section is folded before the search starts', (await jobRows.count()) === 0)
+    await page.getByLabel('Search', { exact: true }).fill('Globex')
+    await page.waitForTimeout(300)
+    check(
+      'searching unfolds a section that was folded, so the matches are not hidden',
+      (await jobRows.count()) >= 1,
+      `${await jobRows.count()} rows while folded and searching`,
+    )
+    await page.getByLabel('Search', { exact: true }).fill('')
+    await page.waitForTimeout(300)
+
+    await page.getByLabel('Search', { exact: true }).fill('')
+    await page.waitForTimeout(300)
+
     check(
       'A to Z really is alphabetical',
       JSON.stringify(azOrder) === JSON.stringify(alphabetical),

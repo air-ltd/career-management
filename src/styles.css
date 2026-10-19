@@ -606,6 +606,23 @@ code {
   margin-bottom: 0.7rem;
 }
 
+/*
+ * A folded section needs no rule of its own.
+ *
+ * There was one here — `display: none` on the rows — and it did nothing: the section
+ * stops rendering its rows rather than hiding them, so there is nothing for CSS to
+ * hide. It survived a `git checkout` that took the rest of the stylesheet with it
+ * and no check noticed, because every check was looking at the DOM rather than at
+ * what was drawn. Left in, it is the kind of rule someone later trusts to be load
+ * bearing.
+ */
+
+.inline-section-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .inline-section-head {
   display: flex;
   justify-content: space-between;
