@@ -228,6 +228,121 @@ async function main() {
       (await page.locator('h1').first().textContent())?.includes('Career Management Document'),
     )
 
+    /*
+     * The policy, as the browser received it.
+     *
+     * `vite.config.ts` claims this suite asserts the served policy against its own
+     * allow-list; until now it did not, so the claim was doing work the check was
+     * not doing. Asserting the served text rather than the source list matters for
+     * one reason: a `<meta>` policy is only honoured for content parsed *after* it,
+     * so a policy emitted in the wrong place is present and inert. Reading it back
+     * off the loaded page catches that, because a page whose bootstrap ran before
+     * its own policy is a page the policy never covered.
+     *
+     * The allow-list is repeated here on purpose. A test that imported the config's
+     * own array would agree with it by construction and prove nothing about either.
+     */
+    const csp = await page.evaluate(() => {
+      const meta = document.querySelector('meta[http-equiv="Content-Security-Policy"]')
+      return {
+        policy: meta?.getAttribute('content') ?? null,
+        // Everything a policy placed after the charset has to come after the
+        // bootstrap; a policy before it covers the bootstrap, which is the script
+        // it exists to protect.
+        policyBeforeBootstrap:
+          meta === null
+            ? null
+            : [...document.head.children].indexOf(meta) <
+              [...document.head.children].findIndex(
+                (el) => el.tagName === 'SCRIPT' && !el.hasAttribute('src'),
+              ),
+        themeApplied: document.documentElement.dataset.theme !== undefined,
+      }
+    })
+    check('a content security policy is served', csp.policy !== null)
+    check(
+      'the policy covers the theme bootstrap rather than following it',
+      csp.policyBeforeBootstrap === true,
+      `before=${String(csp.policyBeforeBootstrap)}`,
+    )
+    for (const [directive, expected] of [
+      ['default-src', "'self'"],
+      ['script-src', "'self'"],
+      ['connect-src', 'https://api.dropboxapi.com'],
+      ['connect-src', 'https://content.dropboxapi.com'],
+      ['object-src', "'none'"],
+      ['base-uri', "'none'"],
+      ['form-action', "'none'"],
+    ]) {
+      const value = (csp.policy ?? '')
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.startsWith(`${directive} `))
+      check(
+        `the policy allows exactly what the app needs for ${directive}`,
+        (value ?? '').includes(expected),
+        value ?? 'absent',
+      )
+    }
+    /*
+     * The allow-list, exactly.
+     *
+     * Checking that the two Dropbox hosts are *present* is not enough: adding `*`
+     * alongside them satisfies every such check while reopening exactly the
+     * exfiltration channel the policy exists to close. So the directive is compared
+     * against the whole expected set — nothing extra, nothing missing.
+     */
+    const directiveOf = (name) =>
+      (csp.policy ?? '')
+        .split(';')
+        .map((part) => part.trim())
+        .filter((part) => part.startsWith(`${name} `))
+    check(
+      'connect-src names the two Dropbox hosts and nothing else',
+      JSON.stringify(directiveOf('connect-src')) ===
+        JSON.stringify([
+          "connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com",
+        ]),
+      JSON.stringify(directiveOf('connect-src')),
+    )
+    check(
+      'no directive opens the policy to a wildcard origin',
+      !/(^|[\s;])(https?:)?\*/.test(csp.policy ?? ''),
+      csp.policy ?? '',
+    )
+    check(
+      'the policy never allows unsafe-eval',
+      !(csp.policy ?? '').includes('unsafe-eval'),
+      csp.policy ?? '',
+    )
+    check(
+      'the policy never allows unsafe-inline scripts',
+      !/(script-src[^;]*unsafe-inline)/.test(csp.policy ?? ''),
+      (csp.policy ?? '').split(';').find((p) => p.trim().startsWith('script-src')) ?? '',
+    )
+    // The whole suite is worthless against a page the policy blocked, so prove the
+    // app actually ran under it rather than assuming it did.
+    check(
+      'the app ran under the policy it served',
+      csp.themeApplied && (await page.locator('h1').first().isVisible()),
+    )
+    check(
+      'no script was refused by the policy',
+      !consoleErrors.some((text) => /Content Security Policy|Refused to/i.test(text)),
+      consoleErrors.filter((t) => /Content Security Policy|Refused to/i.test(t)).join(' | '),
+    )
+    // The deep-link fallback carries its own copy of index.html, so it needs its own
+    // policy or a 404 page is served unprotected.
+    const fallback = await page.goto(`${origin}${BASE_PATH}no-such-route`, {
+      waitUntil: 'networkidle',
+    })
+    check('the deep-link fallback is served', fallback?.status() === 200)
+    check(
+      'the fallback carries a policy too',
+      (await page.locator('meta[http-equiv="Content-Security-Policy"]').count()) === 1,
+    )
+    await page.goto(`${origin}${BASE_PATH}`, { waitUntil: 'networkidle' })
+
     const scriptSrcs = await page
       .locator('script[src]')
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('src')))
