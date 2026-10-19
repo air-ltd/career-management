@@ -468,6 +468,30 @@ async function main() {
       (await acmeJob.getByText('Acme', { exact: false }).count()) >= 1,
     )
 
+    /*
+     * A summary-only role does not get the expanded blank line either.
+     *
+     * The blank line separates a role from the next one; a role that is just a line
+     * has no content to separate, so it gets none. That is the exception the format
+     * change asks for, and it belongs here because this is where the summarised
+     * role is made. Back to compressed afterwards, so nothing after this depends on
+     * the format having been changed.
+     */
+    await go(page, origin, '/settings')
+    await page.getByLabel('Format', { exact: true }).selectOption('expanded')
+    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
+    await page.getByText('Saved.', { exact: true }).waitFor()
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    const summaryGap = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.querySelector('.doc-job-summarised')).marginBottom),
+    )
+    check('a summary-only role gets no blank line', summaryGap <= 4, `${summaryGap}px`)
+    await go(page, origin, '/settings')
+    await page.getByLabel('Format', { exact: true }).selectOption('compressed')
+    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
+    await page.getByText('Saved.', { exact: true }).waitFor()
+
     // And back again, so the test does not depend on the order it runs in.
     await go(page, origin, '/')
     await page.locator('.all-in-one').waitFor()
@@ -2091,23 +2115,21 @@ async function main() {
     check('the sync page renders', (await page.locator('.sync-page').count()) === 1)
 
     /*
-     * Compressed and expanded differ by exactly one thing: a blank line under a
-     * role's achievements. Measured on the gap under the list, because that is the
-     * only difference between the two formats.
+     * Compressed and expanded differ by exactly one thing: a blank line after every
+     * job. Measured on the job's own bottom margin, because that is the gap between
+     * one role and the next and it is what the format is asking for.
      */
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
-    const achievementGap = async () =>
-      page.evaluate(() => {
-        const list = document.querySelector('.doc-achievements')
-        return {
-          bottom: list === null ? null : parseFloat(getComputedStyle(list).marginBottom),
-          // A role with no achievements has no list, so there is nothing to space.
-          lists: document.querySelectorAll('.doc-achievements').length,
-          jobs: document.querySelectorAll('.doc-job').length,
-        }
-      })
-    const compressed = await achievementGap()
+    const jobGaps = async () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.doc-job')].map((job) => ({
+          summarised: job.classList.contains('doc-job-summarised'),
+          achievements: job.querySelectorAll('.doc-achievements').length > 0,
+          bottom: parseFloat(getComputedStyle(job).marginBottom),
+        })),
+      )
+    const compressed = await jobGaps()
     await go(page, origin, '/settings')
     await page.getByLabel('Format', { exact: true }).selectOption('expanded')
     await page.getByRole('button', { name: 'Save settings', exact: true }).click()
@@ -2115,26 +2137,23 @@ async function main() {
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
     await page.waitForTimeout(300)
-    const expanded = await achievementGap()
+    const expanded = await jobGaps()
 
     check(
-      'compressed is the default, with no space under the achievements',
-      compressed.bottom !== null && compressed.bottom <= 4,
+      'compressed is the default, with no blank line after a role',
+      compressed.length > 0 && compressed.every((job) => job.bottom <= 4),
       JSON.stringify(compressed),
     )
     check(
-      'expanded puts about a line of space under the achievements',
-      expanded.bottom !== null &&
-        expanded.bottom > 12 &&
-        expanded.bottom < 24 &&
-        expanded.lists === compressed.lists &&
-        expanded.jobs === compressed.jobs,
+      'expanded puts a blank line after every role',
+      expanded.length === compressed.length &&
+        expanded.every((job) => job.summarised === false && job.bottom > 12 && job.bottom < 24),
       `compressed ${JSON.stringify(compressed)} / expanded ${JSON.stringify(expanded)}`,
     )
     check(
-      'a role with no achievements gets no blank line, because there is no list under it',
-      compressed.jobs > compressed.lists,
-      `${compressed.jobs} jobs, ${compressed.lists} with achievements`,
+      'a role with no achievements still gets the blank line',
+      expanded.some((job) => !job.summarised && !job.achievements && job.bottom > 12),
+      JSON.stringify(expanded),
     )
     await go(page, origin, '/settings')
     await page.getByLabel('Format', { exact: true }).selectOption('compressed')

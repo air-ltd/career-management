@@ -138,9 +138,9 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
             <option value="expanded">Expanded</option>
           </select>
           <p className="field-hint">
-            Expanded puts a blank line under a role's achievements. A role with no achievements
-            is unchanged either way. The first step towards being able to build your own
-            template.
+            Expanded puts a blank line after every role. A role reduced to a single line gets
+            none, because there is no content to separate. The first step towards being able to
+            build your own template.
           </p>
         </div>
 
