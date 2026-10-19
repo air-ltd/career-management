@@ -99,6 +99,14 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: [verify, smoke]
+    # Only from a push to main. Without this the job ran on pull requests too, and
+    # every one of them showed a red X from a deploy nobody asked for.
+    #
+    # Both halves stated rather than inferred. `github.event_name == 'push'` on its
+    # own means "any push this workflow listens for", which happens to be main only
+    # today — and would quietly stop meaning that the day a second branch is added
+    # to the trigger. Naming the ref is what actually encodes "from main".
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
