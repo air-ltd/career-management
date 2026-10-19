@@ -24,6 +24,7 @@ import { describeKeySource } from '../sync/appKey'
 import { SyncProvider } from '../features/sync/SyncProvider'
 import { DocumentIcon, SettingsIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
+import { AboutPage } from './AboutPage'
 import { AllInOnePage } from '../features/document/AllInOnePage'
 import { QuestionsPage } from '../features/document/QuestionsPage'
 
@@ -59,6 +60,7 @@ const ROUTES: readonly Route[] = [
   { path: '/interview' },
   { path: '/settings' },
   { path: '/sync' },
+  { path: '/about' },
 ]
 
 /*
@@ -179,6 +181,18 @@ export function App() {
             >
               <SettingsIcon />
             </a>
+            {/*
+              At the end of the header, after the controls, because it is the least
+              used thing here — and the one a reader arrives looking for when they
+              want to check who holds their data rather than to do any work.
+            */}
+            <a
+              className="app-nav-link"
+              href="#/about"
+              aria-current={path === '/about' ? 'page' : undefined}
+            >
+              About
+            </a>
           </div>
         </header>
 
@@ -251,6 +265,8 @@ function renderRoute(
       return <SettingsPage now={now} theme={theme} onThemeChange={onThemeChange} />
     case '/sync':
       return <SyncPage />
+    case '/about':
+      return <AboutPage />
     default:
       return <p className="hint">Nothing is routed at {routePath}.</p>
   }

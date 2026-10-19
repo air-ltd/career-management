@@ -6,5 +6,5 @@
 7. [x] remove document order thing from work history & questions page. it's not needed.
 8. [x] add compressed/expanded format options for pdf. compressed should be as it is today, expanded should include a single line of whitespace after the achievement bullets - noting that if a job has no achievements bullets then it should not include the blank line. this is a first step towards allowing users to create a template for the print document.
 9. [ ] include an option on a job to hide responsibilities and achievements (this should hide them on the print only) - there should be a clear indicator in the edit page to show this is the case.
-10. [ ] add an about page that talks about the data storage and that we do not have any of the users data.
+10. [x] add an about page that talks about the data storage and that we do not have any of the users data.
 11. [x] question categories should be listed alphabetically.

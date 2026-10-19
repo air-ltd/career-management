@@ -2140,6 +2140,38 @@ async function main() {
     await page.getByLabel('Format', { exact: true }).selectOption('compressed')
     await page.getByRole('button', { name: 'Save settings', exact: true }).click()
     await page.getByText('Saved.', { exact: true }).waitFor()
+    /*
+     * The about page, and the claim it exists to make.
+     *
+     * Checked by looking for the actual sentences rather than for the page heading:
+     * "About" could render while the paragraph that says who holds the data did not,
+     * and the whole point of the page is that sentence.
+     */
+    await go(page, origin, '/about')
+    await page.locator('.about-page').waitFor()
+    const about = page.locator('.about-page')
+    check('the about page is reachable from the header', (await about.count()) === 1)
+    check(
+      'it says where the data lives',
+      (await about.getByText('Where your data lives', { exact: true }).count()) === 1,
+    )
+    check(
+      'it says the data is stored in this browser',
+      (await about.getByText('this browser, on this device', { exact: false }).count()) === 1,
+    )
+    check(
+      'it says we do not have the data',
+      (await about.getByText('We do not have your data', { exact: true }).count()) === 1,
+    )
+    check(
+      'it names the one place a copy can go, and whose it is',
+      (await about.getByText('your own Dropbox', { exact: false }).count()) >= 1,
+    )
+    check(
+      'it says syncing is optional',
+      (await about.getByText('Syncing is optional', { exact: true }).count()) === 1,
+    )
+
     await go(page, origin, '/sync')
     await page.locator('.sync-page').waitFor()
 
@@ -2215,8 +2247,9 @@ async function main() {
       ),
     )
     check(
-      'the header line reads Document, then sync, then settings',
-      JSON.stringify(controlsChildren) === JSON.stringify(['Document', 'Sync', 'Settings']),
+      'the header line reads Document, sync, settings, then About',
+      JSON.stringify(controlsChildren) ===
+        JSON.stringify(['Document', 'Sync', 'Settings', 'About']),
       JSON.stringify(controlsChildren),
     )
     check(
