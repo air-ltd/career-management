@@ -1161,6 +1161,45 @@ code {
 }
 
 .document-paper,
+/*
+ * The editor's search and order.
+ *
+ * A single row above the sections, spanning both columns, so it reads as belonging
+ * to the whole page rather than to whichever section happens to be first.
+ */
+.editor-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.editor-search {
+  flex: 1 1 18rem;
+}
+
+.editor-order {
+  flex: 0 0 auto;
+}
+
+.editor-controls label {
+  display: block;
+  font-size: 0.85em;
+  margin-bottom: 0.2rem;
+}
+
+.editor-controls input,
+.editor-controls select {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .all-in-one-content {
   grid-column: 1;
   grid-row: 1;

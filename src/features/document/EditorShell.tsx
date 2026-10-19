@@ -68,7 +68,48 @@ export function EditorShell({
         the second column, which is the arrangement the document page gets from
         `.document-paper`.
       */}
-      <div className="all-in-one-content">{children}</div>
+      <div className="all-in-one-content">
+        {/*
+          Search and order for every section on this page, in one place.
+
+          Placed above the sections rather than in the rail, because the rail holds the
+          controls for the *document* and these are for the editor: the two shape
+          different outputs and a user looking for a record should not have to decide
+          which half of the screen it lives in.
+        */}
+        <div className="editor-controls">
+          <div className="editor-search">
+            <label htmlFor="editor-search-input">Search</label>
+            <input
+              id="editor-search-input"
+              type="search"
+              value={editor.query}
+              placeholder="Company, institution, a word in any text"
+              onChange={(event) => {
+                editor.setQuery(event.target.value)
+              }}
+            />
+          </div>
+          <div className="editor-order">
+            <label htmlFor="editor-order-input">Order</label>
+            <select
+              id="editor-order-input"
+              value={editor.sortKey}
+              onChange={(event) => {
+                editor.setSortKey(event.target.value as typeof editor.sortKey)
+              }}
+            >
+              {editor.sortOptions.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {children}
+      </div>
     </section>
   )
 }

@@ -1309,11 +1309,127 @@ async function main() {
           ? 'outside the form'
           : 'inside the form'
       })
+    /*
+     * One search box and one order, for the whole page.
+     *
+     * The claim worth making is that it spans every section: a search that filtered
+     * jobs but not awards would pass a check written against jobs, which is how it
+     * usually goes wrong.
+     */
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    const sectionRows = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.inline-section')].map((section) => ({
+          name: section.querySelector('h2')?.textContent ?? '',
+          // A section's own rows only: a nested achievement belongs to its job, so
+          // counting it here would make the two totals incomparable.
+          rows: section.querySelectorAll(':scope > .inline-rows > .inline-row-group').length,
+        })),
+      )
+    const before = await sectionRows()
+
+    // A term taken from a job, so "the sections that match" is knowable rather than
+    // assumed: work history keeps a row and every other section empties.
+    await page.getByLabel('Search', { exact: true }).fill('Acme')
+    await page.waitForTimeout(300)
+    const after = await sectionRows()
+    const emptied = after.filter(
+      (section, index) => section.rows === 0 && before[index].rows > 0,
+    )
     check(
-      'the row toggle is reachable and focused before opening a form',
-      (await page.evaluate(() => document.activeElement?.className ?? '')).includes(
-        'inline-row-toggle',
-      ),
+      'search narrows the section that matches and empties every other one',
+      after.find((section) => section.name === 'Work history').rows === 1 &&
+        emptied.length >= 1 &&
+        after.every((section) => section.name === 'Work history' || section.rows === 0),
+      `before ${JSON.stringify(before)} / after ${JSON.stringify(after)}`,
+    )
+    check(
+      'the search box is the only one on the page, so it reads as covering all of it',
+      (await page.getByLabel('Search', { exact: true }).count()) === 1,
+    )
+
+    await page.getByLabel('Search', { exact: true }).fill('')
+    await page.waitForTimeout(300)
+    check(
+      'clearing the search brings every record back',
+      JSON.stringify(await sectionRows()) === JSON.stringify(before),
+      `before ${JSON.stringify(before)}`,
+    )
+
+    // The section's own rows only. A nested achievement is a child of its job, so
+    // comparing orderings that included them would compare two different sets.
+    // Each section-level group, read for its *own* heading.
+    //
+    // A job group also contains its achievements' groups, so a descendant selector
+    // picks those up too and the two orderings being compared are different sets.
+    // Taking the first heading inside each top-level group avoids that: a job's own
+    // heading comes before anything nested under it.
+    const jobHeadings = async () => {
+      await page.waitForTimeout(300)
+      return page.evaluate(() =>
+        [...document.querySelectorAll('.inline-section > .inline-rows > .inline-row-group')]
+          .filter((group) =>
+            group
+              .closest('.inline-section')
+              ?.querySelector('h2')
+              ?.textContent?.includes('Work history'),
+          )
+          .map((group) => group.querySelector('.inline-row-heading')?.textContent ?? '')
+          .filter((heading) => heading !== ''),
+      )
+    }
+    await page.getByLabel('Order', { exact: true }).selectOption('az')
+    const azOrder = await jobHeadings()
+    await page.getByLabel('Order', { exact: true }).selectOption('za')
+    const zaOrder = await jobHeadings()
+    const alphabetical = [...azOrder].sort((left, right) =>
+      left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }),
+    )
+    check(
+      'ordering reverses the rows and leaves the same ones',
+      azOrder.length > 1 &&
+        JSON.stringify(zaOrder) === JSON.stringify([...azOrder].reverse()) &&
+        new Set(azOrder).size === azOrder.length,
+      `A-Z ${JSON.stringify(azOrder)} / Z-A ${JSON.stringify(zaOrder)}`,
+    )
+    check(
+      'A to Z really is alphabetical',
+      JSON.stringify(azOrder) === JSON.stringify(alphabetical),
+      `A-Z ${JSON.stringify(azOrder)} / sorted ${JSON.stringify(alphabetical)}`,
+    )
+    await page.getByLabel('Order', { exact: true }).selectOption('document')
+    await page.waitForTimeout(300)
+
+    /*
+     * Reachable by Tab, rather than reachable by `.focus()`.
+     *
+     * The previous version of this check focused the toggle and asserted that it was
+     * focused, which is a tautology: it would pass on a page where nothing could ever
+     * reach it by keyboard. Pressing Tab from the top of the document and finding it
+     * is the claim worth making, and it is what fails if the row's controls are
+     * dropped from the tab order, reordered into somewhere unreachable, or covered
+     * by something.
+     */
+    await page.evaluate(() => {
+      document.body.focus()
+      // Start from the very beginning of the document's tab order.
+      const first = document.querySelector('a[href], button, input, select, textarea')
+      first?.blur()
+    })
+    let reached = false
+    for (let step = 0; step < 80 && !reached; step += 1) {
+      await page.keyboard.press('Tab')
+      reached = await page.evaluate(() =>
+        (document.activeElement?.className ?? '').includes('inline-row-toggle'),
+      )
+    }
+    check(
+      'a row toggle is reachable by Tab from the top of the page',
+      reached,
+      `not reached in 80 tabs; focus is on ${await page.evaluate(
+        () => document.activeElement?.tagName ?? 'nothing',
+      )}`,
     )
     await firstRowToggle.press('Enter')
     await page.locator('.inline-editor').first().waitFor()
