@@ -8,7 +8,9 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { SyncScheduler, type SyncLogEntry, type SyncStatus } from '../../sync/scheduler'
-import { SyncContext, type SyncContextValue } from './syncContext'
+import { SyncBadgeContext, SyncContext, type SyncContextValue } from './syncContext'
+import { describeSyncBadge } from './syncBadge'
+import type { SyncBadge } from './syncContext'
 import {
   REMOTE_PATH,
   indexedDbDropboxProvider,
@@ -124,7 +126,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [status, log, connected, environment],
   )
 
-  return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
+  /*
+   * The header's slice.
+   *
+   * Deps are the four things the icon renders from and nothing else, so a cycle
+   * that changes nothing visible — which still rewrites `lastOutcome` and
+   * `lastSyncAt` — leaves this object identical and the icon unrendered.
+   */
+  const badge = useMemo<SyncBadge>(
+    () => describeSyncBadge(connected, status.state, status.pending, status.message),
+    [connected, status.state, status.pending, status.message],
+  )
+
+  return (
+    <SyncBadgeContext.Provider value={badge}>
+      <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
+    </SyncBadgeContext.Provider>
+  )
 }
 
 export type { SyncContextValue }
