@@ -47,6 +47,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check for bundled secrets
+        run: npm run check:secrets
+
+      - name: Check citations
+        run: npm run check:citations
+
       - name: Test
         run: npm run test
 
@@ -56,12 +62,11 @@ jobs:
   smoke:
     name: Browser smoke test
     runs-on: ubuntu-latest
-    # Non-blocking to begin with. A real browser catches what jsdom cannot —
-    # notably a wrong base path producing a blank page behind a completely green
-    # build, which is exactly how this project's first deploy failed. Promoted to
-    # blocking once it proves stable; a browser download or a flake should not be
-    # able to block a deploy in the meantime.
-    continue-on-error: true
+    # Blocking. A real browser catches what jsdom cannot — notably a wrong base
+    # path producing a blank page behind a completely green build, which is exactly
+    # how this project's first deploy failed. This was non-blocking while the suite
+    # was finding its feet, and is not any more: it runs against the built bundle,
+    # so it is the only check here that sees what actually gets deployed.
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,7 +91,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    needs: verify
+    needs: [verify, smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: read
