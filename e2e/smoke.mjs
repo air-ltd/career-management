@@ -1732,6 +1732,31 @@ async function main() {
       )
     check('a deleted record is still findable behind "show deleted" (D51)', stillFindable)
 
+    // The list views offer the same thing: a deleted record is offered back.
+    await go(page, origin, '/profiles')
+    await page.locator('.record-list').waitFor()
+    const listRow = page.locator('.record-row').first()
+    const listHeading = (await listRow.locator('.record-row-heading').innerText()).trim()
+    await listRow.getByRole('button', { name: `Delete ${listHeading}` }).click()
+    await page.waitForTimeout(600)
+    await page.getByLabel('Show deleted').check()
+    await page.waitForTimeout(300)
+    const deletedListRow = page.locator('.record-row.is-deleted').first()
+    check(
+      'a deleted record in a list view offers to be recovered too',
+      (await deletedListRow.getByRole('button', { name: `Recover ${listHeading}` }).count()) ===
+        1 &&
+        (await deletedListRow
+          .getByRole('button', { name: `Delete ${listHeading}` })
+          .count()) === 0,
+    )
+    await deletedListRow.getByRole('button', { name: `Recover ${listHeading}` }).click()
+    await page.waitForTimeout(600)
+    check(
+      'and recovering it brings it back',
+      (await page.locator('.record-row.is-deleted').count()) === 0,
+    )
+
     // ------------------------------------------------------------- profile
     // Picking a profile from the document page, where its effect is visible.
     // Reached through the list's own link rather than by typing the route, which
@@ -2965,6 +2990,35 @@ async function main() {
       'Show deleted brings it back, marked as deleted',
       (await paneHas()) === true && isMarked === true,
       String(isMarked),
+    )
+
+    /*
+     * A deleted record can be brought back.
+     *
+     * The button that deleted it is replaced by one that recovers it, so the
+     * control that undoes the mistake is the one under the pointer.
+     */
+    const deletedRow = row.first()
+    check(
+      'a deleted record offers to be recovered rather than deleted again',
+      (await deletedRow.getByRole('button', { name: 'Recover', exact: true }).count()) === 1 &&
+        (await deletedRow.getByRole('button', { name: 'Delete', exact: true }).count()) === 0,
+      await deletedRow
+        .locator('.inline-row-actions button')
+        .allInnerTexts()
+        .then((texts) => texts.join(',')),
+    )
+    await deletedRow.getByRole('button', { name: 'Recover', exact: true }).click()
+    await page.waitForTimeout(700)
+    check(
+      'recovering it brings it back into the list',
+      (await paneHas()) === true &&
+        (await deletedRow.evaluate((n) => n.classList.contains('is-deleted'))) === false,
+      'the row should no longer be marked as deleted',
+    )
+    check(
+      'and it is a live record again, with the delete button back',
+      (await deletedRow.getByRole('button', { name: 'Delete', exact: true }).count()) === 1,
     )
     // And the toggle is per-page state, not stored: it decides what this screen
     // prints, not what the document page prints.

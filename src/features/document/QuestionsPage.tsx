@@ -45,6 +45,7 @@ export function QuestionsPage({
         title="Question categories"
         registryKey="questionCategories"
         onDelete={editor.deleteFrom('questionCategories')}
+        onRecover={editor.recoverFrom('questionCategories')}
         records={editor.ordered('questionCategories')}
         describe={(record) => ({ heading: text(record, 'title'), detail: '' })}
         emptyText="No question categories yet."
@@ -65,6 +66,7 @@ export function QuestionsPage({
             category={category}
             records={editor.visible(editor.records.questions)}
             onDelete={editor.deleteFrom('questions')}
+            onRecover={editor.recoverFrom('questions')}
             onReorder={(ids) => {
               void saveQuestionOrder(text(category, 'id'), ids, now)
             }}
@@ -94,12 +96,14 @@ function QuestionsUnderCategory({
   category,
   records,
   onDelete,
+  onRecover,
   onReorder,
   showStories,
 }: {
   category: Record<string, unknown>
   records: Row[]
   onDelete: (id: string) => void
+  onRecover: (id: string) => void
   onReorder: (ids: string[]) => void
   showStories: boolean
 }) {
@@ -135,6 +139,7 @@ function QuestionsUnderCategory({
             heading={text(question, 'question')}
             detail=""
             onDelete={onDelete}
+            onRecover={onRecover}
             // A question's answer is its story, and follows the same rule as every
             // other record's — with stories excluded there is no answer here either.
             preview={storyPreview(text(question, 'answer'), showStories)}

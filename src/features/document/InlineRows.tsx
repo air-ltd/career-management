@@ -28,6 +28,7 @@ export function InlineRow({
   onDragOver,
   onDrop,
   onDelete,
+  onRecover,
 }: {
   registryKey: RegistryKey
   record: Record<string, unknown>
@@ -70,6 +71,14 @@ export function InlineRow({
    * delete and both offer undo afterwards, and they are different components.
    */
   onDelete?: (id: string) => void
+  /**
+   * Brings this record back, for one that has been deleted.
+   *
+   * A deleted record offers to be recovered rather than deleted again: deleting
+   * it a second time is not a thing a record can be asked to do, and the control
+   * that undoes the mistake is the one the user is looking for.
+   */
+  onRecover?: (id: string) => void
 }) {
   const isDeleted = text(record, 'deletedAt') !== ''
   const editHref = `#${REGISTRY[registryKey].editPath(text(record, 'id'))}`
@@ -121,17 +130,37 @@ export function InlineRow({
           <a className="button button-small" href={editHref}>
             Edit
           </a>
-          {onDelete !== undefined && (
-            <button
-              type="button"
-              className="button button-small"
-              onClick={() => {
-                onDelete(text(record, 'id'))
-              }}
-            >
-              Delete
-            </button>
-          )}
+          {/*
+            A deleted record is offered back rather than deleted again.
+
+            The button that deleted it is replaced rather than joined by a second
+            one: a row with "Delete" and "Recover" side by side reads as a record
+            that is both deleted and not, and the only one of the two that can be
+            pressed is the one that is right.
+          */}
+          {isDeleted
+            ? onRecover !== undefined && (
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => {
+                    onRecover(text(record, 'id'))
+                  }}
+                >
+                  Recover
+                </button>
+              )
+            : onDelete !== undefined && (
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => {
+                    onDelete(text(record, 'id'))
+                  }}
+                >
+                  Delete
+                </button>
+              )}
         </div>
       </div>
 
@@ -151,6 +180,7 @@ export function InlineSection({
   records,
   describe,
   emptyText,
+  onRecover,
   renderChildren,
   actionsFor,
   preview,
@@ -170,6 +200,8 @@ export function InlineSection({
   preview?: (record: Record<string, unknown>) => React.ReactNode
   /** Deletes one record; see `InlineRow`. */
   onDelete?: (id: string) => void
+  /** Brings a deleted record back; see `InlineRow`. */
+  onRecover?: (id: string) => void
   /**
    * Where the "add" link goes.
    *
@@ -213,6 +245,7 @@ export function InlineSection({
                     : {})}
                   {...(recordActions !== undefined ? { actions: recordActions } : {})}
                   {...(onDelete !== undefined ? { onDelete } : {})}
+                  {...(onRecover !== undefined ? { onRecover } : {})}
                 />
                 {renderChildren?.(record)}
               </div>

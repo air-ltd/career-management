@@ -78,6 +78,8 @@ export interface EditorState {
   visible: (records: Row[]) => Row[]
   /** A delete handler that names what it deleted, for the undo message. */
   deleteFrom: (key: RegistryKey) => (id: string) => void
+  /** Brings a deleted record back. */
+  recoverFrom: (key: RegistryKey) => (id: string) => void
   undo: { key: RegistryKey; id: string; label: string } | null
   restore: () => void
   loading: boolean
@@ -203,6 +205,20 @@ export function useEditorState(
     }
 
   /**
+   * Bring a deleted record back.
+   *
+   * A separate write rather than an undo of the delete, because a deleted record
+   * is still in the database with a tombstone on it: clearing the tombstone is
+   * the same last-write-wins edit every other change is, and a record restored
+   * here resolves the same way whether it came from this device or another.
+   */
+  const recoverFrom =
+    (key: RegistryKey) =>
+    (id: string): void => {
+      void restoreRecord(key, id, now)
+    }
+
+  /**
    * What a section lists: tombstones as asked for, then searched, then ordered.
    *
    * Search reads the two lines the row shows rather than the whole record. The row
@@ -251,6 +267,7 @@ export function useEditorState(
     ordered,
     visible,
     deleteFrom: (key) => deleteFrom(key, records[key]),
+    recoverFrom,
     undo,
     restore: () => {
       const target = undo

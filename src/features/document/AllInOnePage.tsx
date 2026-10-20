@@ -49,6 +49,7 @@ export function AllInOnePage({
         title="Profiles"
         registryKey="profiles"
         onDelete={editor.deleteFrom('profiles')}
+        onRecover={editor.recoverFrom('profiles')}
         records={editor.ordered('profiles')}
         describe={(record) => ({
           heading: text(record, 'name') || '(unnamed profile)',
@@ -62,6 +63,7 @@ export function AllInOnePage({
         title="Work history"
         registryKey="jobs"
         onDelete={editor.deleteFrom('jobs')}
+        onRecover={editor.recoverFrom('jobs')}
         records={editor.ordered('jobs')}
         describe={(record) => ({
           heading: `${text(record, 'company')} - ${text(record, 'jobTitle')}`,
@@ -90,6 +92,7 @@ export function AllInOnePage({
             job={job}
             records={editor.visible(editor.records.achievements)}
             onDelete={editor.deleteFrom('achievements')}
+            onRecover={editor.recoverFrom('achievements')}
             onReorder={(ids) => {
               void saveAchievementOrder(text(job, 'id'), ids, now)
             }}
@@ -102,6 +105,7 @@ export function AllInOnePage({
         title="Awards"
         registryKey="awards"
         onDelete={editor.deleteFrom('awards')}
+        onRecover={editor.recoverFrom('awards')}
         records={editor.ordered('awards')}
         describe={(record) => ({
           heading: text(record, 'institution'),
@@ -120,6 +124,7 @@ export function AllInOnePage({
         title="Education"
         registryKey="education"
         onDelete={editor.deleteFrom('education')}
+        onRecover={editor.recoverFrom('education')}
         records={editor.ordered('education')}
         describe={(record) => ({
           heading: text(record, 'institution'),
@@ -191,12 +196,14 @@ function AchievementsUnderJob({
   job,
   records,
   onDelete,
+  onRecover,
   onReorder,
   showStories,
 }: {
   job: Record<string, unknown>
   records: Row[]
   onDelete: (id: string) => void
+  onRecover: (id: string) => void
   onReorder: (ids: string[]) => void
   showStories: boolean
 }) {
@@ -230,6 +237,7 @@ function AchievementsUnderJob({
             heading={text(achievement, 'achievement')}
             detail=""
             onDelete={onDelete}
+            onRecover={onRecover}
             preview={storyPreview(text(achievement, 'story'), showStories)}
             handle={<OrderHandle handleProps={order.handleProps(id, index)} />}
             drop={rowProps['data-drop']}
