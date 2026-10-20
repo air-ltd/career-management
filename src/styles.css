@@ -271,7 +271,21 @@ code {
   color: var(--accent-text);
 }
 
-.button-primary:hover {
+/*
+ * The primary button's hover.
+ *
+ * `.button:hover` above sets the background to the surface colour, and it has the
+ * same specificity as the rule that made this button the accent colour — so on
+ * hover the blue was replaced by the surface while the label kept the accent's
+ * own text colour. White on near-white, or near-black on near-black in the dark
+ * theme, and the label became unreadable exactly when the pointer was on it.
+ *
+ * The background is set again here, at a higher specificity than the generic
+ * hover rather than merely later in the file, so it cannot be lost again by
+ * something added below it.
+ */
+.button.button-primary:hover {
+  background: var(--accent);
   filter: brightness(1.1);
 }
 

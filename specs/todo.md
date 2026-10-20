@@ -11,7 +11,7 @@
 12. [x] Add a manual ordering capability for achievements (within a job) - by dragging them to a new place, with the arrow keys as the keyboard route.
 13. [x] Add a manual ordering capability for questions (within a question category) - by dragging them to a new place, with the arrow keys as the keyboard route.
 14. [x] Can you abbreviate September to "Sep" rather than "Sept" in date ranges.
-15. [ ] hovering over buttons like "Add job" and "add education" turns the background colour from blue to white, but doesn't change the text colour so it becomes unreadable. can you fix this to ensure that the text on buttons remains visible.
+15. [x] hovering over buttons like "Add job" and "add education" turns the background colour from blue to white, but doesn't change the text colour so it becomes unreadable. can you fix this to ensure that the text on buttons remains visible.
 16. [ ] LATER: width of the card that hold the document text on http://localhost:5173/career-management/#/document should be expanded to closely match the width available in the print pdf - this will make it easier for user to see when lines are likely to wrap on the pdf. You need to compare text sizes and space to get this. This should hold true when browser zoom is set to 100%. because the card width is consistent also do the same increase width on other pages.
 17. [x] buttons such as edit and add achievement should open on a new page rather than expanding the existing page.
 18. [ ] add option to undelete deleted items - instead of having the delete button, it should be a recover button when the item has been deleted.

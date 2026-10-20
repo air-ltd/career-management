@@ -111,6 +111,32 @@ async function go(page, origin, hash) {
     .waitFor()
 }
 
+/**
+ * The contrast ratio between a control's text and its background.
+ *
+ * As WCAG defines it, so the number means what it means elsewhere: 1 is
+ * identical, 21 is black on white. Computed in the page, because the colours are
+ * whatever the theme has resolved them to.
+ */
+async function contrastRatio(locator) {
+  return locator.evaluate((node) => {
+    const style = getComputedStyle(node)
+    const parse = (value) => (value.match(/[\d.]+/g) ?? ['0', '0', '0']).map(Number)
+    const luminance = ([r, g, b]) => {
+      const channel = (value) => {
+        const s = value / 255
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+      }
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    }
+    const foreground = luminance(parse(style.color))
+    const background = luminance(parse(style.backgroundColor))
+    const lighter = Math.max(foreground, background)
+    const darker = Math.min(foreground, background)
+    return (lighter + 0.05) / (darker + 0.05)
+  })
+}
+
 /** Fill or select a labelled control by its visible label text. */
 async function fill(page, label, value) {
   const control = page.getByLabel(label, { exact: true })
@@ -1636,14 +1662,25 @@ async function main() {
     // control for what they were doing.
     check(
       'cancelling returns focus to the control that opened the form',
-      await page.evaluate(() => {
-        const active = document.activeElement
-        return (
-          active !== null &&
-          active.closest('.inline-row-actions') !== null &&
-          active.textContent?.trim() === 'Edit'
+      // The focus is put back a frame or two after the page has changed, so this
+      // waits for it rather than reading it the instant the form goes.
+      await page
+        .waitForFunction(
+          () => {
+            const active = document.activeElement
+            return (
+              active !== null &&
+              active.closest('.inline-row-actions') !== null &&
+              active.textContent?.trim() === 'Edit'
+            )
+          },
+          undefined,
+          { timeout: 5000 },
         )
-      }),
+        .then(
+          () => true,
+          () => false,
+        ),
       await page.evaluate(() => {
         const active = document.activeElement
         return active === null
@@ -2005,14 +2042,25 @@ async function main() {
     )
     check(
       'and the focus is back on the control that opened it',
-      await page.evaluate(() => {
-        const active = document.activeElement
-        return (
-          active !== null &&
-          active.closest('.inline-row-actions') !== null &&
-          active.textContent?.trim() === 'Edit'
+      // The focus is put back a frame or two after the page has changed, so this
+      // waits for it rather than reading it the instant the form goes.
+      await page
+        .waitForFunction(
+          () => {
+            const active = document.activeElement
+            return (
+              active !== null &&
+              active.closest('.inline-row-actions') !== null &&
+              active.textContent?.trim() === 'Edit'
+            )
+          },
+          undefined,
+          { timeout: 5000 },
         )
-      }),
+        .then(
+          () => true,
+          () => false,
+        ),
       await page.evaluate(() => {
         const active = document.activeElement
         return active === null
@@ -2923,6 +2971,36 @@ async function main() {
     check(
       'the edit-all page also offers the label for the card',
       (await page.locator('.document-options summary').innerText()) === 'Also include',
+    )
+
+    /*
+     * A button's label has to stay readable while the pointer is on it.
+     *
+     * The primary buttons are the accent colour with the accent's own text
+     * colour, and the generic hover changed the background without changing the
+     * text — so the label went white on near-white, and near-black on near-black
+     * in the dark theme, exactly when the pointer was on the button.
+     */
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    const addJob = page
+      .locator('.inline-section')
+      .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
+      .getByRole('link', { name: 'Add job', exact: true })
+      .first()
+    const atRest = await contrastRatio(addJob)
+    await addJob.hover()
+    await page.waitForTimeout(150)
+    const onHover = await contrastRatio(addJob)
+    check(
+      'a primary button is readable at rest',
+      atRest >= 4.5,
+      `contrast ${atRest.toFixed(2)}`,
+    )
+    check(
+      'and stays readable under the pointer',
+      onHover >= 4.5,
+      `contrast ${onHover.toFixed(2)}`,
     )
 
     // ----------------------------------------------------------------- errors
