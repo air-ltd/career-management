@@ -1,11 +1,15 @@
 /**
- * SEC1: the app MUST talk to exactly two third-party origins.
+ * SEC1: the app MUST talk to exactly three third-party origins.
  *
  * The requirement is an exact count, so this checks an exact list. A check that
- * only confirmed the two Dropbox hosts were *present* would pass against a bundle
+ * only confirmed the Dropbox hosts were *present* would pass against a bundle
  * also phoning an analytics endpoint, a font CDN or a telemetry beacon — which is
  * precisely the case the requirement exists to catch, and the reason "the allow-list
  * is present" is not the same claim as "the allow-list is the whole allow-list".
+ *
+ * The third is the assistant's provider, and it is there because the feature is
+ * worth having. The key is the user's own and never leaves their browser except
+ * to that provider; the document is never sent there at all.
  *
  * Scans the built bundle rather than the source, because the property is about what
  * ships. A dependency added at build time, a stray URL in a comment that got
@@ -23,7 +27,7 @@ import { join, resolve } from 'node:path'
 const DIST = resolve(import.meta.dirname, '..', 'dist')
 
 /** SEC1, restated here so a change to it is a change to both. */
-const ALLOWED_HOSTS = ['api.dropboxapi.com', 'content.dropboxapi.com']
+const ALLOWED_HOSTS = ['api.dropboxapi.com', 'content.dropboxapi.com', 'api.openai.com']
 
 /**
  * Hosts the app legitimately names that are not network endpoints.

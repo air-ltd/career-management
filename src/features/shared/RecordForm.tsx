@@ -11,6 +11,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { validate, type Field, type FieldValues } from './fields'
+import { DraftPanel } from '../document/DraftPanel'
 
 export interface RecordFormProps {
   title: string
@@ -36,6 +37,8 @@ export interface RecordFormProps {
     field: string
     /** The phrases the user has written. */
     phrases: readonly { id: string; text: string }[]
+    /** Whether the assistant drafting panel is offered. */
+    drafting?: boolean
   }
 }
 
@@ -159,6 +162,17 @@ export function RecordForm({
             ))}
           </ul>
         </details>
+      )}
+
+      {assist !== undefined && assist.drafting === true && (
+        <DraftPanel
+          current={
+            typeof current[assist.field] === 'string' ? (current[assist.field] as string) : ''
+          }
+          onUse={(text) => {
+            insertPhrase(text)
+          }}
+        />
       )}
 
       <div className="button-row">

@@ -12,6 +12,8 @@ import { readSettings, writeSettings } from '../shared/data'
 import type { ThemePreference } from '../../app/theme'
 import { db } from '../../storage/db'
 import type { Profile } from '../../domain/types'
+import { clearProviderKey, readProviderKey, writeProviderKey } from '../../ai/key'
+import { chatCompletionsProvider } from '../../ai/chatCompletions'
 
 export interface SettingsPageProps {
   now: Date
@@ -22,6 +24,12 @@ export interface SettingsPageProps {
 export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
+  // The key is read from storage, never from the document. Read once, at mount:
+  // it does not change while the page is open except through the buttons below.
+  const [providerKey, setProviderKey] = useState(() =>
+    readProviderKey(chatCompletionsProvider.id),
+  )
+  const [keySaved, setKeySaved] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
@@ -179,6 +187,67 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
+        </div>
+      </div>
+
+      {/*
+        The assistant's key.
+
+        Its own panel, and its own save, because it is not a document setting: it
+        is a credential, and it must never be written into the document, which
+        syncs to Dropbox and is exported to employers. It is kept in this browser
+        and nowhere else, so it is saved here and not with the settings.
+      */}
+      <div className="panel">
+        <h3>Assistant</h3>
+        <p className="hint">
+          Drafting a line with an assistant uses a provider of your own. Your key is kept in
+          this browser only: it is never synced, never exported and never sent anywhere but the
+          provider. The document itself is never sent — only the instruction and the line you
+          are writing.
+        </p>
+        <div className="field">
+          <label htmlFor="provider-key">Your provider key</label>
+          <input
+            id="provider-key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={providerKey}
+            onChange={(event) => {
+              setProviderKey(event.target.value)
+              setKeySaved(false)
+            }}
+          />
+          <p className="field-hint">
+            {providerKey === ''
+              ? 'No key is set, so the drafting panel is not offered.'
+              : `Kept in this browser. The provider is ${chatCompletionsProvider.label}, at ${chatCompletionsProvider.origin}.`}
+          </p>
+        </div>
+        <div className="button-row">
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              writeProviderKey(chatCompletionsProvider.id, providerKey.trim())
+              setKeySaved(true)
+            }}
+          >
+            Save key
+          </button>
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              clearProviderKey()
+              setProviderKey('')
+              setKeySaved(true)
+            }}
+          >
+            Forget key
+          </button>
+          {keySaved && <span className="hint">Saved.</span>}
         </div>
       </div>
 

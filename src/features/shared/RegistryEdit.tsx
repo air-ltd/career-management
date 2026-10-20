@@ -137,6 +137,7 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
                 id: text(phrase, 'id'),
                 text: text(phrase, 'text'),
               })),
+              drafting: true,
             },
           })}
       submitLabel="Save"

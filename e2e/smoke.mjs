@@ -298,6 +298,7 @@ async function main() {
       ['script-src', "'self'"],
       ['connect-src', 'https://api.dropboxapi.com'],
       ['connect-src', 'https://content.dropboxapi.com'],
+      ['connect-src', 'https://api.openai.com'],
       ['object-src', "'none'"],
       ['base-uri', "'none'"],
       ['form-action', "'none'"],
@@ -326,10 +327,10 @@ async function main() {
         .map((part) => part.trim())
         .filter((part) => part.startsWith(`${name} `))
     check(
-      'connect-src names the two Dropbox hosts and nothing else',
+      'connect-src names the two Dropbox hosts, the assistant, and nothing else',
       JSON.stringify(directiveOf('connect-src')) ===
         JSON.stringify([
-          "connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com",
+          "connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://api.openai.com",
         ]),
       JSON.stringify(directiveOf('connect-src')),
     )
@@ -2302,6 +2303,57 @@ async function main() {
         'Cut the billing page load time in half',
       await page.getByLabel('Achievement', { exact: true }).inputValue(),
     )
+
+    /*
+     * The assistant's key.
+     *
+     * The property that matters is that the key never reaches the document: the
+     * document syncs to Dropbox and is exported to employers, and a credential in
+     * it would travel to a third party and be written into a file sent to an
+     * employer.
+     */
+    await go(page, origin, '/settings')
+    await page.locator('.settings-page').waitFor()
+    check(
+      'the drafting panel is not offered without a key',
+      (await page.locator('#provider-key').count()) === 1,
+    )
+    await fill(page, 'Your provider key', 'sk-not-a-real-key-but-long-enough')
+    await page.getByRole('button', { name: 'Save key', exact: true }).click()
+    await page.waitForTimeout(300)
+    await go(page, origin, '/achievements/new')
+    await page.locator('.record-form').waitFor()
+    check(
+      'with a key it is offered',
+      (await page.locator('.record-assist summary').allInnerTexts()).includes(
+        'Draft with an assistant',
+      ),
+      JSON.stringify(await page.locator('.record-assist summary').allInnerTexts()),
+    )
+    // The key must not be anywhere in the document: the document syncs to
+    // Dropbox and is exported to employers, and a credential in it would travel
+    // to a third party and be written into a file sent to an employer.
+    const leaked = await page.evaluate(async (secret) => {
+      const databases = await globalThis.indexedDB.databases()
+      const name = databases.find((db) => db.name?.includes('career-management'))
+      if (name === undefined) return 'no database'
+      const db = await new Promise((resolve, reject) => {
+        const request = globalThis.indexedDB.open(name.name)
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+      })
+      const storeNames = [...db.objectStoreNames]
+      for (const store of storeNames) {
+        const rows = await new Promise((resolve, reject) => {
+          const request = db.transaction(store, 'readonly').objectStore(store).getAll()
+          request.onsuccess = () => resolve(request.result)
+          request.onerror = () => reject(request.error)
+        })
+        if (JSON.stringify(rows).includes(secret)) return store
+      }
+      return null
+    }, 'sk-not-a-real-key-but-long-enough')
+    check('and the key is nowhere in the document', leaked === null, String(leaked))
 
     // The formats the document can be taken away in (D23).
     await go(page, origin, '/document')
