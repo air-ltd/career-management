@@ -21,6 +21,7 @@ import type {
   Settings,
 } from '../domain/types'
 import { compareByOrder, sortByOrder } from '../domain/order'
+import { DEFAULT_SECTIONS, headingFor, nameFor, resolveOrder } from '../domain/sections'
 
 export type Preset = 'cv' | 'interview'
 
@@ -92,6 +93,22 @@ export interface QuestionCategoryGroup {
  * Sorted once here rather than in each consumer, so the on-screen document and
  * the exported one cannot disagree about what comes first.
  */
+/**
+ * One section of the document, as the document has decided to have it.
+ *
+ * The heading and the name are separate because a section can have no visible
+ * heading and still need a name: the work history prints no title and is still
+ * announced as "Work history".
+ */
+export interface DocumentSection {
+  /** The section's key. */
+  key: string
+  /** The heading as it prints. Empty means no visible heading. */
+  heading: string
+  /** The name of the section, for the screen reader and the printed document. */
+  name: string
+}
+
 export interface DocumentModel {
   options: ExportOptions
   /** Null when no profile is selected, which is a state the user can be in. */
@@ -100,6 +117,13 @@ export interface DocumentModel {
   achievementsByJob: Map<string, Achievement[]>
   awardsEducation: AwardEducationEntry[]
   questionCategories: QuestionCategoryGroup[]
+  /**
+   * The sections, in the order they are to appear (D57).
+   *
+   * The document's shape, decided by the template and carried in the settings.
+   * The view draws them in this order and does not decide it for itself.
+   */
+  sections: DocumentSection[]
   settings: Settings
 }
 
@@ -231,6 +255,24 @@ export function buildDocumentModel(input: {
         .sort((a, b) => a.category.title.localeCompare(b.category.title))
     : []
 
+  /*
+   * The sections, in the order the document has decided on.
+   *
+   * A template sets the order and which sections appear (D57); the settings carry
+   * it, because a template is a choice of settings and the document is what
+   * remembers the choice. A document written before either existed has neither,
+   * and gets the order and the sections the app has always produced.
+   */
+  const sectionOrder = resolveOrder(input.settings.sectionOrder)
+  const included = new Set(input.settings.sections ?? DEFAULT_SECTIONS)
+  const sections: DocumentSection[] = sectionOrder
+    .filter((key) => included.has(key))
+    .map((key) => ({
+      key,
+      heading: headingFor(key, input.settings.sectionHeadings),
+      name: nameFor(key, input.settings.sectionHeadings),
+    }))
+
   return {
     options,
     profile,
@@ -238,6 +280,7 @@ export function buildDocumentModel(input: {
     achievementsByJob,
     awardsEducation,
     questionCategories,
+    sections,
     settings: input.settings,
   }
 }

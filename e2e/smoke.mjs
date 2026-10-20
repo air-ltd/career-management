@@ -1484,7 +1484,10 @@ async function main() {
     // page while claiming to be the same button.
     check(
       'the edit-all page offers the same include toggles',
-      (await page.locator('.all-in-one .document-sidebar input[type=checkbox]').count()) === 3,
+      // Scoped to the include options, as the comparison with the document page
+      // is: the rail holds other checkboxes now, and those are not include
+      // toggles.
+      (await page.locator('.all-in-one .document-options input[type=checkbox]').count()) === 3,
     )
     check(
       'the edit-all page offers the document presets',
@@ -2128,6 +2131,126 @@ async function main() {
           .catch(() => ''),
       )
     }
+
+    /*
+     * Templates.
+     *
+     * A template is a named set of document settings (D54). The one that ships is
+     * the document the app has always produced, so an existing user's first load
+     * looks exactly like their previous load.
+     */
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    const templateSelect = page.locator('#document-template')
+    check(
+      'the built-in template is there, and it is the one in use',
+      (await templateSelect.count()) === 1 &&
+        (await templateSelect.inputValue()) !== '' &&
+        (await templateSelect.locator('option').allInnerTexts()).includes(
+          'Career Management Document',
+        ),
+      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
+    )
+    check(
+      'and it says what it is before it is chosen (D60)',
+      (await page.locator('.document-template-summary').innerText()).length > 0,
+      await page.locator('.document-template-summary').innerText(),
+    )
+
+    // The sections, in the order the document has them.
+    const sectionLabels = async () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.doc-section')].map((section) =>
+          section.getAttribute('aria-label'),
+        ),
+      )
+    const beforeSections = await sectionLabels()
+    check(
+      'the document has its sections in the default order',
+      beforeSections.length > 0,
+      JSON.stringify(beforeSections),
+    )
+
+    // The document's sections are in the order the rail lists them.
+    const railOrder = async () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.document-section-row')].map((row) =>
+          row.querySelector('.document-section-include span')?.textContent?.trim(),
+        ),
+      )
+    // The document prints the sections it has content for, in the order the rail
+    // lists them. A section with nothing in it is not printed, so the comparison
+    // is between the document's sections and those same sections in the rail.
+    const shownIn = async (names) => (await railOrder()).filter((name) => names.includes(name))
+    check(
+      'the document prints its sections in the order they are listed',
+      JSON.stringify(await sectionLabels()) ===
+        JSON.stringify(await shownIn(await sectionLabels())),
+      `${JSON.stringify(await sectionLabels())} vs ${JSON.stringify(await shownIn(await sectionLabels()))}`,
+    )
+
+    // Reorder the sections, and check the document follows.
+    await page.locator('.document-sections > summary').click()
+    await page.waitForTimeout(200)
+    const moveDown = page.getByRole('button', { name: /^Move .* down$/ }).first()
+    await moveDown.click()
+    await page.waitForTimeout(400)
+    const afterSections = await sectionLabels()
+    check(
+      'moving a section moves it in the document',
+      JSON.stringify(afterSections) !== JSON.stringify(beforeSections) &&
+        JSON.stringify(afterSections) === JSON.stringify(await shownIn(afterSections)),
+      `${JSON.stringify(beforeSections)} -> ${JSON.stringify(afterSections)}`,
+    )
+
+    // And a template made from the current settings reproduces it.
+    await page.getByRole('button', { name: 'Save current as a template' }).click()
+    await page.locator('#document-template-name').fill('Reordered')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.waitForTimeout(600)
+    check(
+      'a template can be made from the current settings (D61)',
+      (await templateSelect.locator('option').allInnerTexts()).includes('Reordered'),
+      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
+    )
+
+    // Choosing a template is a choice of settings, not of records: the profile
+    // the CV is for is not one of them (D56).
+    const profileBefore = await page.locator('#document-profile').inputValue()
+    await templateSelect.selectOption({ label: 'Reordered' })
+    await page.waitForTimeout(400)
+    check(
+      'choosing a template does not change who the document is for (D56)',
+      (await page.locator('#document-profile').inputValue()) === profileBefore,
+      `${await page.locator('#document-profile').inputValue()} vs ${profileBefore}`,
+    )
+
+    // Back to the built-in, and the document goes back with it.
+    await templateSelect.selectOption({ label: 'Career Management Document' })
+    await page.waitForTimeout(500)
+    check(
+      'choosing the built-in template puts the document back as it was',
+      JSON.stringify(await sectionLabels()) === JSON.stringify(beforeSections),
+      JSON.stringify(await sectionLabels()),
+    )
+
+    // A template that is not built-in can be deleted, and brought back.
+    await templateSelect.selectOption({ label: 'Reordered' })
+    await page.waitForTimeout(400)
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
+    await page.waitForTimeout(500)
+    check(
+      'a template that is not built-in can be deleted (D62)',
+      !(await templateSelect.locator('option').allInnerTexts()).includes('Reordered'),
+      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
+    )
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.waitForTimeout(500)
+    check(
+      'and the delete can be undone',
+      (await templateSelect.locator('option').allInnerTexts()).includes('Reordered'),
+      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
+    )
 
     for (const added of ['/jobs/new', '/achievements/new', '/awards/new', '/education/new']) {
       await go(page, origin, added)

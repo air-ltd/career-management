@@ -27,7 +27,7 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { resolve } from 'node:path'
-import { parseEnvelope } from '../src/export/envelope'
+import { parseEnvelope, SCHEMA_VERSION } from '../src/export/envelope'
 import { migrate, parseTimestamp } from './migrate/transform'
 import type { LegacyRow, LegacyTables } from './migrate/transform'
 
@@ -179,7 +179,10 @@ function main(): void {
 
   // MIG8: the same validation the app's import path runs. A conversion that
   // produces a file the app refuses is worse than one that fails.
-  const parsed = parseEnvelope(envelope, 1)
+  // The gate the sync path runs, against the version this build writes. Hard-coded,
+  // it would start rejecting the tool's own output the moment the layout version
+  // moved.
+  const parsed = parseEnvelope(envelope, SCHEMA_VERSION)
   if (!parsed.ok) {
     console.error(`migrate: the result is not a valid envelope: ${parsed.message}`)
     process.exit(2)

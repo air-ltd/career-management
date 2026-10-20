@@ -58,6 +58,8 @@ export function inDocumentOrder(records: Mergeable[]): Row[] {
 
 /** What both pages need, from one place. */
 export interface EditorState {
+  /** The clock, for anything that is stamped when it is written. */
+  now: Date
   context: ReturnType<typeof useFieldContext>
   model: ReturnType<typeof useDocument>['model']
   options: ExportOptions
@@ -252,6 +254,7 @@ export function useEditorState(
   }
 
   return {
+    now,
     context,
     model,
     options,

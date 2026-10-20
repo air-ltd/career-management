@@ -1515,6 +1515,85 @@ code {
   font-size: 0.9rem;
 }
 
+/*
+ * The template picker.
+ *
+ * The summary line is what makes the choice a choice rather than a guess: it says
+ * what the template is — the page size, the type, the spacing, the order of the
+ * sections — before it is chosen (D60).
+ */
+.document-template-summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.document-template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+/*
+ * The document's sections: which are in it, in what order, and what they are
+ * called.
+ */
+.document-sections {
+  font-size: 0.9rem;
+}
+
+.document-sections > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.document-section-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.4rem 0 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.document-section-include {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.document-section-controls {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.document-section-controls input[type='text'] {
+  flex: 1 1 6rem;
+  min-width: 0;
+  padding: 0.2rem 0.35rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.document-template-actions input[type='text'] {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .document-field select {
   width: 100%;
 }

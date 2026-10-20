@@ -172,6 +172,45 @@ export const DEFAULT_TARGET_PAGES = 1
  * property of the document: a CV tuned to fit one A4 page must print the same way
  * on every device (D28, D41).
  */
+/**
+ * A template: a named set of document settings (D54–D59).
+ *
+ * Every field is required. A template is a complete set of settings, and a
+ * partial one is worse than none: it would be merged into whatever the document
+ * happened to be set to at the time, which is a document nobody chose (D55).
+ * `looseObject` still, so that a template written by a later build is carried
+ * intact by an older one (D6) — the requirement is that the fields this build
+ * knows about are all there, not that there are no others.
+ *
+ * There is no field for a stylesheet, and there never will be (D58): a template
+ * is synced through a mechanism with no authentication, and a template that could
+ * carry CSS could restyle the app as well as the document.
+ */
+export const templateSchema = z.looseObject({
+  ...base,
+  /** The name the user knows it by. */
+  name: z.string().min(1),
+  /**
+   * Whether this is one of the app's own templates.
+   *
+   * A built-in cannot be edited or deleted (D61, D62): it is the template the
+   * document reproduces today, and a built-in that changed silently would make
+   * "the same template" mean different things on two devices.
+   */
+  builtIn: z.boolean(),
+  pageSize: z.enum(['A4', 'Letter', 'Legal']),
+  fontSizePt: z.number().min(MIN_FONT_SIZE_PT).max(MAX_FONT_SIZE_PT),
+  density: z.enum(['compact', 'normal', 'comfortable']),
+  format: z.enum(['compressed', 'expanded']),
+  targetPages: z.number().int().min(1).max(10),
+  /** Every section, in the order they are to appear. */
+  sectionOrder: z.array(z.string()),
+  /** The sections that are to appear at all. */
+  sections: z.array(z.string()),
+  /** The heading text for each section, by section key. */
+  sectionHeadings: z.record(z.string(), z.string()),
+})
+
 export const settingsSchema = z.looseObject({
   ...base,
   activeProfileId: z.string().nullable(),
@@ -203,6 +242,26 @@ export const settingsSchema = z.looseObject({
    * template, which is why it is a document property rather than a view setting.
    */
   format: z.enum(['compressed', 'expanded']).optional(),
+
+  /**
+   * The order the document's sections appear in, and which of them appear.
+   *
+   * Optional, and the absence is what every document written before templates
+   * had: the default order, and every section. Making them required would refuse
+   * every document anyone already has, for a setting that decides nothing until
+   * it is changed.
+   */
+  sectionOrder: z.array(z.string()).optional(),
+  sections: z.array(z.string()).optional(),
+
+  /**
+   * The heading each section prints, by section key.
+   *
+   * Optional for the same reason. A section with no entry keeps its default
+   * heading; a section with an empty one prints no title, which is what the work
+   * history does today.
+   */
+  sectionHeadings: z.record(z.string(), z.string()).optional(),
 })
 
 export type Profile = z.infer<typeof profileSchema>
@@ -213,6 +272,7 @@ export type Education = z.infer<typeof educationSchema>
 export type QuestionCategory = z.infer<typeof questionCategorySchema>
 export type Question = z.infer<typeof questionSchema>
 export type Settings = z.infer<typeof settingsSchema>
+export type Template = z.infer<typeof templateSchema>
 export type PageSize = Settings['pageSize']
 export type Density = Settings['density']
 
@@ -233,6 +293,7 @@ export const ENTITY_TABLES = [
   'education',
   'questionCategories',
   'questions',
+  'templates',
 ] as const
 
 export type EntityTableName = (typeof ENTITY_TABLES)[number]
@@ -247,6 +308,7 @@ export const ENTITY_SCHEMAS = {
   education: educationSchema,
   questionCategories: questionCategorySchema,
   questions: questionSchema,
+  templates: templateSchema,
 } as const satisfies Record<EntityTableName, z.ZodType>
 
 /**

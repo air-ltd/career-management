@@ -14,7 +14,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parseEnvelope, narrowTables } from '../../src/export/envelope'
+import { parseEnvelope, narrowTables, SCHEMA_VERSION } from '../../src/export/envelope'
 import { resolve } from 'node:path'
 
 // The directory this script lives in, so the fixture and the runner resolve
@@ -46,7 +46,7 @@ describe('the migration over the committed fixture', () => {
     expect(stdout).toContain('Wrote')
 
     const envelope = JSON.parse(readFileSync(out, 'utf8'))
-    const parsed = parseEnvelope(envelope, 1)
+    const parsed = parseEnvelope(envelope, SCHEMA_VERSION)
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
 

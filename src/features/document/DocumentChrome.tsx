@@ -16,6 +16,8 @@ import {
   type DocumentModel,
 } from '../../export/model'
 import { IncludeOptions } from './IncludeOptions'
+import { TemplatePicker } from './TemplatePicker'
+import { SectionOrder } from './SectionOrder'
 import { PrintIcon } from '../../app/Icons'
 import type { FitReport } from './FitReport'
 import type { Profile, Settings } from '../../domain/types'
@@ -27,6 +29,7 @@ export function DocumentChrome({
   saveSettings,
   liveProfiles,
   model,
+  now,
   fit,
 }: {
   options: ExportOptions
@@ -35,6 +38,8 @@ export function DocumentChrome({
   saveSettings: (next: Settings) => void
   liveProfiles: Profile[]
   model: DocumentModel
+  /** The clock, for the templates: one is stamped when it is written. */
+  now: Date
   /**
    * The fit report, where there is a rendered document to measure.
    *
@@ -113,6 +118,17 @@ export function DocumentChrome({
               ))}
             </select>
           </div>
+
+          {/*
+            D60: the template, with the preset and the profile. The three of them
+            are the three choices that decide a document, and they are all in the
+            rail for the same reason — the consequence of each is visible on the
+            paper beside them.
+          */}
+          <TemplatePicker settings={settings} saveSettings={saveSettings} now={now} />
+
+          {/* The sections the template sets (D57), edited in place. */}
+          <SectionOrder settings={settings} saveSettings={saveSettings} />
 
           <div className="document-field document-profile">
             <label htmlFor="document-profile">Profile</label>

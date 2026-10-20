@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   narrowTables as narrowTablesModule,
   parseEnvelope as parseEnvelopeModule,
+  SCHEMA_VERSION,
 } from '../../src/export/envelope'
 import {
   classifyAwardEducation,
@@ -464,7 +465,7 @@ describe("the result passes the app's own validation (MIG8)", () => {
       }),
       NOW,
     )
-    const parsed = parseEnvelope(envelope, 1)
+    const parsed = parseEnvelope(envelope, SCHEMA_VERSION)
     expect(parsed.ok).toBe(true)
     if (parsed.ok) {
       expect(parsed.snapshot.entities['jobs']).toHaveLength(1)
@@ -485,7 +486,7 @@ describe("the result passes the app's own validation (MIG8)", () => {
     const { envelope } = migrate(tables({ jobs: [job()] }), NOW)
     const tampered = structuredClone(envelope)
     tampered['data']['jobs']![0]!['startDate'] = '31/01/2024'
-    const parsed = parseEnvelope(tampered, 1)
+    const parsed = parseEnvelope(tampered, SCHEMA_VERSION)
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
     const narrowed = narrowTables(parsed.snapshot)
