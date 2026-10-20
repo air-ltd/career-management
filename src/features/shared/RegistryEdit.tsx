@@ -11,18 +11,38 @@ import { saveFields, useFieldContext } from './data'
 import { blankRecord, REGISTRY, type RegistryKey } from './registry'
 import { valuesFromRecord } from './fields'
 import { db } from '../../storage/db'
+import { restoreFocusTo } from '../../app/router'
 
 export interface RegistryEditProps {
   registryKey: RegistryKey
   /** `null` for a new record. */
   id: string | null
   now: Date
+  /**
+   * Fields to start a new record with.
+   *
+   * The parent, when the link that opened the form named one: "add an
+   * achievement under this job" arrives with the job in it, so the form does not
+   * ask which job again. A field the form does not own is ignored, so this
+   * cannot set anything the record does not have.
+   */
+  seed?: Record<string, unknown>
+  /**
+   * Where to go when the form is finished or cancelled.
+   *
+   * The page the form was opened from, so cancelling a job sends the user back
+   * to the career page and cancelling a question sends them back to the
+   * questions page. Without it the form falls back to the record's own list,
+   * which is right for a form opened from that list and wrong for one opened
+   * from anywhere else.
+   */
+  from?: string | null
 }
 
 type LoadState =
   { kind: 'loading' } | { kind: 'ready'; record: Record<string, unknown> } | { kind: 'missing' }
 
-export function RegistryEdit({ registryKey, id, now }: RegistryEditProps) {
+export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditProps) {
   const definition = REGISTRY[registryKey]
   const context = useFieldContext(now)
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
@@ -33,7 +53,9 @@ export function RegistryEdit({ registryKey, id, now }: RegistryEditProps) {
 
     async function load() {
       if (id === null) {
-        if (!cancelled) setState({ kind: 'ready', record: blankRecord(registryKey, now) })
+        if (!cancelled) {
+          setState({ kind: 'ready', record: { ...blankRecord(registryKey, now), ...seed } })
+        }
         return
       }
       const record: unknown = await db.table(definition.table).get(id)
@@ -49,7 +71,7 @@ export function RegistryEdit({ registryKey, id, now }: RegistryEditProps) {
     return () => {
       cancelled = true
     }
-  }, [registryKey, id, now, definition.table])
+  }, [registryKey, id, now, definition.table, seed])
 
   if (state.kind === 'loading') return <p className="hint">Loading…</p>
 
@@ -67,6 +89,30 @@ export function RegistryEdit({ registryKey, id, now }: RegistryEditProps) {
 
   const fields = definition.fields(context)
 
+  /**
+   * Where the form sends the user when it is finished or cancelled.
+   *
+   * Back through the history, to the page the link was on. The browser puts the
+   * focus back on the link that opened the form when it goes back that way,
+   * which is what a user who opened a form by keyboard expects to find when they
+   * close it — and the page they return to is the one they were reading, not
+   * whichever list happens to hold that kind of record.
+   *
+   * A form reached by typing its route has no history to go back through, and
+   * falls back to the record's own list.
+   */
+  const leave = () => {
+    if (from !== null) {
+      // The form's own route, so the control that opened it can be found again
+      // on the page being returned to.
+      const route = window.location.hash
+      window.history.back()
+      restoreFocusTo(route)
+      return
+    }
+    window.location.hash = definition.listPath
+  }
+
   return (
     <RecordForm
       title={
@@ -78,14 +124,12 @@ export function RegistryEdit({ registryKey, id, now }: RegistryEditProps) {
       values={valuesFromRecord(state.record, fields)}
       submitLabel="Save"
       error={error}
-      onCancel={() => {
-        window.location.hash = definition.listPath
-      }}
+      onCancel={leave}
       onSubmit={(values) => {
         void (async () => {
           try {
             await saveFields(registryKey, id, values, now)
-            window.location.hash = definition.listPath
+            leave()
           } catch (caught) {
             /**
              * Shown rather than thrown. A record that fails its own schema is a

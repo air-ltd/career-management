@@ -97,25 +97,3 @@ export function EditorShell({
     </section>
   )
 }
-
-/** A small button that toggles a child's "add" form. */
-export function AddChildButton({
-  label,
-  expanded,
-  onClick,
-}: {
-  label: string
-  expanded: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      className="button button-small"
-      aria-expanded={expanded}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  )
-}

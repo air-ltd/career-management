@@ -698,6 +698,14 @@ code {
   font-style: italic;
 }
 
+/*
+ * The row's heading, which is a link to the record.
+ *
+ * It was a button that expanded the form underneath; it is a link to the page the
+ * form is on. A link is underlined by default and a row of text is not, so the
+ * underline is taken off — and taken off only here, so a link that means
+ * something still looks like a link everywhere else.
+ */
 .inline-row-toggle {
   flex: 1 1 auto;
   display: flex;
@@ -709,6 +717,7 @@ code {
   font: inherit;
   color: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   min-width: 0;
 }
@@ -727,18 +736,6 @@ code {
   color: var(--text-muted);
   font-size: 0.82rem;
   white-space: nowrap;
-}
-
-/* The chevron sits with the text baseline rather than vertically centred, which
-   is what a text row needs. */
-.inline-row-toggle svg {
-  align-self: center;
-  transition: transform 120ms ease;
-  color: var(--text-muted);
-}
-
-.inline-row-toggle[aria-expanded='true'] svg {
-  transform: rotate(180deg);
 }
 
 .is-deleted .inline-row-heading {

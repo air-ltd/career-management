@@ -106,7 +106,9 @@ const failures = []
  * would pass on an app that had stopped rendering anything.
  */
 async function seed(page, origin) {
-  await go(page, origin, '/profiles/new')
+  await go(page, origin, '/profiles')
+  await page.getByRole('link', { name: 'Add profile', exact: true }).click()
+  await page.locator('.record-form').waitFor()
   await fill(page, 'Name', 'Ada Lovelace')
   await fill(page, 'Title', 'Senior Engineer')
   await fill(page, 'Email', 'ada@example.com')
@@ -118,17 +120,14 @@ async function seed(page, origin) {
   await page
     .locator('.inline-section')
     .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
-    .getByRole('button', { name: 'Add job' })
+    .getByRole('link', { name: 'Add job', exact: true })
     .first()
     .click()
-  await page.locator('.inline-editor').waitFor()
+  await page.locator('.record-form').waitFor()
   await fill(page, 'Company', 'Alpha Systems')
   await fill(page, 'Start date', '2019-01-01')
   await fill(page, 'Responsibilities', 'Led the billing platform rewrite.')
-  await page
-    .locator('.inline-editor')
-    .getByRole('button', { name: 'Save', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.waitForTimeout(600)
 
   // An achievement, so the grip it is dragged by is on the page. A control that
@@ -139,15 +138,12 @@ async function seed(page, origin) {
   await page
     .locator('.inline-section')
     .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
-    .getByRole('button', { name: 'Add achievement' })
+    .getByRole('link', { name: 'Add achievement', exact: true })
     .first()
     .click()
-  await page.locator('.inline-editor').waitFor()
+  await page.locator('.record-form').waitFor()
   await fill(page, 'Achievement', 'Cut the billing page load time in half.')
-  await page
-    .locator('.inline-editor')
-    .getByRole('button', { name: 'Save', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.waitForTimeout(600)
 
   // A question category, so the interview route has its own sections rather than
@@ -157,15 +153,12 @@ async function seed(page, origin) {
   await page
     .locator('.inline-section')
     .filter({ has: page.locator('h2', { hasText: 'Question categories' }) })
-    .getByRole('button', { name: 'Add question category' })
+    .getByRole('link', { name: 'Add question category', exact: true })
     .first()
     .click()
-  await page.locator('.inline-editor').waitFor()
+  await page.locator('.record-form').waitFor()
   await fill(page, 'Title', 'Behavioural')
-  await page
-    .locator('.inline-editor')
-    .getByRole('button', { name: 'Save', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.waitForTimeout(600)
 
   // A question under it, so the grip a question is dragged by is on the page
@@ -177,14 +170,11 @@ async function seed(page, origin) {
     .locator('.inline-row-group')
     .filter({ hasText: 'Behavioural' })
     .first()
-    .getByRole('button', { name: 'Add question', exact: true })
+    .getByRole('link', { name: 'Add question', exact: true })
     .click()
-  await page.locator('.inline-editor').waitFor()
+  await page.locator('.record-form').waitFor()
   await fill(page, 'Question', 'Tell me about a decision you regret.')
-  await page
-    .locator('.inline-editor')
-    .getByRole('button', { name: 'Save', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.waitForTimeout(600)
 }
 

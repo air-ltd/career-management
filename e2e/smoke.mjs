@@ -129,10 +129,15 @@ async function fill(page, label, value) {
  * the record survived a round trip through IndexedDB and rendered again. The row
  * is matched on a value that identifies the record — its heading or a distinctive
  * fragment — not on the list's own heading.
+ *
+ * The list's own "add" link is followed rather than the route typed in, because
+ * the form sends the user back to where they came from — and a form reached by a
+ * link comes back to the list, while one reached by typing does not.
  */
 async function createAndConfirm(page, origin, { path, label, fields, expect }) {
-  await go(page, origin, `${path}/new`)
-  await page.getByRole('heading', { name: `Add ${label}` }).waitFor()
+  await go(page, origin, path)
+  await page.getByRole('link', { name: `Add ${label}`, exact: true }).click()
+  await page.locator('.record-form').waitFor()
 
   for (const [field, value] of Object.entries(fields)) {
     await fill(page, field, value)
@@ -153,11 +158,10 @@ async function createAndConfirm(page, origin, { path, label, fields, expect }) {
 }
 
 /**
- * Create a record from the all-in-one editor, for the entities whose standalone
- * list and "new" routes were removed.
+ * Create a record from the all-in-one editor.
  *
- * The editor's per-section "Add" button opens the same form the removed routes
- * used, with the same field labels, so the only difference is the route. Waiting
+ * The editor's per-section "add" link opens the same form the standalone route
+ * does, with the same field labels, so the only difference is the route. Waiting
  * on the new row in the section — not on the section heading — keeps the same
  * guarantee the list-based helper had: a save that silently did nothing fails.
  */
@@ -177,19 +181,17 @@ async function createInEditor(page, origin, { section, label, fields, expect, pa
   const add = page
     .locator('.inline-section')
     .filter({ has: page.locator('h2', { hasText: section }) })
-    .getByRole('button', { name: `Add ${label}` })
+    .getByRole('link', { name: `Add ${label}`, exact: true })
     .first()
   await add.waitFor()
   await add.click()
-  await page.locator('.inline-editor').waitFor()
+  // The form is on a page of its own now, not under the row.
+  await page.locator('.record-form').waitFor()
 
   for (const [field, value] of Object.entries(fields)) {
     await fill(page, field, value)
   }
-  await page
-    .locator('.inline-editor')
-    .getByRole('button', { name: 'Save', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
 
   const row = page
     .locator('.all-in-one-content .inline-row')
@@ -389,24 +391,23 @@ async function main() {
     await page
       .locator('.inline-section')
       .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
-      .getByRole('button', { name: 'Add achievement' })
+      .getByRole('link', { name: 'Add achievement', exact: true })
+      .first()
       .click()
-    await page.locator('.inline-editor').waitFor()
+    await page.locator('.record-form').waitFor()
     const jobOption = await page
       .getByLabel('Job', { exact: true })
       .locator('option')
       .filter({ hasText: 'Acme' })
       .count()
     check('the achievement job dropdown is populated from the saved jobs', jobOption > 0)
-    const achievementLabels = await page
-      .locator('.inline-editor .field > label')
-      .allInnerTexts()
+    const achievementLabels = await page.locator('.record-form .field > label').allInnerTexts()
     check(
       'the job link is the last thing on the achievement card',
       achievementLabels.length > 0 && achievementLabels[achievementLabels.length - 1] === 'Job',
       JSON.stringify(achievementLabels),
     )
-    await page.locator('.inline-editor').getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Cancel' }).click()
 
     check(
       'an achievement can be created',
@@ -430,15 +431,15 @@ async function main() {
       .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
     const acmeRow = workHistory.locator('.inline-row').filter({ hasText: 'Acme' }).first()
 
-    await acmeRow.getByRole('button', { name: 'Edit', exact: true }).click()
-    await page.locator('.inline-editor').waitFor()
+    await acmeRow.getByRole('link', { name: 'Edit', exact: true }).click()
+    await page.locator('.record-form').waitFor()
     const hideDetail = page.getByLabel(
       'Hide responsibilities and achievements from the document',
       { exact: true },
     )
     check('the job form offers to hide its detail', (await hideDetail.count()) === 1)
 
-    const jobLabels = await page.locator('.inline-editor .field > label').allInnerTexts()
+    const jobLabels = await page.locator('.record-form .field > label').allInnerTexts()
     check(
       'the hide option is the first thing on the job card',
       jobLabels[0] === 'Hide responsibilities and achievements from the document',
@@ -451,10 +452,7 @@ async function main() {
     )
 
     await hideDetail.check()
-    await page
-      .locator('.inline-editor')
-      .getByRole('button', { name: 'Save', exact: true })
-      .click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.waitForTimeout(700)
 
     check(
@@ -510,13 +508,10 @@ async function main() {
     // And back again, so the test does not depend on the order it runs in.
     await go(page, origin, '/')
     await page.locator('.all-in-one').waitFor()
-    await acmeRow.getByRole('button', { name: 'Edit', exact: true }).click()
-    await page.locator('.inline-editor').waitFor()
+    await acmeRow.getByRole('link', { name: 'Edit', exact: true }).click()
+    await page.locator('.record-form').waitFor()
     await hideDetail.uncheck()
-    await page
-      .locator('.inline-editor')
-      .getByRole('button', { name: 'Save', exact: true })
-      .click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.waitForTimeout(700)
     check(
       'the badge goes when the detail comes back',
@@ -975,7 +970,7 @@ async function main() {
     )
 
     // ------------------------------------------------------------- all in one
-    // The single-page editor: every section on one page, forms opening in place.
+    // The single-page editor: every section on one page, one row per record.
     // Reached at the root, because it is the default page.
     await page.goto(`${origin}${BASE_PATH}`, { waitUntil: 'networkidle' })
     await page.locator('.all-in-one').waitFor()
@@ -1032,9 +1027,9 @@ async function main() {
       (await page.locator('.page-cross-link a[href="#/interview"]').count()) === 1,
     )
     check(
-      'nothing is expanded by default',
-      (await page.locator('.inline-editor').count()) === 0,
-      'forms should mount only when opened',
+      'the page opens no form at all',
+      (await page.locator('.record-form').count()) === 0,
+      'a form belongs on a page of its own',
     )
     check(
       'achievements are grouped under their job',
@@ -1093,23 +1088,20 @@ async function main() {
     )
     check(
       '"add achievement" sits beside the job Edit button',
-      (await jobRow.getByRole('button', { name: 'Add achievement' }).count()) === 1 &&
-        (await jobRow.getByRole('button', { name: 'Edit' }).count()) === 1,
+      (await jobRow.getByRole('link', { name: 'Add achievement' }).count()) === 1 &&
+        (await jobRow.getByRole('link', { name: 'Edit' }).count()) === 1,
     )
 
-    // Adding a nested record from beside the parent button.
-    await jobRow.getByRole('button', { name: 'Add achievement' }).click()
-    await page
-      .locator('.inline-editor')
-      .filter({ hasText: 'Add achievement' })
-      .getByRole('heading', { name: 'Add achievement' })
-      .waitFor()
-    await page.getByLabel('Achievement', { exact: true }).last().fill('NESTED_FROM_PARENT')
-    await page
-      .locator('.inline-editor')
-      .filter({ hasText: 'Add achievement' })
-      .getByRole('button', { name: 'Save', exact: true })
-      .click()
+    // Adding a nested record from beside the parent button. The link opens the
+    // form on a page of its own, with the job already filled in.
+    await jobRow.getByRole('link', { name: 'Add achievement' }).click()
+    await page.getByRole('heading', { name: 'Add achievement' }).waitFor()
+    check(
+      'the add form arrives with the parent already filled in',
+      (await page.getByLabel('Job', { exact: true }).inputValue()) !== '',
+    )
+    await page.getByLabel('Achievement', { exact: true }).fill('NESTED_FROM_PARENT')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page
       .locator('.inline-row-heading')
       .filter({ hasText: 'NESTED_FROM_PARENT' })
@@ -1119,13 +1111,14 @@ async function main() {
     // The bug this caught: the nested add form is pre-filled with its parent, so
     // it looked like an existing record and saved under an empty id.
     check(
-      'the nested add form is titled Add, not Edit',
-      (await page.locator('.inline-editor h2').count()) === 0 ||
-        (await page.locator('.inline-editor h2').first().innerText()).startsWith('Add'),
+      'the add form is titled Add, not Edit',
+      (await page.getByRole('heading', { name: 'Add achievement' }).count()) === 0 ||
+        (
+          await page.getByRole('heading', { name: 'Add achievement' }).first().innerText()
+        ).startsWith('Add'),
     )
-    // The inline row's Edit expands in place and carries no href, so the id is
-    // read from the row's own data attribute instead — which is the same value
-    // the record was saved under, so this still catches an empty id.
+    // The row carries its id as an attribute, which is the same value the record
+    // was saved under, so this still catches an empty id.
     const nestedId = await page
       .locator('.all-in-one-content .inline-row')
       .filter({ hasText: 'NESTED_FROM_PARENT' })
@@ -1143,7 +1136,7 @@ async function main() {
       .locator('.inline-row')
       .filter({ hasText: 'Acme' })
       .first()
-      .getByRole('button', { name: 'Edit' })
+      .getByRole('link', { name: 'Edit' })
       .click()
     await page.getByRole('heading', { name: 'Edit job' }).waitFor()
     await fill(page, 'Job title', 'Principal Engineer')
@@ -1153,29 +1146,28 @@ async function main() {
       .filter({ hasText: 'Principal Engineer' })
       .first()
       .waitFor({ timeout: 10000 })
-    check('a record can be edited in place on the all-in-one page', true)
+    check('a record can be edited from the all-in-one page', true)
 
     // Adding from the all-in-one page reaches the separate list view too.
     const awardsSection = page.locator('.inline-section').filter({ hasText: 'Awards' })
-    await awardsSection.getByRole('button', { name: /Add award/ }).click()
-    await awardsSection.getByRole('heading', { name: 'Add award' }).waitFor()
+    await awardsSection.getByRole('link', { name: /Add award/ }).click()
+    await page.getByRole('heading', { name: 'Add award' }).waitFor()
     await fill(page, 'Year', '2011')
     await fill(page, 'Institution', 'Institute of Something')
     await fill(page, 'What', 'Fellowship')
-    // Scoped to the section: other editors are still open on the page, and each
-    // has its own Save. Several can be open at once by design.
-    await awardsSection.getByRole('button', { name: 'Save', exact: true }).click()
-    // The form closes on save; waiting for that is what proves the save ran,
-    // rather than navigating away mid-write and finding nothing there.
-    await awardsSection
-      .getByRole('heading', { name: 'Add award' })
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    // The form is a page of its own, so saving leaves it; waiting for the form
+    // to go is what proves the save ran, rather than navigating away mid-write
+    // and finding nothing there.
+    await page
+      .locator('.record-form')
       .waitFor({ state: 'detached', timeout: 10000 })
       .then(
         () => true,
         () => false,
       )
       .then((closed) => {
-        check('saving on the all-in-one page closes the form', closed)
+        check('saving leaves the form and goes back to the page it came from', closed)
       })
 
     // The award's own route is gone, so "it reached the document" is the check:
@@ -1498,9 +1490,7 @@ async function main() {
       page.evaluate(() => {
         const active = document.activeElement
         if (active === null) return 'none'
-        return active.closest('.inline-editor') === null
-          ? 'outside the form'
-          : 'inside the form'
+        return active.closest('.record-form') === null ? 'outside the form' : 'inside the form'
       })
     /*
      * One search box and one order, for the whole page.
@@ -1621,7 +1611,7 @@ async function main() {
       )}`,
     )
     await firstRowToggle.press('Enter')
-    await page.locator('.inline-editor').first().waitFor()
+    await page.locator('.record-form').waitFor()
     check(
       'opening a form with the keyboard moves focus into it',
       (await landedIn()) === 'inside the form',
@@ -1635,8 +1625,8 @@ async function main() {
     await page.waitForTimeout(200)
     check(
       'Escape does not close a form that has unsaved input',
-      (await page.locator('.inline-editor').count()) > 0,
-      `${await page.locator('.inline-editor').count()} forms`,
+      (await page.locator('.record-form').count()) > 0,
+      `${await page.locator('.record-form').count()} forms`,
     )
     await page.getByRole('button', { name: 'Cancel', exact: true }).first().click()
     await page.waitForTimeout(200)
@@ -1707,7 +1697,10 @@ async function main() {
 
     // ------------------------------------------------------------- profile
     // Picking a profile from the document page, where its effect is visible.
-    await go(page, origin, '/profiles/new')
+    // Reached through the list's own link rather than by typing the route, which
+    // is how a user gets there and where the form sends them back to.
+    await go(page, origin, '/profiles')
+    await page.getByRole('link', { name: 'Add profile', exact: true }).click()
     await page.getByRole('heading', { name: 'Add profile' }).waitFor()
     await fill(page, 'Name', 'International')
     await fill(page, 'Title', 'Consultant')
@@ -1947,7 +1940,9 @@ async function main() {
     )
     // The point of retiring the jobs list: work history is edited on the edit-all
     // page, so the list route has to actually be gone rather than merely unlinked.
-    for (const removed of ['/jobs', '/jobs/new', '/achievements', '/awards', '/education']) {
+    // The "new" routes are not lists, and they are still here — a record is added
+    // on a page of its own now.
+    for (const removed of ['/jobs', '/achievements', '/awards', '/education']) {
       await go(page, origin, removed)
       check(
         `the ${removed} list page is gone`,
@@ -1959,6 +1954,94 @@ async function main() {
           .catch(() => ''),
       )
     }
+
+    for (const added of ['/jobs/new', '/achievements/new', '/awards/new', '/education/new']) {
+      await go(page, origin, added)
+      check(
+        `the ${added} form is there`,
+        (await page.locator('.record-form').count()) === 1,
+        await page
+          .locator('.app-main')
+          .innerText()
+          .catch(() => ''),
+      )
+    }
+
+    /*
+     * Editing on a page of its own.
+     *
+     * The point of the change is that opening a record does not expand the page
+     * under you, so the checks are about what the page looks like while the form
+     * is open — the editor is nowhere to be seen — and about where the form sends
+     * you back to.
+     */
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    const beforeRows = await page.locator('.all-in-one-content .inline-row').count()
+    // Any row: which jobs are still around depends on what the run has deleted
+    // by now, and the point of the check is the page, not the record.
+    await page
+      .locator('.all-in-one-content .inline-row')
+      .first()
+      .getByRole('link', { name: 'Edit', exact: true })
+      .click()
+    await page.locator('.record-form').waitFor()
+    check(
+      'opening a record leaves the editor behind',
+      (await page.locator('.all-in-one').count()) === 0,
+      'the form is a page of its own',
+    )
+    check(
+      'and the rows are not on the page any more',
+      (await page.locator('.all-in-one-content .inline-row').count()) === 0,
+      `${beforeRows} rows before`,
+    )
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.locator('.all-in-one').waitFor()
+    check(
+      'cancelling comes back to the page the form was opened from',
+      (await page.locator('.all-in-one-content .inline-row').count()) === beforeRows,
+      `${await page.locator('.all-in-one-content .inline-row').count()} rows, expected ${beforeRows}`,
+    )
+    check(
+      'and the focus is back on the control that opened it',
+      await page.evaluate(() => {
+        const active = document.activeElement
+        return (
+          active !== null &&
+          active.closest('.inline-row-actions') !== null &&
+          active.textContent?.trim() === 'Edit'
+        )
+      }),
+      await page.evaluate(() => {
+        const active = document.activeElement
+        return active === null
+          ? 'none'
+          : `${active.tagName}.${active.className || '(no class)'}`
+      }),
+    )
+
+    // The questions page has its own editor, and a form opened from it has to
+    // come back there rather than to the career page.
+    await go(page, origin, '/interview')
+    await page.locator('.questions-page').waitFor()
+    await page
+      .locator('.inline-row')
+      .filter({ hasText: 'Behavioural' })
+      .first()
+      .getByRole('link', { name: 'Edit', exact: true })
+      .click()
+    await page.locator('.record-form').waitFor()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.locator('.questions-page').waitFor()
+    check(
+      'a form opened from the questions page comes back to the questions page',
+      (await page.locator('.questions-page').count()) === 1,
+      await page
+        .locator('.app-main')
+        .innerText()
+        .catch(() => ''),
+    )
     // And the nav entry that replaced it has to arrive somewhere.
     await go(page, origin, '/')
     await page.locator('.app-nav a').filter({ hasText: 'Work history' }).click()
@@ -2344,14 +2427,11 @@ async function main() {
         .locator('.inline-row-group')
         .filter({ hasText: 'Orderable Category' })
         .first()
-      await category.getByRole('button', { name: 'Add question', exact: true }).click()
-      await page.locator('.inline-editor').waitFor()
+      await category.getByRole('link', { name: 'Add question', exact: true }).click()
+      await page.locator('.record-form').waitFor()
       await fill(page, 'Category', 'Orderable Category')
       await fill(page, 'Question', name)
-      await page
-        .locator('.inline-editor')
-        .getByRole('button', { name: 'Save', exact: true })
-        .click()
+      await page.getByRole('button', { name: 'Save', exact: true }).click()
       await page.waitForTimeout(600)
     }
 
@@ -2777,14 +2857,12 @@ async function main() {
       .locator('.inline-row')
       .filter({ hasText: 'Behavioural' })
       .first()
-      .getByRole('button', { name: 'Add question' })
+      .getByRole('link', { name: 'Add question' })
       .click()
+    await page.locator('.record-form').waitFor()
     await page.getByLabel('Question', { exact: true }).fill('Why this role?')
     await page.getByLabel('Answer', { exact: true }).fill('A prepared answer.')
-    await page
-      .locator('.inline-editor')
-      .getByRole('button', { name: 'Save', exact: true })
-      .click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page
       .locator('.inline-row')
       .filter({ hasText: 'Why this role?' })

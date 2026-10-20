@@ -65,6 +65,15 @@ export interface EntityDefinition {
    * a dead link survives for years.
    */
   newPath?: string
+  /**
+   * The parent a record belongs to, for an entity whose records are grouped.
+   *
+   * `column` is the field on the record that names the parent; `query` is what
+   * the link that starts a new record calls it. The link carries the parent's id
+   * — "add an achievement under this job" — so the form starts with the parent
+   * filled in rather than asking for it again.
+   */
+  parent?: { column: string; query: string }
   /** The edit route for one record. */
   editPath: (id: string) => string
   fields: (context: FieldContext) => readonly Field[]
@@ -130,6 +139,7 @@ export const jobs: EntityDefinition = {
   singular: 'Job',
   plural: 'Jobs',
   table: 'jobs',
+  newPath: '/jobs/new',
   // As for achievements, awards and education: the all-in-one editor is where jobs
   // are created and listed, so there is no jobs list to return to and no standalone
   // form to go to. The per-record edit route stays, for the same reason theirs do.
@@ -183,6 +193,10 @@ export const achievements: EntityDefinition = {
   singular: 'Achievement',
   plural: 'Achievements',
   table: 'achievements',
+  newPath: '/achievements/new',
+  // Which job an achievement belongs to, and what the link that starts one calls
+  // it. The link names the job so the form starts with it filled in.
+  parent: { column: 'jobId', query: 'job' },
   // No list route of its own; the all-in-one editor is the list for this entity.
   listPath: '/',
 
@@ -245,6 +259,7 @@ export const awards: EntityDefinition = {
   singular: 'Award',
   plural: 'Awards',
   table: 'awards',
+  newPath: '/awards/new',
   // No list route of its own; the all-in-one editor is the list for this entity.
   listPath: '/',
 
@@ -257,6 +272,7 @@ export const education: EntityDefinition = {
   singular: 'Education',
   plural: 'Education',
   table: 'education',
+  newPath: '/education/new',
   // No list route of its own; the all-in-one editor is the list for this entity.
   listPath: '/',
 
@@ -290,6 +306,9 @@ export const questions: EntityDefinition = {
   table: 'questions',
   listPath: '/questions/all',
   newPath: '/questions/all/new',
+  // Which category a question belongs to, and what the link that starts one
+  // calls it. The link names the category so the form starts with it filled in.
+  parent: { column: 'categoryId', query: 'category' },
   editPath: (id) => `/questions/${id}/edit`,
   fields: (context) => [
     { kind: 'textarea', name: 'question', label: 'Question', required: true, rows: 3 },

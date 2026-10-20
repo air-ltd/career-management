@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { matchPath, usePath, type Route } from './router'
+import { matchPath, useLocation, type Route } from './router'
 import {
   applyTheme,
   readStoredPreference,
@@ -17,10 +17,12 @@ import {
 } from './theme'
 import { RegistryList } from '../features/shared/RegistryList'
 import { RegistryEdit } from '../features/shared/RegistryEdit'
+import { REGISTRY } from '../features/shared/registry'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { SyncPage } from '../features/sync/SyncPage'
 import { SyncIndicator } from '../features/sync/SyncIndicator'
 import { describeKeySource } from '../sync/appKey'
+import { PRESETS, type ExportOptions } from '../export/model'
 import { SyncProvider } from '../features/sync/SyncProvider'
 import { DocumentIcon, SettingsIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
@@ -33,17 +35,18 @@ const ROUTES: readonly Route[] = [
   { path: '/profiles' },
   { path: '/profiles/new' },
   { path: '/profiles/:id/edit' },
-  // Jobs have no list or "new" route, for the same reason achievements, awards and
-  // education have none: they are created and listed in the edit-all page, which
-  // the header reaches as "Work history". The per-record edit route stays.
+  // Jobs, achievements, awards and education have no list route: they are listed
+  // in the edit-all page, which the header reaches as "Work history", and a
+  // standalone list for each was a second way to do the same thing. They do have
+  // a "new" route and an edit route, because a record is added and edited on a
+  // page of its own (D63) rather than by expanding the page under it.
+  { path: '/jobs/new' },
   { path: '/jobs/:id/edit' },
-  // Achievements, awards and education have no list or "new" route. They are
-  // created and edited from the all-in-one editor, which is the primary editing
-  // surface (D10); a standalone list for each was a second way to do the same
-  // thing. Their per-record edit routes stay, because the editor and the fit
-  // report both link straight to one.
+  { path: '/achievements/new' },
   { path: '/achievements/:id/edit' },
+  { path: '/awards/new' },
   { path: '/awards/:id/edit' },
+  { path: '/education/new' },
   { path: '/education/:id/edit' },
   { path: '/questions' },
   { path: '/questions/new' },
@@ -81,8 +84,30 @@ const SECTIONS = [
 ] as const
 
 export function App() {
-  const path = usePath()
+  const { path, query } = useLocation()
   const match = useMemo(() => matchPath(path, ROUTES), [path])
+
+  /*
+   * Where the user was before this page, so a form can send them back to it.
+   *
+   * A form is opened from a list and belongs to send the user back to the list
+   * they came from — the career page for a job, the questions page for a
+   * question — and not to whichever list happens to hold that kind of record.
+   * The previous path is held here rather than in the URL, so the link to a form
+   * stays a link to a form.
+   *
+   * State rather than a ref, and adjusted while rendering: React's pattern for
+   * deriving a value from a prop that changed. A ref would do it too, but a ref
+   * read during render is the one thing React cannot tell is a value.
+   *
+   * On a deep link there is no previous path, and the form falls back to the
+   * record's own list.
+   */
+  const [where, setWhere] = useState({ path, from: null as string | null })
+  if (where.path !== path) {
+    setWhere({ path, from: where.path })
+  }
+  const from = where.from
 
   const [theme, setTheme] = useState<ThemePreference>(readStoredPreference)
   /**
@@ -113,6 +138,16 @@ export function App() {
    */
   const now = useMemo(() => new Date(), [])
   const { environment } = useMemo(() => describeKeySource(), [])
+
+  /*
+   * The document options, held here rather than in either editing page.
+   *
+   * A record is edited on a page of its own now, and coming back to the editor
+   * has to arrive with the same choices — a story that stopped being shown
+   * because the user opened a form and came back is a surprise, and one that
+   * would happen on every edit.
+   */
+  const [options, setOptions] = useState<ExportOptions>(PRESETS['cv'].options)
 
   function onThemeChange(next: ThemePreference) {
     storePreference(next)
@@ -203,6 +238,10 @@ export function App() {
             now,
             theme,
             onThemeChange,
+            query,
+            from,
+            options,
+            setOptions,
           )}
         </main>
       </div>
@@ -216,6 +255,10 @@ function renderRoute(
   now: Date,
   theme: ThemePreference,
   onThemeChange: (next: ThemePreference) => void,
+  query: URLSearchParams,
+  from: string | null,
+  options: ExportOptions,
+  setOptions: (next: ExportOptions) => void,
 ) {
   if (routePath === null) {
     return (
@@ -237,7 +280,27 @@ function renderRoute(
 
   // A new-record route. The id is absent, so the form starts blank.
   const newKey = NEW_ROUTES[routePath]
-  if (newKey) return <RegistryEdit registryKey={newKey} id={null} now={now} />
+  if (newKey) {
+    const definition = REGISTRY[newKey]
+    /*
+     * The parent, when the link named one: "add an achievement under this job"
+     * arrives with the job in the query, so the form starts with it filled in
+     * rather than asking which job again.
+     */
+    const seed =
+      definition.parent === undefined
+        ? undefined
+        : { [definition.parent.column]: query.get(definition.parent.query) ?? '' }
+    return (
+      <RegistryEdit
+        registryKey={newKey}
+        id={null}
+        now={now}
+        {...(seed === undefined ? {} : { seed })}
+        from={from}
+      />
+    )
+  }
 
   // An edit route, which needs an id in the path.
   const editKey = EDIT_ROUTES[routePath]
@@ -250,15 +313,15 @@ function renderRoute(
         </p>
       )
     }
-    return <RegistryEdit registryKey={editKey} id={id} now={now} />
+    return <RegistryEdit registryKey={editKey} id={id} now={now} from={from} />
   }
 
   switch (routePath) {
     case '/':
     case '/edit':
-      return <AllInOnePage now={now} />
+      return <AllInOnePage now={now} options={options} onOptionsChange={setOptions} />
     case '/interview':
-      return <QuestionsPage now={now} />
+      return <QuestionsPage now={now} options={options} onOptionsChange={setOptions} />
     case '/document':
       return <DocumentPage now={now} />
     case '/settings':
@@ -286,6 +349,10 @@ const NEW_ROUTES: Record<
   Parameters<typeof RegistryEdit>[0]['registryKey'] | undefined
 > = {
   '/profiles/new': 'profiles',
+  '/jobs/new': 'jobs',
+  '/achievements/new': 'achievements',
+  '/awards/new': 'awards',
+  '/education/new': 'education',
   '/questions/new': 'questionCategories',
   '/questions/all/new': 'questions',
 }

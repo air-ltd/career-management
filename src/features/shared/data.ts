@@ -12,6 +12,7 @@ import { listActive, listAll, newId, restore, softDelete } from '../../storage/r
 import { REGISTRY, type FieldContext, type RegistryKey } from './registry'
 import type { Job, Mergeable, QuestionCategory, Settings } from '../../domain/types'
 import { defaultSettings } from '../../export/envelope'
+import { orderForNew } from '../../domain/order'
 import type { Table } from 'dexie'
 
 /**
@@ -67,15 +68,6 @@ export async function saveFields(
   id: string | null,
   values: Record<string, string | boolean>,
   now: Date,
-  /**
-   * The record a new one is being created from, when it is not blank.
-   *
-   * A nested add form starts from a partly filled record so the parent is not
-   * lost. The fields the form owns are written from the form's own values; the
-   * ones it does not own — an achievement's place among its siblings, say — are
-   * written from here, because there is nowhere else for them to come from.
-   */
-  seeded?: Record<string, unknown>,
 ): Promise<string> {
   const definition = REGISTRY[key]
   const table = db.table(definition.table)
@@ -99,19 +91,8 @@ export async function saveFields(
     definition.fields({ jobs: [], questionCategories: [], now }).map((f) => f.name),
   )
 
-  // A new record keeps the fields the form does not own, so a nested add form can
-  // say where the new record goes rather than leaving that to be guessed later.
-  const carried: Record<string, unknown> = {}
-  if (existing === undefined && seeded !== undefined) {
-    for (const [name, value] of Object.entries(seeded)) {
-      if (owned.has(name)) continue
-      if (name === 'id' || name === 'updatedAt' || name === 'deletedAt') continue
-      carried[name] = value
-    }
-  }
-
   const next: Record<string, unknown> = {
-    ...(existing ?? carried),
+    ...(existing ?? {}),
     id: recordId,
     updatedAt: stamp,
     deletedAt: existing?.deletedAt ?? null,
@@ -133,9 +114,51 @@ export async function saveFields(
     }
   }
 
+  /*
+   * Where a new record goes among its siblings.
+   *
+   * Worked out here rather than in the form, because the parent is chosen in the
+   * form: the order of an achievement depends on which job it belongs to, and
+   * the form is where that is decided. The form is on a page of its own now, so
+   * there is no list beside it to count.
+   */
+  if (isNew) {
+    const order = await orderForNewRecord(key, next)
+    if (order !== null) next['order'] = order
+  }
+
   await table.put(next)
   bumpRevision()
   return recordId
+}
+
+/**
+ * The order a new record takes among the ones already under the same parent.
+ *
+ * A new achievement goes to the top of its job's achievements and a new question
+ * to the top of its category's questions, because the top is where the newest
+ * thing belongs in a list that is otherwise ordered by the user's judgement.
+ *
+ * `null` for a record that is not in an ordered group, and for one whose parent
+ * has not been chosen yet — there is no order to give it yet.
+ */
+async function orderForNewRecord(
+  key: RegistryKey,
+  values: Record<string, unknown>,
+): Promise<number | null> {
+  if (key === 'achievements') {
+    const jobId = values['jobId']
+    if (typeof jobId !== 'string' || jobId === '') return null
+    const siblings = await db.achievements.where('jobId').equals(jobId).toArray()
+    return orderForNew(siblings)
+  }
+  if (key === 'questions') {
+    const categoryId = values['categoryId']
+    if (typeof categoryId !== 'string' || categoryId === '') return null
+    const siblings = await db.questions.where('categoryId').equals(categoryId).toArray()
+    return orderForNew(siblings)
+  }
+  return null
 }
 
 export async function deleteRecord(key: RegistryKey, id: string, now: Date): Promise<void> {

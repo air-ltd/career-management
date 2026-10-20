@@ -23,7 +23,7 @@ import { text } from './recordText'
 import { useDocument, usePageRule } from './useDocumentSource'
 import { deleteRecord, restoreRecord, useFieldContext, useRecords } from '../shared/data'
 import { REGISTRY, type RegistryKey } from '../shared/registry'
-import { PRESETS, type ExportOptions } from '../../export/model'
+import type { ExportOptions } from '../../export/model'
 import { filterRecords } from '../shared/sort'
 import type { Mergeable } from '../../domain/types'
 
@@ -83,7 +83,11 @@ export interface EditorState {
   loading: boolean
 }
 
-export function useEditorState(now: Date): EditorState {
+export function useEditorState(
+  options: ExportOptions,
+  setOptions: (next: ExportOptions) => void,
+  now: Date,
+): EditorState {
   const context = useFieldContext(now)
 
   /*
@@ -95,8 +99,12 @@ export function useEditorState(now: Date): EditorState {
    * is built and kept live, so the button produces the document rather than a
    * printout of the editor. It shares the document page's chrome, so the two print
    * buttons give the same document.
+   *
+   * The options are the app's, not this page's: a record is edited on a page of
+   * its own now, and coming back to the editor has to arrive with the same
+   * choices — "include stories" off because it was off a moment ago is a
+   * surprise, and one that would happen on every edit.
    */
-  const [options, setOptions] = useState<ExportOptions>(PRESETS['cv'].options)
   const { model, settings, saveSettings, liveProfiles } = useDocument(options, now)
   usePageRule(settings.pageSize)
 

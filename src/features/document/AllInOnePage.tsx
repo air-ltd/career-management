@@ -2,9 +2,9 @@
  * The document's career content, editable on one page.
  *
  * The editing surface the legacy app had, rebuilt: everything on one scrollable
- * page, in document order, with each record's form opening in place. The separate
- * per-record routes still exist and render the same form — this is an additional
- * way in, not a replacement.
+ * page, in document order, with each record on a row of its own. The separate
+ * per-record routes render the same form, and are where a record is edited: the
+ * row's links go to them.
  *
  * What it deliberately does *not* reproduce is the legacy behaviour of rendering
  * an edit form for every record at page load; see `InlineEditor` for why.
@@ -18,30 +18,30 @@
  * the rules about stories and deleted records cannot come to differ between them.
  */
 
-import { useState } from 'react'
-import { InlineEditor, InlineRow, InlineSection } from './InlineEditor'
-import { EditorShell, AddChildButton } from './EditorShell'
+import { InlineRow, InlineSection } from './InlineRows'
+import { EditorShell } from './EditorShell'
 import { collapse, storyPreview, useEditorState } from './editorState'
 import { OrderAnnouncement, OrderHandle } from './OrderHandle'
 import { useRowOrder } from './useRowOrder'
-import { orderForNew, sortByOrder } from '../../domain/order'
+import { sortByOrder } from '../../domain/order'
 import { saveAchievementOrder } from '../shared/data'
+import type { ExportOptions } from '../../export/model'
 import { text } from './recordText'
 import { formatDateRange, formatYear } from '../../domain/format'
 import { REGISTRY } from '../shared/registry'
-import type { Field } from '../shared/fields'
 import type { Row } from './editorState'
 
-export function AllInOnePage({ now }: { now: Date }) {
-  const editor = useEditorState(now)
-  const { context, showStories } = editor
-
-  // Which job, if any, has its "add an achievement" form open. Held here rather
-  // than inside the child component so the button that opens it can sit beside
-  // the parent's own Edit button.
-  const [addingChildFor, setAddingChildFor] = useState<string | null>(null)
-  const toggleChild = (jobId: string) =>
-    setAddingChildFor((previous) => (previous === jobId ? null : jobId))
+export function AllInOnePage({
+  now,
+  options,
+  onOptionsChange,
+}: {
+  now: Date
+  options: ExportOptions
+  onOptionsChange: (next: ExportOptions) => void
+}) {
+  const editor = useEditorState(options, onOptionsChange, now)
+  const { showStories } = editor
 
   return (
     <EditorShell editor={editor} className="document-page all-in-one">
@@ -54,9 +54,8 @@ export function AllInOnePage({ now }: { now: Date }) {
           heading: text(record, 'name') || '(unnamed profile)',
           detail: text(record, 'email'),
         })}
-        fields={REGISTRY.profiles.fields(context)}
-        now={now}
         emptyText="No profiles yet."
+        newHref={REGISTRY.profiles.newPath}
       />
 
       <InlineSection
@@ -68,9 +67,8 @@ export function AllInOnePage({ now }: { now: Date }) {
           heading: `${text(record, 'company')} - ${text(record, 'jobTitle')}`,
           detail: formatDateRange(text(record, 'startDate'), endDateOf(record)),
         })}
-        fields={REGISTRY.jobs.fields(context)}
-        now={now}
         emptyText="No jobs yet."
+        newHref={REGISTRY.jobs.newPath}
         // The responsibilities, so a role can be read without opening it. Line
         // breaks collapse to spaces so the preview stays one block. The story
         // joins them when stories are included, which is what makes a job agree
@@ -78,11 +76,14 @@ export function AllInOnePage({ now }: { now: Date }) {
         // never shows one.
         preview={(record) => jobPreview(record, showStories)}
         actionsFor={(job) => (
-          <AddChildButton
-            label="Add achievement"
-            expanded={addingChildFor === text(job, 'id')}
-            onClick={() => toggleChild(text(job, 'id'))}
-          />
+          // The link names the job, so the form starts with it filled in rather
+          // than asking which job the achievement belongs to.
+          <a
+            className="button button-small"
+            href={`#/achievements/new?job=${encodeURIComponent(text(job, 'id'))}`}
+          >
+            Add achievement
+          </a>
         )}
         renderChildren={(job) => (
           <AchievementsUnderJob
@@ -93,10 +94,6 @@ export function AllInOnePage({ now }: { now: Date }) {
               void saveAchievementOrder(text(job, 'id'), ids, now)
             }}
             showStories={showStories}
-            fields={REGISTRY.achievements.fields(context)}
-            now={now}
-            adding={addingChildFor === text(job, 'id')}
-            onToggleAdding={() => toggleChild(text(job, 'id'))}
           />
         )}
       />
@@ -115,9 +112,8 @@ export function AllInOnePage({ now }: { now: Date }) {
         // said — the same rule, or one record's story is missing because someone
         // forgot the prop.
         preview={(record) => storyPreview(text(record, 'story'), showStories)}
-        fields={REGISTRY.awards.fields(context)}
-        now={now}
         emptyText="No awards yet."
+        newHref={REGISTRY.awards.newPath}
       />
 
       <InlineSection
@@ -131,9 +127,8 @@ export function AllInOnePage({ now }: { now: Date }) {
         })}
         // The story, like every other type's, and for the same reason.
         preview={(record) => storyPreview(text(record, 'story'), showStories)}
-        fields={REGISTRY.education.fields(context)}
-        now={now}
         emptyText="No education entries yet."
+        newHref={REGISTRY.education.newPath}
       />
 
       <p className="page-cross-link">
@@ -198,20 +193,12 @@ function AchievementsUnderJob({
   onDelete,
   onReorder,
   showStories,
-  fields,
-  now,
-  adding,
-  onToggleAdding,
 }: {
   job: Record<string, unknown>
   records: Row[]
   onDelete: (id: string) => void
   onReorder: (ids: string[]) => void
   showStories: boolean
-  fields: readonly Field[]
-  now: Date
-  adding: boolean
-  onToggleAdding: () => void
 }) {
   const jobId = text(job, 'id')
   const mine = sortByOrder(records.filter((record) => text(record, 'jobId') === jobId))
@@ -225,9 +212,9 @@ function AchievementsUnderJob({
     },
   })
 
-  // Nothing to show and nothing open: render no box at all. "No achievements"
-  // beside an add button says less than the absence does.
-  if (mine.length === 0 && !adding) return null
+  // Nothing to show: render no box at all. "No achievements" beside an add
+  // button says less than the absence does.
+  if (mine.length === 0) return null
 
   return (
     <div className="inline-children">
@@ -244,9 +231,6 @@ function AchievementsUnderJob({
             detail=""
             onDelete={onDelete}
             preview={storyPreview(text(achievement, 'story'), showStories)}
-            fields={fields}
-            now={now}
-            onSaved={() => undefined}
             handle={<OrderHandle handleProps={order.handleProps(id, index)} />}
             drop={rowProps['data-drop']}
             onDragOver={rowProps.onDragOver}
@@ -254,20 +238,6 @@ function AchievementsUnderJob({
           />
         )
       })}
-
-      {adding && (
-        // Pre-seeded with the parent, so the new record is not created orphaned.
-        // And with a place in the list, so it lands at the top rather than
-        // wherever the order happened to leave it.
-        <InlineEditor
-          registryKey="achievements"
-          record={{ jobId, achievement: '', story: '', order: orderForNew(mine) }}
-          fields={fields}
-          now={now}
-          onDone={onToggleAdding}
-          onCancel={onToggleAdding}
-        />
-      )}
     </div>
   )
 }

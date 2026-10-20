@@ -9,7 +9,7 @@
  * adds a field by adding a descriptor rather than by copying a form.
  */
 
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { validate, type Field, type FieldValues } from './fields'
 
 export interface RecordFormProps {
@@ -38,6 +38,25 @@ export function RecordForm({
   const headingId = useId()
   const [current, setCurrent] = useState<FieldValues>(values)
   const [problems, setProblems] = useState<string[]>([])
+  const shell = useRef<HTMLFormElement | null>(null)
+
+  /**
+   * Take focus when the form appears.
+   *
+   * The form is a page of its own now, so a user who reaches it by keyboard
+   * would arrive with the focus on the document body — nothing focused, and the
+   * form's first field several tabs away. Focusing the first control is what
+   * makes it obvious that there is a form here and what is in it.
+   *
+   * Not a `<fieldset autofocus>`: autofocus on mount fights a screen reader's own
+   * announcement of the region, and this is the same interaction by any means.
+   */
+  useEffect(() => {
+    const first = shell.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]), select, textarea, button',
+    )
+    first?.focus()
+  }, [])
 
   function setValue(name: string, value: string | boolean) {
     setCurrent((previous) => ({ ...previous, [name]: value }))
@@ -55,7 +74,12 @@ export function RecordForm({
   }
 
   return (
-    <form className="record-form" onSubmit={handleSubmit} aria-labelledby={headingId}>
+    <form
+      className="record-form"
+      ref={shell}
+      onSubmit={handleSubmit}
+      aria-labelledby={headingId}
+    >
       <h2 id={headingId}>{title}</h2>
 
       {error !== null && (
