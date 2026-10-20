@@ -2252,6 +2252,19 @@ async function main() {
       JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
     )
 
+    // The formats the document can be taken away in (D23).
+    const exportButtons = page.locator('.document-export button')
+    check(
+      'the document can be exported as Markdown and as plain text',
+      (await exportButtons.count()) === 2 &&
+        (await exportButtons.allInnerTexts()).join(',') === 'Markdown,Plain text',
+      (await exportButtons.allInnerTexts()).join(','),
+    )
+    check(
+      'and each says what it is, so the choice is not a surprise afterwards (D39)',
+      (await page.locator('.document-export button').first().getAttribute('title')) !== null,
+    )
+
     for (const added of ['/jobs/new', '/achievements/new', '/awards/new', '/education/new']) {
       await go(page, origin, added)
       check(

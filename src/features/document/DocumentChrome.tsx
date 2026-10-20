@@ -17,6 +17,8 @@ import {
 } from '../../export/model'
 import { IncludeOptions } from './IncludeOptions'
 import { TemplatePicker } from './TemplatePicker'
+import { EXPORTERS } from '../../export/exporters'
+import { downloadFrom } from '../../export/exporters/download'
 import { SectionOrder } from './SectionOrder'
 import { PrintIcon } from '../../app/Icons'
 import type { FitReport } from './FitReport'
@@ -97,6 +99,34 @@ export function DocumentChrome({
 
                   <button onClick={() => void downloadDocxFrom(model)}>Word</button>
             */}
+          </div>
+
+          {/*
+            The formats the document can be taken away in.
+
+            Two of them, and both free of a dependency: the Word exporter is
+            built and tested and not offered, because the `docx` library doubled
+            the page weight for a feature most sessions never reach. Markdown and
+            plain text cost nothing, and between them they go nearly everywhere —
+            a repository, a notebook, an email, a form that takes nothing else.
+
+            Each says what it is, so the choice is not a surprise afterwards
+            (D39).
+          */}
+          <div className="button-row document-export">
+            {EXPORTERS.map((exporter) => (
+              <button
+                key={exporter.id}
+                type="button"
+                className="button"
+                title={exporter.description}
+                onClick={() => {
+                  void downloadFrom(exporter, model)
+                }}
+              >
+                {exporter.label}
+              </button>
+            ))}
           </div>
 
           {/* D36, D37: the primary control — which document, not what else is in
