@@ -16,4 +16,4 @@
 17. [x] buttons such as edit and add achievement should open on a new page rather than expanding the existing page.
 18. [x] add option to undelete deleted items - instead of having the delete button, it should be a recover button when the item has been deleted.
 19. [x] use "hide" rather than "delete" for language on the page.
-20. [ ] check the pages on a laptop screen size. The document card is now shown at 125% and the app is 78rem (1248px) wide, which is wider than a 1280px laptop leaves room for - check that nothing is cut off, that the rail does not squeeze the card, and that the editor pages are not too wide to read on a laptop.
+20. [ ] check the pages on a laptop screen size. The document card is now shown at 125% and the app is 78rem (1248px) wide, which is wider than a 1280px laptop leaves room for - check that nothing is cut off, that the rail does not squeeze the card, and that the editor pages are not too wide to read on a laptop. The mechanical part is now a test: the card keeps the printed page measure at 1280px, the page does not scroll sideways, and neither does the editor. What is left is looking at it.

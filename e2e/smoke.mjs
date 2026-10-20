@@ -2355,6 +2355,62 @@ async function main() {
     }, 'sk-not-a-real-key-but-long-enough')
     check('and the key is nowhere in the document', leaked === null, String(leaked))
 
+    /*
+     * A laptop screen.
+     *
+     * The card is the width of the printed page's text column and the app is
+     * wide enough to hold it beside the rail, so on a 1280px screen — which is
+     * what the rest of this suite already runs at — the card is not squeezed and
+     * nothing spills off the side of the page.
+     *
+     * The card's measure is fixed in points, so it does not depend on the
+     * viewport; what the viewport decides is whether the card has room.
+     */
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    const laptop = await page.evaluate(() => {
+      const doc = document.querySelector('.doc')
+      const style = getComputedStyle(doc)
+      const rect = doc.getBoundingClientRect()
+      return {
+        // The measure, as the document is laid out: the computed width, which is
+        // the content box and is not the zoom the card is shown at.
+        measure: parseFloat(style.width),
+        // The card as it is drawn, which is the measure times the zoom.
+        drawn: rect.width,
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }
+    })
+    check(
+      'the card keeps the printed page measure on a laptop screen',
+      // 535.75pt of A4 text, at the browser's 96dpi.
+      Math.abs(laptop.measure - 714.33) < 1,
+      `${laptop.measure.toFixed(1)}px`,
+    )
+    check(
+      'and it is drawn larger than the page, so it can be read',
+      laptop.drawn > laptop.measure,
+      `${laptop.drawn.toFixed(1)}px drawn`,
+    )
+    check(
+      'and the page does not scroll sideways',
+      laptop.scrollWidth <= laptop.clientWidth,
+      `${laptop.scrollWidth} > ${laptop.clientWidth}`,
+    )
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    const editorWidth = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    check(
+      'and neither does the editor',
+      editorWidth.scrollWidth <= editorWidth.clientWidth,
+      `${editorWidth.scrollWidth} > ${editorWidth.clientWidth}`,
+    )
+
     // The formats the document can be taken away in (D23).
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()

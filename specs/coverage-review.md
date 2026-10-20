@@ -16,9 +16,16 @@ nothing imported it. The assistant, the provider and the key store were three
 files of security-relevant code with no tests at all, and the report said
 nothing about them.
 
-That is a flaw in the measurement, not in the code, and it is worth knowing
-before reading any coverage number in this repository: **a file that is not in
-the report is not covered.**
+That is a flaw in the measurement, not in the code. A file can be absent from
+the report for two opposite reasons, and the text report does not say which:
+
+- it was never reached — nothing imported it, so nothing tested it, and the
+  report is silent about it;
+- it is at 100% everywhere, and the reporter hides fully-covered files.
+
+`--coverage.reporter=json-summary --coverage.reportsDirectory=/tmp/cov` tells
+them apart: it lists every file, covered or not. `src/ai/chatCompletions.ts`
+was in that list at 100%, and `src/ai/useDraft.ts` was not in it at all.
 
 ## What was not covered, and why it mattered
 
@@ -98,5 +105,6 @@ covered by `npm run test:e2e` and `npm run test:a11y`, which drive a real
 browser. Between them: 385 unit tests, the full smoke suite, and axe over eight
 routes.
 
-The number to watch is not the percentage. It is the file list — a file that
-disappears from it has not been covered, it has merely not been reached.
+The number to watch is not the percentage. It is the file list — and a file that
+disappears from it has either been fully covered or never reached, and the
+summary says which.

@@ -15,6 +15,9 @@ import {
 } from './templates'
 import { matchesTemplate } from '../features/document/useTemplates'
 import { defaultSettings } from '../export/envelope'
+import { buildDocumentModel, PRESETS } from '../export/model'
+import type { Achievement, Award, Job, Profile, Settings } from './types'
+import { achievementRow, awardRow, jobRow, profileRow } from '../test/factories'
 import { DEFAULT_SECTIONS } from './sections'
 
 const NOW = new Date('2026-10-01T00:00:00.000Z')
@@ -123,5 +126,56 @@ describe('the summary of a template with a section this build does not know', ()
       sections: ['somethingNew', 'workHistory'],
     }
     expect(templateSummary(template)).toContain('somethingNew')
+  })
+})
+
+describe('a document written before templates existed', () => {
+  it('looks exactly as it did, and matches the built-in template', () => {
+    /*
+     * The gate for Phase 12: an existing user's first load must look exactly
+     * like their previous load. A document written before the templates have no
+     * template, no section order and no section headings, and the defaults are
+     * what it was already rendering.
+     */
+    const settings: Settings = defaultSettings(NOW)
+    expect(settings.sectionOrder).toBeUndefined()
+    expect(settings.sections).toBeUndefined()
+    expect(settings.sectionHeadings).toBeUndefined()
+
+    const model = buildDocumentModel({
+      options: PRESETS['cv'].options,
+      settings,
+      profiles: [
+        profileRow('p1', { name: 'Domestic', title: 'Engineer' }) as unknown as Profile,
+      ],
+      jobs: [jobRow('j1', { company: 'Acme', jobTitle: 'Engineer' }) as unknown as Job],
+      achievements: [
+        achievementRow('a1', {
+          jobId: 'j1',
+          achievement: 'Shipped it',
+        }) as unknown as Achievement,
+      ],
+      awards: [
+        awardRow('aw1', { year: 2024, institution: 'Body', what: 'Prize' }) as unknown as Award,
+      ],
+      education: [],
+      questionCategories: [],
+      questions: [],
+    })
+
+    // The same sections, in the same order, with the same content.
+    expect(model.sections.map((section) => section.key)).toEqual([
+      'workHistory',
+      'awardsEducation',
+      'questions',
+    ])
+    expect(model.sections[0]?.heading).toBe('')
+    expect(model.sections[1]?.heading).toBe('Awards and Education')
+    expect(model.jobs).toHaveLength(1)
+    expect(model.awardsEducation).toHaveLength(1)
+
+    // And the built-in template is what that document is using, so the picker
+    // shows it rather than "Custom".
+    expect(matchesTemplate(builtInTemplate(NOW), settings)).toBe(true)
   })
 })
