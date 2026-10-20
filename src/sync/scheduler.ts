@@ -374,8 +374,16 @@ export class SyncScheduler {
   }
 }
 
+/**
+ * Whether the failure means the token is no longer usable.
+ *
+ * A missing scope is *not* one of these. The token is fine; the Dropbox app has
+ * not been granted the permission it needs, and discarding the token would send
+ * the user to reconnect to the same app and hit the same wall. It is handled on
+ * its own below, where the message can say where to look.
+ */
 function isAuthFailure(kind: string): boolean {
-  return kind === 'auth' || kind === 'scope-missing'
+  return kind === 'auth'
 }
 
 function isTransientFailure(kind: string): boolean {

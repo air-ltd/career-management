@@ -172,6 +172,28 @@ describe('SyncScheduler', () => {
     expect(seen.at(-1)?.message).toBeNull()
   })
 
+  it('says what to do when Dropbox rejects the app for a missing permission', async () => {
+    /*
+     * A scope the app does not have is a configuration problem, not a transient
+     * one, and waiting cannot fix it. The message has to say where to look, and
+     * the cycle must not be retried.
+     */
+    const provider = new FakeProvider()
+    provider.pushError = new SyncError('scope-missing', 'missing scope')
+    const { deps } = harness(provider)
+    const scheduler = new SyncScheduler(deps)
+
+    const seen: SyncStatus[] = []
+    scheduler.subscribe((next) => seen.push(next))
+    await scheduler.start()
+    scheduler.stop()
+
+    const last = seen.at(-1)
+    expect(last?.state).toBe('error')
+    expect(last?.message).toContain('App Console')
+    expect(last?.pending).toBe(false)
+  })
+
   it('discards a dead token and offers Connect again, without retrying (SY28, SY29)', async () => {
     // A dead token is not `ensureAuth` failing — that is a first run, handled
     // separately. It is a refresh being refused, which surfaces as a `failed`
