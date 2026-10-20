@@ -147,7 +147,9 @@ export const markdownExporter: DocumentExporter = {
   description: 'A .md file — for a repository, a notebook or a wiki.',
   mediaType: 'text/markdown;charset=utf-8',
   fileExtension: 'md',
-  async build(model: DocumentModel): Promise<Blob> {
-    return new Blob([toMarkdown(model)], { type: 'text/markdown;charset=utf-8' })
+  build(model: DocumentModel): Promise<Blob> {
+    return Promise.resolve(
+      new Blob([toMarkdown(model)], { type: 'text/markdown;charset=utf-8' }),
+    )
   },
 }

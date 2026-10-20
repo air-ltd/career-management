@@ -126,7 +126,7 @@ export const plainTextExporter: DocumentExporter = {
   description: 'A .txt file — for an email or a form that takes nothing else.',
   mediaType: 'text/plain;charset=utf-8',
   fileExtension: 'txt',
-  async build(model: DocumentModel): Promise<Blob> {
-    return new Blob([toPlainText(model)], { type: 'text/plain;charset=utf-8' })
+  build(model: DocumentModel): Promise<Blob> {
+    return Promise.resolve(new Blob([toPlainText(model)], { type: 'text/plain;charset=utf-8' }))
   },
 }
