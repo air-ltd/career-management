@@ -142,6 +142,27 @@ describe('docxExporter', () => {
     expect(xml).toContain('Shipped it')
   })
 
+  it('abbreviates September to three letters in the job heading', async () => {
+    /*
+     * The exporter used to format the month itself, through `Intl`, which renders
+     * September as "Sept". It now shares the on-screen formatter, so the two agree —
+     * and the job heading is where the date is read.
+     */
+    const theModel = model({
+      jobs: [
+        jobRow('j1', {
+          startDate: '2024-09-01',
+          endDate: null,
+          company: 'Acme',
+          jobTitle: 'Engineer',
+        }),
+      ],
+    })
+    const xml = await entry(await build(theModel), 'word/document.xml')
+    expect(xml).toContain('Sep 2024')
+    expect(xml).not.toContain('Sept')
+  })
+
   it('contains both the award and the education entry in the combined table (D16)', async () => {
     const xml = await entry(await build(), 'word/document.xml')
     expect(xml).toContain('Prize')

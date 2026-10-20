@@ -28,6 +28,7 @@ import type { DocumentModel } from '../model'
 import type { DocumentExporter } from './types'
 import { AWARDS_SECTION_TITLE } from '../model'
 import { pageGeometry, wordPageSize } from '../page'
+import { formatMonthYear } from '../../domain/format'
 
 /**
  * Half a point size, which is how Word expresses type size.
@@ -130,8 +131,8 @@ export const docxExporter: DocumentExporter = {
         // D17: displayed at month precision, which is CV convention.
         const range =
           job.endDate === null
-            ? `${formatMonth(job.startDate)} - present`
-            : `${formatMonth(job.startDate)} - ${formatMonth(job.endDate)}`
+            ? `${formatMonthYear(job.startDate)} - present`
+            : `${formatMonthYear(job.startDate)} - ${formatMonthYear(job.endDate)}`
 
         /**
          * `<dates>  <company>: <job title>` on one line — matching the on-screen
@@ -287,15 +288,4 @@ function jobHeading(job: { company: string; jobTitle: string }): string {
   if (job.company === '') return job.jobTitle
   if (job.jobTitle === '') return job.company
   return `${job.company}: ${job.jobTitle}`
-}
-
-/** `Jan 2024` from `2024-01-31`, matching the on-screen document (D17). */
-function formatMonth(isoDate: string): string {
-  const parsed = new Date(`${isoDate}T00:00:00Z`)
-  if (Number.isNaN(parsed.getTime())) return isoDate
-  return new Intl.DateTimeFormat('en-NZ', {
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(parsed)
 }

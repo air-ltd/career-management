@@ -15,6 +15,16 @@ describe('formatMonthYear', () => {
     expect(formatMonthYear('1999-12-01')).toBe('Dec 1999')
   })
 
+  it('abbreviates September to three letters', () => {
+    /*
+     * `en-NZ` gives "Sept", which is not the abbreviation the document prints:
+     * every other month is three letters, and "Sept" reads as a typo beside them.
+     * The month names are fixed here rather than taken from `Intl`, so this holds
+     * whatever ICU data the machine carries.
+     */
+    expect(formatMonthYear('2024-09-15')).toBe('Sep 2024')
+  })
+
   it('is not affected by the machine timezone', () => {
     // A date at UTC midnight is the previous day in any negative-offset zone, and
     // would render as the wrong month if the parser did not pin UTC.

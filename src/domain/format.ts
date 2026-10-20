@@ -10,12 +10,28 @@
  * does in the document.
  */
 
-/** `2024-01-31` → `Jan 2024`. */
-const MONTH_YEAR = new Intl.DateTimeFormat('en-NZ', {
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
+/**
+ * The three-letter month abbreviations, fixed rather than taken from `Intl`.
+ *
+ * `en-NZ` renders September as "Sept", which is not the abbreviation the document
+ * prints: every other month is three letters, and "Sept" reads as a typo beside
+ * them. Fixed here, so the document does not depend on which ICU data the machine
+ * running it happens to carry.
+ */
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 /** `2024` → `2024`. Years are already strings when they reach the document. */
 const YEAR = new Intl.DateTimeFormat('en-NZ', {
@@ -39,7 +55,8 @@ function parseIsoDate(value: string): Date | null {
  */
 export function formatMonthYear(value: string): string {
   const parsed = parseIsoDate(value)
-  return parsed ? MONTH_YEAR.format(parsed) : value
+  if (!parsed) return value
+  return `${MONTHS[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}`
 }
 
 export function formatYear(year: number): string {
