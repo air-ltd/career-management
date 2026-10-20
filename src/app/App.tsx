@@ -48,6 +48,8 @@ const ROUTES: readonly Route[] = [
   { path: '/awards/:id/edit' },
   { path: '/education/new' },
   { path: '/education/:id/edit' },
+  { path: '/phrases/new' },
+  { path: '/phrases/:id/edit' },
   { path: '/questions' },
   { path: '/questions/new' },
   { path: '/question-categories/:id/edit' },
@@ -353,6 +355,7 @@ const NEW_ROUTES: Record<
   '/achievements/new': 'achievements',
   '/awards/new': 'awards',
   '/education/new': 'education',
+  '/phrases/new': 'phrases',
   '/questions/new': 'questionCategories',
   '/questions/all/new': 'questions',
 }
@@ -366,6 +369,7 @@ const EDIT_ROUTES: Record<
   '/achievements/:id/edit': 'achievements',
   '/awards/:id/edit': 'awards',
   '/education/:id/edit': 'education',
+  '/phrases/:id/edit': 'phrases',
   '/question-categories/:id/edit': 'questionCategories',
   '/questions/:id/edit': 'questions',
 }

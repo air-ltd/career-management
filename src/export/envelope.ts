@@ -73,6 +73,7 @@ const entityTables = {
   questionCategories: entityTable,
   questions: entityTable,
   templates: entityTable,
+  phrases: entityTable,
 }
 
 export const envelopeSchema = z.object({

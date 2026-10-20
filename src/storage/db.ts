@@ -17,6 +17,7 @@ import {
   type Question,
   type QuestionCategory,
   type Settings,
+  type Phrase,
   type Snapshot,
   type Template,
 } from '../domain/types'
@@ -40,6 +41,7 @@ interface AppSchema {
   questionCategories: Table<QuestionCategory, string>
   questions: Table<Question, string>
   templates: Table<Template, string>
+  phrases: Table<Phrase, string>
 }
 
 export const db = new Dexie('career-management-doc') as Dexie & AppSchema
@@ -74,6 +76,7 @@ db.version(1).stores({
  */
 db.version(2).stores({
   templates: 'id, updatedAt',
+  phrases: 'id, updatedAt',
 })
 
 /**

@@ -21,6 +21,7 @@ import type {
   EntityTableName,
   Job,
   Mergeable,
+  Phrase,
   Profile,
   Question,
   QuestionCategory,
@@ -79,6 +80,11 @@ export interface EntityDefinition {
   fields: (context: FieldContext) => readonly Field[]
   /** The two lines a list row shows. */
   describe: (record: Row, context: FieldContext) => { heading: string; detail: string }
+  /**
+   * The field the writing-support material goes into, for the entities that are
+   * written from a bank of phrases (Phase 9).
+   */
+  assistField?: string
 }
 
 export interface FieldContext {
@@ -226,6 +232,14 @@ export const achievements: EntityDefinition = {
         jobOptions(context.jobs).find((option) => option.value === record.jobId)?.label ?? '',
     }
   },
+  /**
+   * The field the writing-support material goes into.
+   *
+   * Set on the entities whose text is written from a bank of phrases (Phase 9).
+   * An achievement is the one that is written from a bank: the fit report counts
+   * the lines of an achievement, and a phrase is a line of one.
+   */
+  assistField: 'achievement',
 }
 
 function awardEducationFields(): readonly Field[] {
@@ -253,6 +267,42 @@ function describeAwardEducation(record: { year: number; institution: string; wha
     heading: record.institution || '(no institution)',
     detail: `${formatYear(record.year)} - ${record.what}`,
   }
+}
+
+/**
+ * The phrases: the writing-support material (Phase 9).
+ *
+ * Not a document entity — nothing here prints. It is a library the user writes
+ * for themselves, and the editor offers it while they write.
+ */
+export const phrases: EntityDefinition = {
+  singular: 'Phrase',
+  plural: 'Phrases',
+  table: 'phrases',
+  listPath: '/',
+  newPath: '/phrases/new',
+  editPath: (id) => `/phrases/${id}/edit`,
+  fields: () => [
+    {
+      kind: 'textarea',
+      name: 'text',
+      label: 'Phrase',
+      required: true,
+      rows: 2,
+      hint: 'The words themselves. Clicking one in the editor puts it in the field you are writing.',
+    },
+    {
+      kind: 'textarea',
+      name: 'note',
+      label: 'When to use it',
+      rows: 2,
+      hint: 'For your own reference. It never prints and never leaves this device except through your own sync.',
+    },
+  ],
+  describe: (row) => {
+    const record = as<Phrase>(row)
+    return { heading: record.text, detail: record.note }
+  },
 }
 
 export const awards: EntityDefinition = {
@@ -342,6 +392,7 @@ export const REGISTRY = {
   education,
   questionCategories,
   questions,
+  phrases,
 } as const
 
 export type RegistryKey = keyof typeof REGISTRY

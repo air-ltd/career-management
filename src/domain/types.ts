@@ -211,6 +211,31 @@ export const templateSchema = z.looseObject({
   sectionHeadings: z.record(z.string(), z.string()),
 })
 
+/**
+ * A phrase: something worth saying, written down once.
+ *
+ * The writing-support material (Phase 9). The fit report says an achievement
+ * will run to four lines; what the user does next is look at an example of a
+ * good one, and this is where the examples live.
+ *
+ * A synced entity rather than text shipped with the app: a house style is the
+ * user's, not the app's, and it has to follow them between devices like
+ * everything else they write.
+ */
+export const phraseSchema = z.looseObject({
+  ...base,
+  /** The text itself. What gets inserted. */
+  text: z.string(),
+  /**
+   * When to use it, and why.
+   *
+   * Free text rather than a taxonomy: the user is the only one who knows what
+   * their phrases are for, and a category they have to learn is a worse answer
+   * than a sentence.
+   */
+  note: z.string(),
+})
+
 export const settingsSchema = z.looseObject({
   ...base,
   activeProfileId: z.string().nullable(),
@@ -273,6 +298,7 @@ export type QuestionCategory = z.infer<typeof questionCategorySchema>
 export type Question = z.infer<typeof questionSchema>
 export type Settings = z.infer<typeof settingsSchema>
 export type Template = z.infer<typeof templateSchema>
+export type Phrase = z.infer<typeof phraseSchema>
 export type PageSize = Settings['pageSize']
 export type Density = Settings['density']
 
@@ -294,6 +320,7 @@ export const ENTITY_TABLES = [
   'questionCategories',
   'questions',
   'templates',
+  'phrases',
 ] as const
 
 export type EntityTableName = (typeof ENTITY_TABLES)[number]
@@ -309,6 +336,7 @@ export const ENTITY_SCHEMAS = {
   questionCategories: questionCategorySchema,
   questions: questionSchema,
   templates: templateSchema,
+  phrases: phraseSchema,
 } as const satisfies Record<EntityTableName, z.ZodType>
 
 /**

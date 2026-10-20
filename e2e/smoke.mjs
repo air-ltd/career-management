@@ -2252,7 +2252,60 @@ async function main() {
       JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
     )
 
+    /*
+     * The phrases: the writing-support material (Phase 9).
+     *
+     * The point of them is that they are offered in the form they are used in, so
+     * the check is that a phrase lands in the field being written.
+     */
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    await page
+      .locator('.inline-section')
+      .filter({ has: page.locator('h2', { hasText: 'Phrases' }) })
+      .getByRole('link', { name: 'Add phrase', exact: true })
+      .click()
+    await page.locator('.record-form').waitFor()
+    await fill(page, 'Phrase', 'Cut the billing page load time in half')
+    await fill(page, 'When to use it', 'For anything about speed')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.waitForTimeout(700)
+    check(
+      'a phrase can be written',
+      (
+        await page.locator('.inline-section').filter({ hasText: 'Phrases' }).innerText()
+      ).includes('Cut the billing page load time in half'),
+    )
+
+    // And it can be reached from the achievement form.
+    await go(page, origin, '/jobs/new')
+    await page.locator('.record-form').waitFor()
+    await fill(page, 'Company', 'Phrase Co')
+    await fill(page, 'Job title', 'Role')
+    await fill(page, 'Start date', '2024-01-01')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.waitForTimeout(700)
+    await go(page, origin, '/achievements/new')
+    await page.locator('.record-form').waitFor()
+    await page.getByText('Phrases', { exact: true }).click()
+    await page.waitForTimeout(200)
+    check(
+      'the phrases are offered in the achievement form',
+      (await page.locator('.record-assist-list button').count()) === 1,
+      `${await page.locator('.record-assist-list button').count()} phrases`,
+    )
+    await page.locator('.record-assist-list button').first().click()
+    await page.waitForTimeout(200)
+    check(
+      'and clicking one puts it in the field being written',
+      (await page.getByLabel('Achievement', { exact: true }).inputValue()) ===
+        'Cut the billing page load time in half',
+      await page.getByLabel('Achievement', { exact: true }).inputValue(),
+    )
+
     // The formats the document can be taken away in (D23).
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
     const exportButtons = page.locator('.document-export button')
     check(
       'the document can be exported as Markdown and as plain text',

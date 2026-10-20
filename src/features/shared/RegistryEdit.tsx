@@ -7,11 +7,13 @@
 
 import { useEffect, useState } from 'react'
 import { RecordForm } from './RecordForm'
-import { saveFields, useFieldContext } from './data'
+import { saveFields, useFieldContext, useRecords } from './data'
 import { blankRecord, REGISTRY, type RegistryKey } from './registry'
 import { valuesFromRecord } from './fields'
+import { text } from '../document/recordText'
 import { db } from '../../storage/db'
 import { restoreFocusTo } from '../../app/router'
+import type { Mergeable } from '../../domain/types'
 
 export interface RegistryEditProps {
   registryKey: RegistryKey
@@ -45,6 +47,10 @@ type LoadState =
 export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditProps) {
   const definition = REGISTRY[registryKey]
   const context = useFieldContext(now)
+  // The writing-support material, for the entities that are written from it
+  // (Phase 9). Read here rather than passed down, so every form that can use a
+  // phrase has the phrases without each caller remembering to fetch them.
+  const { records: phrases } = useRecords<Mergeable & Record<string, unknown>>('phrases')
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [error, setError] = useState<string | null>(null)
 
@@ -122,6 +128,17 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
       }
       fields={fields}
       values={valuesFromRecord(state.record, fields)}
+      {...(definition.assistField === undefined
+        ? {}
+        : {
+            assist: {
+              field: definition.assistField,
+              phrases: phrases.map((phrase) => ({
+                id: text(phrase, 'id'),
+                text: text(phrase, 'text'),
+              })),
+            },
+          })}
       submitLabel="Save"
       error={error}
       onCancel={leave}

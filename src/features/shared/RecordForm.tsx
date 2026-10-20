@@ -23,6 +23,20 @@ export interface RecordFormProps {
   onCancel: () => void
   /** A record that failed to save on the server side, not in validation. */
   error?: string | null
+  /**
+   * The writing-support material, offered while this record is being written.
+   *
+   * The fit report says an achievement will run to four lines; what the user
+   * does next is look at an example of a good one (Phase 9). The phrases are
+   * offered here, in the form they are being used in, because that is where they
+   * are wanted.
+   */
+  assist?: {
+    /** The field a phrase goes into. */
+    field: string
+    /** The phrases the user has written. */
+    phrases: readonly { id: string; text: string }[]
+  }
 }
 
 export function RecordForm({
@@ -32,6 +46,7 @@ export function RecordForm({
   submitLabel,
   onSubmit,
   actions,
+  assist,
   onCancel,
   error = null,
 }: RecordFormProps) {
@@ -57,6 +72,22 @@ export function RecordForm({
     )
     first?.focus()
   }, [])
+
+  /**
+   * Put a phrase into the field being written.
+   *
+   * Appended rather than replacing what is there: the user is part-way through a
+   * sentence, and a phrase that wiped it out would be a worse answer than one
+   * that sat after it.
+   */
+  function insertPhrase(text: string) {
+    if (assist === undefined) return
+    setCurrent((previous) => {
+      const existing = previous[assist.field]
+      const base = typeof existing === 'string' ? existing : ''
+      return { ...previous, [assist.field]: base === '' ? text : `${base}\n${text}` }
+    })
+  }
 
   function setValue(name: string, value: string | boolean) {
     setCurrent((previous) => ({ ...previous, [name]: value }))
@@ -108,6 +139,27 @@ export function RecordForm({
           }}
         />
       ))}
+
+      {assist !== undefined && assist.phrases.length > 0 && (
+        <details className="record-assist">
+          <summary>Phrases</summary>
+          <ul className="record-assist-list">
+            {assist.phrases.map((phrase) => (
+              <li key={phrase.id}>
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => {
+                    insertPhrase(phrase.text)
+                  }}
+                >
+                  {phrase.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="button-row">
         <button type="submit" className="button button-primary">

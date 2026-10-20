@@ -142,11 +142,13 @@ export function useEditorState(
   const { records: education, loading: eduLoading } = useRecords<Row>('education')
   const { records: categories, loading: catLoading } = useRecords<Row>('questionCategories')
   const { records: questions, loading: qLoading } = useRecords<Row>('questions')
+  const { records: phrases, loading: pLoading } = useRecords<Row>('phrases')
 
   const loading =
     profilesLoading ||
     jobsLoading ||
     achLoading ||
+    pLoading ||
     awardsLoading ||
     eduLoading ||
     catLoading ||
@@ -179,6 +181,7 @@ export function useEditorState(
     education,
     questionCategories: categories,
     questions,
+    phrases,
   }
 
   const showStories = options.includeStories

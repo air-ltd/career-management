@@ -141,6 +141,7 @@ function fullDocument(): Snapshot {
         }),
       ],
       templates: [],
+      phrases: [],
     },
   }
 }
@@ -267,5 +268,6 @@ function emptyEntities(): Snapshot['entities'] {
     questionCategories: [],
     questions: [],
     templates: [],
+    phrases: [],
   }
 }
