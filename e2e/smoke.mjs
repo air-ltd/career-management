@@ -625,6 +625,119 @@ async function main() {
       (await page.locator('.fit-report').count()) > 0,
     )
 
+    /*
+     * The card is the page.
+     *
+     * The point of the card is that the text on screen breaks where the text on
+     * paper breaks, so a reader can see what the printed page will look like
+     * without printing it. That holds when the measure and the type are in the
+     * same proportion — the card is the page, shown larger.
+     */
+    const measureCard = async () =>
+      page.evaluate(() => {
+        const doc = document.querySelector('.doc')
+        const style = getComputedStyle(doc)
+        const rect = doc.getBoundingClientRect()
+        // The card is shown larger than it prints, and the browser reports the
+        // two differently: the computed values are the document's own, the
+        // rendered ones are the scaled-up box. So the scale has to be applied to
+        // the computed side to compare the two.
+        const zoom = parseFloat(style.zoom) || 1
+        const chrome =
+          (parseFloat(style.paddingLeft) +
+            parseFloat(style.paddingRight) +
+            parseFloat(style.borderLeftWidth) +
+            parseFloat(style.borderRightWidth)) *
+          zoom
+        return {
+          text: rect.width - chrome,
+          font: parseFloat(style.fontSize) * zoom,
+          cardWidth: rect.width,
+        }
+      })
+    const onScreen = await measureCard()
+    await page.emulateMedia({ media: 'print' })
+    await page.waitForTimeout(200)
+    const onPaper = await measureCard()
+    await page.emulateMedia({ media: 'screen' })
+    await page.waitForTimeout(200)
+
+    // The measure in `em` is what decides where a line ends.
+    check(
+      'the text on screen breaks in the same places as the text on paper',
+      Math.abs(onScreen.text / onScreen.font - onPaper.text / onPaper.font) < 0.5,
+      `screen ${(onScreen.text / onScreen.font).toFixed(1)}em vs paper ${(
+        onPaper.text / onPaper.font
+      ).toFixed(1)}em`,
+    )
+    check(
+      'and the card is shown larger than it prints',
+      onScreen.font > onPaper.font && onScreen.text > onPaper.text,
+      `screen ${onScreen.font}px in ${onScreen.text.toFixed(0)}px, paper ${onPaper.font}px in ${onPaper.text.toFixed(0)}px`,
+    )
+    /*
+     * The screen is airier than the paper.
+     *
+     * Reading on a screen is not reading on paper, and the card is the thing the
+     * reader spends their time in. The extra leading is on the screen only; the
+     * page keeps the leading the document was laid out for.
+     */
+    const leading = async () =>
+      page.evaluate(() =>
+        parseFloat(getComputedStyle(document.querySelector('.doc')).lineHeight),
+      )
+    const screenLeading = await leading()
+    await page.emulateMedia({ media: 'print' })
+    await page.waitForTimeout(200)
+    const printLeading = await leading()
+    await page.emulateMedia({ media: 'screen' })
+    await page.waitForTimeout(200)
+    check(
+      'the screen has more leading than the paper',
+      screenLeading > printLeading,
+      `screen ${screenLeading}px, paper ${printLeading}px`,
+    )
+
+    /*
+     * And the page count is still about the paper.
+     *
+     * The screen's extra air must not reach the fit report: a document that
+     * prints on one page must not be reported as two because the screen it was
+     * measured on is airier. So the screen is given a great deal more leading and
+     * the report is checked for having moved.
+     */
+    const reportBefore = await page.locator('.fit-report').innerText()
+    // A great deal of leading, so that a report which measured the screen would
+    // be counting several pages rather than the one the paper takes.
+    await page.addStyleTag({ content: '.doc { line-height: 60 }' })
+    await page.waitForTimeout(400)
+    const reportAfter = await page.locator('.fit-report').innerText()
+    check(
+      'the fit report measures the paper, not the airier screen',
+      reportBefore === reportAfter,
+      `${reportBefore.split('\n')[0]} / ${reportAfter.split('\n')[0]}`,
+    )
+    // The air really was added, or the check above proves nothing.
+    check(
+      'and the screen really did get airier',
+      (await leading()) > screenLeading * 10,
+      `${await leading()}px`,
+    )
+    await page.evaluate(() => {
+      for (const style of [...document.querySelectorAll('style')]) {
+        if (style.textContent.includes('line-height: 60')) style.remove()
+      }
+    })
+    await page.waitForTimeout(300)
+
+    check(
+      'the card fits beside the rail without a horizontal scroll',
+      (await page.evaluate(() => {
+        const paper = document.querySelector('.document-paper')
+        return paper.scrollWidth <= paper.clientWidth
+      })) === true,
+    )
+
     // What actually prints.
     //
     // Emulated print media rather than the built-in stylesheet: this asserts what

@@ -30,6 +30,9 @@ export function DocumentView({ model }: { model: DocumentModel }) {
         width: `${geometry.contentWidthPt}pt`,
         fontSize: `${model.settings.fontSizePt}pt`,
       }}
+      // The fit report measures this element, so it is marked rather than found
+      // by its class — the same way the achievements are marked.
+      data-fit-document=""
     >
       {model.profile === null ? (
         <p className="doc-empty">

@@ -122,8 +122,25 @@ code {
 
 /* ------------------------------------------------------------------ layout */
 
+/*
+ * The width of the app.
+ *
+ * Wide enough for the document card to be the width of the printed page's text
+ * column, which is what makes the card worth reading: the card is the page, and
+ * a card narrower than the page wraps early and misleads.
+ *
+ * The arithmetic, at 96dpi: the A4 text column is 189mm, which is 714px, and the
+ * card carries a 24px margin of paper on each side, so the card is 764px. The
+ * document is shown at 125% (see `.doc`), so the card is 955px. The document page
+ * puts that beside a 15rem rail with a 1rem gap, so the content has to be 1211px,
+ * and the app's own 1rem of padding on each side makes that 1243px — 78rem.
+ *
+ * Every page gets the width, not just the document page, because the card is the
+ * same width wherever it appears and a page that sized itself differently from
+ * the page next to it would be the inconsistency.
+ */
 .app {
-  max-width: 60rem;
+  max-width: 78rem;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -893,7 +910,82 @@ code {
   padding: 1.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  line-height: 1.45;
+  line-height: 1.45; /*
+   * The width is the measure, not the outside of the card.
+   *
+   * The document is laid out in a box the width of the page's content area and
+   * set at the document's own type size, so the text on screen wraps where the
+   * text on paper wraps. That is the whole point of the card: the user is
+   * reading it to see what the printed page will look like, and a card whose
+   * measure is narrower than the page's is a card that wraps early and lies.
+   *
+   * With `border-box` the padding came out of the measure instead, and the
+   * screen was 48px narrower than the paper — about a seventh of a line of
+   * text, and enough for the wrapping to differ.
+   *
+   * So the width is the content box and the padding is the paper around it,
+   * which is what it looks like anyway. The print stylesheet takes the padding
+   * and the border away, and the box is then the page's content area exactly.
+   */
+  box-sizing: content-box;
+  /*
+   * The leading, as it prints.
+   *
+   * A variable, because two things need this number and must not be told
+   * separately: the paper, and the fit report — which measures the document as
+   * it will print, and the screen is airier than the paper. The fit report puts
+   * this value on the document for the length of one measurement; see
+   * `FitReport`.
+   */
+  line-height: var(--doc-leading, 1.45);
+}
+
+/*
+ * The screen is airier than the paper.
+ *
+ * Reading on a screen is not reading on paper: the eye has nowhere to rest
+ * between the lines, and the type is smaller on the page than it is in the
+ * hand. A tenth more leading makes a document comfortable to read without making
+ * it a web article.
+ *
+ * Screen only. Printed, this is the page, and the page's leading is the one the
+ * document was laid out for.
+ */
+@media screen {
+  .doc {
+    line-height: calc(var(--doc-leading, 1.45) + 0.15);
+  }
+}
+
+/*
+ * The print's leading, put on for the length of one measurement.
+ *
+ * More specific than the screen's rule above, so it wins whichever order the two
+ * are in.
+ */
+.doc[data-fit-printing] {
+  line-height: var(--doc-leading, 1.45);
+}
+
+/*
+ * The document, shown larger than it prints.
+ *
+ * The card is a page held up to the light: the same document, the same measure
+ * and the same type, at a size that can be read without leaning in. It is scaled
+ * as a whole rather than having its type enlarged, because the point of the card
+ * is that the text wraps where the paper's text wraps, and that only holds if the
+ * measure and the type grow together.
+ *
+ * 150% of the browser is what a reader reaches for; this is the same idea
+ * applied to the document alone, so the rest of the app stays at its own size.
+ *
+ * Screen only. Printed, the document is the page — scaled up it would be a
+ * different document, and one that does not fit the paper.
+ */
+@media screen {
+  .doc {
+    zoom: 1.25;
+  }
 }
 /*
  * The ink for the document's own headings: the name at the top, and the section
@@ -1248,7 +1340,7 @@ code {
 
 /* D29: density is a spacing control, separate from type size. */
 .doc-density-compact {
-  line-height: 1.3;
+  --doc-leading: 1.3;
 }
 .doc-density-compact .doc-job {
   margin-bottom: 0.6rem;
@@ -1261,7 +1353,7 @@ code {
 }
 
 .doc-density-comfortable {
-  line-height: 1.6;
+  --doc-leading: 1.6;
 }
 .doc-density-comfortable .doc-job {
   margin-bottom: 1.4rem;
