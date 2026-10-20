@@ -20,7 +20,7 @@ import type {
   QuestionCategory,
   Settings,
 } from '../domain/types'
-import { compareByOrder } from '../domain/order'
+import { compareByOrder, sortByOrder } from '../domain/order'
 
 export type Preset = 'cv' | 'interview'
 
@@ -203,9 +203,17 @@ export function buildDocumentModel(input: {
         .filter(keepLive)
         .map((category) => ({
           category,
-          questions: input.questions
-            .filter((question) => question.categoryId === category.id && keepLive(question))
-            .sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : 1)),
+          /*
+           * The questions within a category, in the order the user put them.
+           *
+           * The same comparison the editor uses, for the same reason: the editor
+           * is where the order is changed and this is where it is read.
+           */
+          questions: sortByOrder(
+            input.questions.filter(
+              (question) => question.categoryId === category.id && keepLive(question),
+            ),
+          ),
         }))
         .filter((group) => group.questions.length > 0)
         /*
@@ -217,8 +225,8 @@ export function buildDocumentModel(input: {
          * reader expects and the one that stays the same when a category is added in
          * the middle.
          *
-         * The questions *within* a category stay newest-first — those do have a
-         * chronology, and a question worked through recently is the one to re-read.
+         * The order of the questions *within* a category is the user's, and is
+         * decided above.
          */
         .sort((a, b) => a.category.title.localeCompare(b.category.title))
     : []

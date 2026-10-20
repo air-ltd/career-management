@@ -161,8 +161,8 @@ async function createAndConfirm(page, origin, { path, label, fields, expect }) {
  * on the new row in the section — not on the section heading — keeps the same
  * guarantee the list-based helper had: a save that silently did nothing fails.
  */
-async function createInEditor(page, origin, { section, label, fields, expect }) {
-  await go(page, origin, '/')
+async function createInEditor(page, origin, { section, label, fields, expect, path = '/' }) {
+  await go(page, origin, path)
   await page.locator('.all-in-one').waitFor()
   /*
    * Waited on before clicked, because `.all-in-one` renders before its records
@@ -2316,6 +2316,131 @@ async function main() {
       'the document prints that too',
       JSON.stringify(await printedOrder()) === JSON.stringify(['FIRST', 'SECOND', 'THIRD']),
       JSON.stringify(await printedOrder()),
+    )
+
+    /*
+     * The same thing for the questions in a category.
+     *
+     * The interview document rather than the CV one, because that is where the
+     * questions are printed.
+     */
+    await createInEditor(page, origin, {
+      section: 'Question categories',
+      label: 'question category',
+      expect: 'Orderable Category',
+      fields: { Title: 'Orderable Category' },
+      path: '/interview',
+    })
+
+    /*
+     * The question is added from the category's own button, not the section's —
+     * "Add question" is also the start of "Add question category", so the two have
+     * to be told apart by the exact name and by the row they sit in.
+     */
+    const addQuestion = async (name) => {
+      await go(page, origin, '/interview')
+      await page.locator('.questions-page').waitFor()
+      const category = page
+        .locator('.inline-row-group')
+        .filter({ hasText: 'Orderable Category' })
+        .first()
+      await category.getByRole('button', { name: 'Add question', exact: true }).click()
+      await page.locator('.inline-editor').waitFor()
+      await fill(page, 'Category', 'Orderable Category')
+      await fill(page, 'Question', name)
+      await page
+        .locator('.inline-editor')
+        .getByRole('button', { name: 'Save', exact: true })
+        .click()
+      await page.waitForTimeout(600)
+    }
+
+    for (const name of ['Q_FIRST', 'Q_SECOND', 'Q_THIRD']) {
+      await addQuestion(name)
+    }
+
+    const questionGroup = page
+      .locator('.inline-row-group')
+      .filter({ hasText: 'Orderable Category' })
+      .first()
+    const questionRows = questionGroup.locator('.inline-children .inline-row')
+    const questionEditorOrder = async () =>
+      (await questionGroup.locator('.inline-children .inline-row-heading').allInnerTexts()).map(
+        (text) => text.trim(),
+      )
+    const printedQuestions = async () => {
+      await go(page, origin, '/document')
+      await page.locator('.doc').waitFor()
+      await page.getByLabel('Document', { exact: true }).selectOption('interview')
+      await page.waitForTimeout(300)
+      return page.evaluate(() => {
+        const group = [...document.querySelectorAll('.doc-question-group')].find((candidate) =>
+          candidate.textContent.includes('Orderable Category'),
+        )
+        if (!group) return []
+        return [...group.querySelectorAll('.doc-question')].map((item) =>
+          item.textContent.trim(),
+        )
+      })
+    }
+
+    check(
+      'a new question goes to the top of the list',
+      JSON.stringify(await questionEditorOrder()) ===
+        JSON.stringify(['Q_THIRD', 'Q_SECOND', 'Q_FIRST']),
+      JSON.stringify(await questionEditorOrder()),
+    )
+    check(
+      'the preparation document prints them in the same order the editor shows',
+      JSON.stringify(await printedQuestions()) ===
+        JSON.stringify(['Q_THIRD', 'Q_SECOND', 'Q_FIRST']),
+      JSON.stringify(await printedQuestions()),
+    )
+
+    await go(page, origin, '/interview')
+    await page.locator('.questions-page').waitFor()
+    check(
+      'every question has a grip to drag it by',
+      (await questionRows.locator('.inline-order-handle').count()) === 3,
+    )
+
+    const questionHandles = questionRows.locator('.inline-order-handle')
+    await questionHandles
+      .nth(2)
+      .dragTo(questionRows.nth(0), { targetPosition: { x: 30, y: 2 } })
+    await page.waitForTimeout(700)
+
+    check(
+      'dragging a question moves it',
+      JSON.stringify(await questionEditorOrder()) ===
+        JSON.stringify(['Q_FIRST', 'Q_THIRD', 'Q_SECOND']),
+      JSON.stringify(await questionEditorOrder()),
+    )
+    check(
+      'the preparation document prints the order the user dragged',
+      JSON.stringify(await printedQuestions()) ===
+        JSON.stringify(['Q_FIRST', 'Q_THIRD', 'Q_SECOND']),
+      JSON.stringify(await printedQuestions()),
+    )
+
+    await go(page, origin, '/interview')
+    await page.locator('.questions-page').waitFor()
+    const questionKeyboardHandle = questionRows.nth(2).locator('.inline-order-handle')
+    await questionKeyboardHandle.focus()
+    await questionKeyboardHandle.press('Enter')
+    await questionKeyboardHandle.press('ArrowUp')
+    await page.waitForTimeout(700)
+    check(
+      'the arrow keys move a question',
+      JSON.stringify(await questionEditorOrder()) ===
+        JSON.stringify(['Q_FIRST', 'Q_SECOND', 'Q_THIRD']),
+      JSON.stringify(await questionEditorOrder()),
+    )
+    check(
+      'and the preparation document prints that too',
+      JSON.stringify(await printedQuestions()) ===
+        JSON.stringify(['Q_FIRST', 'Q_SECOND', 'Q_THIRD']),
+      JSON.stringify(await printedQuestions()),
     )
 
     await go(page, origin, '/sync')

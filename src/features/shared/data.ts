@@ -12,6 +12,7 @@ import { listActive, listAll, newId, restore, softDelete } from '../../storage/r
 import { REGISTRY, type FieldContext, type RegistryKey } from './registry'
 import type { Job, Mergeable, QuestionCategory, Settings } from '../../domain/types'
 import { defaultSettings } from '../../export/envelope'
+import type { Table } from 'dexie'
 
 /**
  * Re-read a table whenever the storage revision changes.
@@ -142,41 +143,64 @@ export async function deleteRecord(key: RegistryKey, id: string, now: Date): Pro
 }
 
 /**
- * Write the order of a job's achievements.
+ * Write the order of a group of records that are ordered among their siblings.
  *
- * Every achievement under the job is written, not only the one that moved: the
- * order is a property of the whole group — 0, 1, 2 — so a group where only some
- * records were rewritten would have a partial order rather than an order, and
- * the records that were left out would keep an order that no longer says where
- * they are.
+ * Every record in the group is written, not only the one that moved: the order is
+ * a property of the whole group — 0, 1, 2 — so a group where only some records
+ * were rewritten would have a partial order rather than an order, and the records
+ * that were left out would keep an order that no longer says where they are.
  *
  * `updatedAt` moves with the order, because two devices merge by last-write-wins
  * per record: an order that is not newer than the copy on the other device would
  * be discarded there, and the rearrangement would silently not happen.
  *
  * A record whose order did not change is not written at all. Reordering one
- * achievement renumbers the group, but most of the numbers come out the same, and
- * a record that did not change does not need to look like it did — a write with a
- * new timestamp on every sibling would make every device treat the whole job as
+ * record renumbers the group, but most of the numbers come out the same, and a
+ * record that did not change does not need to look like it did — a write with a
+ * new timestamp on every sibling would make every device treat the whole group as
  * changed.
+ *
+ * `parentColumn` is the column the group shares — the job, or the question
+ * category. The order only means anything among one parent's records, so a
+ * record that has been moved to another parent is not written here.
  */
+export async function saveGroupOrder<T extends Mergeable & { order?: number | undefined }>(
+  table: Table<T, string>,
+  parentColumn: string,
+  parentId: string,
+  orderedIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  const stamp = now.toISOString()
+  for (const [index, id] of orderedIds.entries()) {
+    const existing = await table.get(id)
+    if (!existing) continue
+    // The column the group shares is not on the type — the table is generic over
+    // which of the seven it was given — so it is read the loose way.
+    const parent = (existing as unknown as Record<string, unknown>)[parentColumn]
+    if (parent !== parentId) continue
+    if (existing.order === index) continue
+    await table.put({ ...existing, order: index, updatedAt: stamp })
+  }
+  bumpRevision()
+}
+
+/** Write the order of a job's achievements. */
 export async function saveAchievementOrder(
   jobId: string,
   orderedIds: readonly string[],
   now: Date,
 ): Promise<void> {
-  const table = db.achievements
-  const stamp = now.toISOString()
-  for (const [index, id] of orderedIds.entries()) {
-    const existing = await table.get(id)
-    if (!existing) continue
-    // The order only means anything among one job's achievements, so a record
-    // that has been moved to another job is not written here.
-    if (existing.jobId !== jobId) continue
-    if (existing.order === index) continue
-    await table.put({ ...existing, order: index, updatedAt: stamp })
-  }
-  bumpRevision()
+  await saveGroupOrder(db.achievements, 'jobId', jobId, orderedIds, now)
+}
+
+/** Write the order of a category's questions. */
+export async function saveQuestionOrder(
+  categoryId: string,
+  orderedIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  await saveGroupOrder(db.questions, 'categoryId', categoryId, orderedIds, now)
 }
 
 /**

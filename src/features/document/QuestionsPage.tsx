@@ -20,6 +20,10 @@ import { useState } from 'react'
 import { InlineEditor, InlineRow, InlineSection } from './InlineEditor'
 import { AddChildButton, EditorShell } from './EditorShell'
 import { storyPreview, useEditorState, type Row } from './editorState'
+import { OrderAnnouncement, OrderHandle } from './OrderHandle'
+import { useRowOrder } from './useRowOrder'
+import { orderForNew, sortByOrder } from '../../domain/order'
+import { saveQuestionOrder } from '../shared/data'
 import { text } from './recordText'
 import { REGISTRY } from '../shared/registry'
 import type { Field } from '../shared/fields'
@@ -64,6 +68,9 @@ export function QuestionsPage({ now }: { now: Date }) {
             category={category}
             records={editor.visible(editor.records.questions)}
             onDelete={editor.deleteFrom('questions')}
+            onReorder={(ids) => {
+              void saveQuestionOrder(text(category, 'id'), ids, now)
+            }}
             showStories={showStories}
             fields={REGISTRY.questions.fields(context)}
             now={now}
@@ -85,11 +92,16 @@ export function QuestionsPage({ now }: { now: Date }) {
  *
  * Indented because the parent is what gives them meaning: a question with no
  * category cannot be displayed anywhere, so seeing the grouping is the point.
+ *
+ * The order is the user's, and it is the order the preparation document prints
+ * them in. The list here is sorted the same way the document is, so the
+ * arrangement the user makes is the arrangement they see on the page.
  */
 function QuestionsUnderCategory({
   category,
   records,
   onDelete,
+  onReorder,
   showStories,
   fields,
   now,
@@ -99,6 +111,7 @@ function QuestionsUnderCategory({
   category: Record<string, unknown>
   records: Row[]
   onDelete: (id: string) => void
+  onReorder: (ids: string[]) => void
   showStories: boolean
   fields: readonly Field[]
   now: Date
@@ -106,7 +119,18 @@ function QuestionsUnderCategory({
   onToggleAdding: () => void
 }) {
   const categoryId = text(category, 'id')
-  const mine = records.filter((record) => text(record, 'categoryId') === categoryId)
+  const mine = sortByOrder(
+    records.filter((record) => text(record, 'categoryId') === categoryId),
+  )
+  const ids = mine.map((record) => text(record, 'id'))
+  const order = useRowOrder({
+    ids,
+    onReorder,
+    describe: (id) => {
+      const record = mine.find((candidate) => text(candidate, 'id') === id)
+      return record === undefined ? 'Question' : text(record, 'question')
+    },
+  })
 
   // Nothing to show and nothing open: render no box at all. "No questions" beside
   // an add button says less than the absence does.
@@ -114,28 +138,39 @@ function QuestionsUnderCategory({
 
   return (
     <div className="inline-children">
-      {mine.map((question) => (
-        <InlineRow
-          key={text(question, 'id')}
-          registryKey="questions"
-          record={question}
-          heading={text(question, 'question')}
-          detail=""
-          onDelete={onDelete}
-          // A question's answer is its story, and follows the same rule as every
-          // other record's — with stories excluded there is no answer here either.
-          preview={storyPreview(text(question, 'answer'), showStories)}
-          fields={fields}
-          now={now}
-          onSaved={() => undefined}
-        />
-      ))}
+      <OrderAnnouncement message={order.message} />
+      {mine.map((question, index) => {
+        const id = text(question, 'id')
+        const rowProps = order.rowProps(id, index)
+        return (
+          <InlineRow
+            key={id}
+            registryKey="questions"
+            record={question}
+            heading={text(question, 'question')}
+            detail=""
+            onDelete={onDelete}
+            // A question's answer is its story, and follows the same rule as every
+            // other record's — with stories excluded there is no answer here either.
+            preview={storyPreview(text(question, 'answer'), showStories)}
+            fields={fields}
+            now={now}
+            onSaved={() => undefined}
+            handle={<OrderHandle handleProps={order.handleProps(id, index)} />}
+            drop={rowProps['data-drop']}
+            onDragOver={rowProps.onDragOver}
+            onDrop={rowProps.onDrop}
+          />
+        )
+      })}
 
       {adding && (
         // Pre-seeded with the parent, so the new record is not created orphaned.
+        // And with a place in the list, so it lands at the top rather than
+        // wherever the order happened to leave it.
         <InlineEditor
           registryKey="questions"
-          record={{ categoryId, question: '', answer: '' }}
+          record={{ categoryId, question: '', answer: '', order: orderForNew(mine) }}
           fields={fields}
           now={now}
           onDone={onToggleAdding}

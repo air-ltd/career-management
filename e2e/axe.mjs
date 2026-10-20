@@ -167,6 +167,25 @@ async function seed(page, origin) {
     .getByRole('button', { name: 'Save', exact: true })
     .click()
   await page.waitForTimeout(600)
+
+  // A question under it, so the grip a question is dragged by is on the page
+  // too. A control that only appears once there is something to drag is a
+  // control the audit would otherwise never see.
+  await go(page, origin, '/interview')
+  await page.locator('.questions-page').waitFor()
+  await page
+    .locator('.inline-row-group')
+    .filter({ hasText: 'Behavioural' })
+    .first()
+    .getByRole('button', { name: 'Add question', exact: true })
+    .click()
+  await page.locator('.inline-editor').waitFor()
+  await fill(page, 'Question', 'Tell me about a decision you regret.')
+  await page
+    .locator('.inline-editor')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click()
+  await page.waitForTimeout(600)
 }
 
 async function main() {

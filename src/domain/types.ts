@@ -137,6 +137,20 @@ export const questionSchema = z.looseObject({
   categoryId: z.string().min(1),
   question: z.string(),
   answer: z.string(),
+  /**
+   * Where this question sits among the ones belonging to the same category.
+   *
+   * Lower comes first, and the order is scoped to the parent — the same number
+   * means different things under different categories, so it is only ever
+   * compared with siblings.
+   *
+   * Optional, and the absence is meaningful rather than merely cautious: a
+   * question written before this existed has no order, and it is sorted as if it
+   * were last. Making it required would reject those rows, and a rejected
+   * question is not a row that is ignored — it is a row the document cannot show
+   * at all.
+   */
+  order: z.number().optional(),
 })
 
 /** Below this the app refuses to comply rather than print something illegible. */

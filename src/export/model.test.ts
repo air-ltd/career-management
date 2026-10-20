@@ -147,6 +147,49 @@ describe('buildDocumentModel', () => {
     expect(model.achievementsByJob.get('j1')?.map((record) => record.id)).toEqual(['a2', 'a1'])
   })
 
+  it("prints a category's questions in the order the user set", () => {
+    /*
+     * The order is the user's decision, and the preparation document is where it
+     * is read. The fixture stores them the other way round, so a test that passed
+     * on creation order would pass on anything.
+     */
+    const model = buildDocumentModel(
+      rows({
+        options: PRESETS['interview'].options,
+        questionCategories: [questionCategoryRow('c1')],
+        questions: [
+          questionRow('q1', { categoryId: 'c1', order: 2 }),
+          questionRow('q2', { categoryId: 'c1', order: 0 }),
+          questionRow('q3', { categoryId: 'c1', order: 1 }),
+        ],
+      }),
+    )
+
+    expect(model.questionCategories[0]?.questions.map((record) => record.id)).toEqual([
+      'q2',
+      'q3',
+      'q1',
+    ])
+  })
+
+  it('keeps questions that have no order after the ones that have one', () => {
+    const model = buildDocumentModel(
+      rows({
+        options: PRESETS['interview'].options,
+        questionCategories: [questionCategoryRow('c1')],
+        questions: [
+          questionRow('q1', { categoryId: 'c1' }),
+          questionRow('q2', { categoryId: 'c1', order: 0 }),
+        ],
+      }),
+    )
+
+    expect(model.questionCategories[0]?.questions.map((record) => record.id)).toEqual([
+      'q2',
+      'q1',
+    ])
+  })
+
   it('excludes question categories from the CV by default', () => {
     const model = buildDocumentModel(
       rows({

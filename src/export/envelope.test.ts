@@ -16,7 +16,7 @@ import {
   toEnvelope,
 } from './envelope'
 import { emptySnapshot } from '../domain/merge'
-import { achievementRow, at, jobRow } from '../test/factories'
+import { achievementRow, at, jobRow, questionRow } from '../test/factories'
 import type { Envelope } from './envelope'
 import type { Mergeable, Snapshot } from '../domain/types'
 
@@ -24,6 +24,7 @@ const AT = at
 
 const job = jobRow
 const achievement = achievementRow
+const question = questionRow
 
 function snapshotOf(jobs: Mergeable[]): Snapshot {
   return { ...emptySnapshot(1), entities: { ...emptySnapshot(1).entities, jobs } }
@@ -100,6 +101,28 @@ describe('parseEnvelope', () => {
     expect(entities.achievements).toHaveLength(2)
     const plain = entities.achievements[0] as Record<string, unknown> | undefined
     const ordered = entities.achievements[1] as Record<string, unknown> | undefined
+    expect(plain?.['order']).toBeUndefined()
+    expect(ordered?.['order']).toBe(3)
+  })
+
+  it('keeps a question row written before the manual order existed', () => {
+    /*
+     * `order` was added after documents were already in circulation, and a
+     * question without it has to keep working. Required, `narrowTables` would
+     * reject the row, and a rejected question is not a row that is ignored: it is
+     * a row the preparation document cannot show at all.
+     */
+    const withoutOrder = question('q1')
+    const withOrder = question('q2', { order: 3 })
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, questions: [withoutOrder, withOrder] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.questions).toHaveLength(2)
+    const plain = entities.questions[0] as Record<string, unknown> | undefined
+    const ordered = entities.questions[1] as Record<string, unknown> | undefined
     expect(plain?.['order']).toBeUndefined()
     expect(ordered?.['order']).toBe(3)
   })

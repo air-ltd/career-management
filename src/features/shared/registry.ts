@@ -292,6 +292,8 @@ export const questions: EntityDefinition = {
   newPath: '/questions/all/new',
   editPath: (id) => `/questions/${id}/edit`,
   fields: (context) => [
+    { kind: 'textarea', name: 'question', label: 'Question', required: true, rows: 3 },
+    { kind: 'textarea', name: 'answer', label: 'Answer' },
     {
       kind: 'select',
       name: 'categoryId',
@@ -299,8 +301,6 @@ export const questions: EntityDefinition = {
       required: true,
       options: categoryOptions(context.questionCategories),
     },
-    { kind: 'textarea', name: 'question', label: 'Question', required: true, rows: 3 },
-    { kind: 'textarea', name: 'answer', label: 'Answer' },
   ],
   describe: (row, context) => {
     const record = as<Question>(row)
