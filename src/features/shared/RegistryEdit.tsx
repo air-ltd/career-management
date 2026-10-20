@@ -5,7 +5,7 @@
  * the list on save. One form in the DOM at a time (D10).
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { RecordForm } from './RecordForm'
 import { saveFields, useFieldContext, useRecords } from './data'
 import { blankRecord, REGISTRY, type RegistryKey } from './registry'
@@ -51,6 +51,20 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
   // (Phase 9). Read here rather than passed down, so every form that can use a
   // phrase has the phrases without each caller remembering to fetch them.
   const { records: phrases } = useRecords<Mergeable & Record<string, unknown>>('phrases')
+
+  /*
+   * The parent, if the link named one that exists.
+   *
+   * "Add an achievement under this job" arrives with the job in the query, so
+   * the form starts with it filled in. The value comes from the URL, so it is
+   * checked against the database before it is used: a link naming a job that is
+   * not there would otherwise create an achievement that belongs to nothing,
+   * which the document cannot show and the user cannot find.
+   */
+  const parentExists = useCallback(async (column: string, id: string): Promise<boolean> => {
+    const table = column === 'jobId' ? db.jobs : db.questionCategories
+    return (await table.get(id)) !== undefined
+  }, [])
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [error, setError] = useState<string | null>(null)
 
@@ -59,8 +73,15 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
 
     async function load() {
       if (id === null) {
+        const parent = definition.parent
+        const named = seed === undefined || parent === undefined ? '' : seed[parent.column]
+        let seeded: Record<string, unknown> = {}
+        if (typeof named === 'string' && named !== '') {
+          const exists = await parentExists(parent?.column ?? '', named)
+          if (exists) seeded = { [parent?.column ?? '']: named }
+        }
         if (!cancelled) {
-          setState({ kind: 'ready', record: { ...blankRecord(registryKey, now), ...seed } })
+          setState({ kind: 'ready', record: { ...blankRecord(registryKey, now), ...seeded } })
         }
         return
       }
@@ -77,7 +98,7 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
     return () => {
       cancelled = true
     }
-  }, [registryKey, id, now, definition.table, seed])
+  }, [registryKey, id, now, definition.table, definition.parent, seed, parentExists])
 
   if (state.kind === 'loading') return <p className="hint">Loading…</p>
 
