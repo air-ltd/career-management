@@ -1695,7 +1695,7 @@ async function main() {
       .locator('.inline-row')
       .filter({ hasText: 'Principal Engineer' })
       .first()
-      .getByRole('button', { name: /Delete/ })
+      .getByRole('button', { name: /Hide/ })
       .click()
     // Wait for the row to detach rather than counting straight after the click:
     // an immediate count is taken before React re-renders and would pass against
@@ -1720,7 +1720,7 @@ async function main() {
       )
     check('deleting offers an undo rather than vanishing silently', undoShown)
 
-    await page.getByLabel('Deleted records').check()
+    await page.getByLabel('Hidden records').check()
     const stillFindable = await page
       .locator('.inline-row.is-deleted')
       .filter({ hasText: 'Principal Engineer' })
@@ -1737,18 +1737,17 @@ async function main() {
     await page.locator('.record-list').waitFor()
     const listRow = page.locator('.record-row').first()
     const listHeading = (await listRow.locator('.record-row-heading').innerText()).trim()
-    await listRow.getByRole('button', { name: `Delete ${listHeading}` }).click()
+    await listRow.getByRole('button', { name: `Hide ${listHeading}` }).click()
     await page.waitForTimeout(600)
-    await page.getByLabel('Show deleted').check()
+    await page.getByLabel('Show hidden').check()
     await page.waitForTimeout(300)
     const deletedListRow = page.locator('.record-row.is-deleted').first()
     check(
       'a deleted record in a list view offers to be recovered too',
       (await deletedListRow.getByRole('button', { name: `Recover ${listHeading}` }).count()) ===
         1 &&
-        (await deletedListRow
-          .getByRole('button', { name: `Delete ${listHeading}` })
-          .count()) === 0,
+        (await deletedListRow.getByRole('button', { name: `Hide ${listHeading}` }).count()) ===
+          0,
     )
     await deletedListRow.getByRole('button', { name: `Recover ${listHeading}` }).click()
     await page.waitForTimeout(600)
@@ -2135,7 +2134,7 @@ async function main() {
     await go(page, origin, '/')
     const deletable = () =>
       page.locator('.all-in-one-content .inline-row').filter({ hasText: 'Deletable Co' })
-    await deletable().first().getByRole('button', { name: 'Delete', exact: true }).click()
+    await deletable().first().getByRole('button', { name: 'Hide', exact: true }).click()
     await page.waitForTimeout(500)
     check('a record can be deleted from the edit-all page', (await deletable().count()) === 0)
     check(
@@ -2752,7 +2751,7 @@ async function main() {
       .locator('.inline-row')
       .filter({ hasText: 'Storycheck' })
       .first()
-      .getByRole('button', { name: /Delete/i })
+      .getByRole('button', { name: /Hide/i })
       .click()
     await page.waitForTimeout(500)
 
@@ -2969,7 +2968,7 @@ async function main() {
       .locator('.inline-row')
       .filter({ hasText: 'Toggle Co' })
       .first()
-      .getByRole('button', { name: /Delete/i })
+      .getByRole('button', { name: /Hide/i })
       .click()
     await page.waitForTimeout(500)
     await page.locator('.all-in-one').waitFor()
@@ -2987,9 +2986,29 @@ async function main() {
     const row = page.locator('.all-in-one-content .inline-row').filter({ hasText: 'Toggle Co' })
     const isMarked = await row.first().evaluate((n) => n.classList.contains('is-deleted'))
     check(
-      'Show deleted brings it back, marked as deleted',
+      'Show hidden brings it back, marked as hidden',
       (await paneHas()) === true && isMarked === true,
       String(isMarked),
+    )
+
+    /*
+     * The word on the page is "hide", not "delete".
+     *
+     * A record is not deleted — it is hidden, and it is still there, which is
+     * what the Recover button on the row is for. Saying "delete" and then
+     * offering to undo it is the language of an action the app does not take.
+     */
+    check(
+      'the row is marked hidden rather than deleted',
+      // The text as it is written, not as the badge renders it: the badge is
+      // uppercased in CSS, and this is about the word.
+      (await row.first().locator('.badge').textContent())?.trim() === 'hidden',
+      await row.first().locator('.badge').textContent(),
+    )
+    check(
+      'and the undo message says hidden too',
+      ((await page.locator('.undo-bar').innerText()) ?? '').includes('Hidden'),
+      await page.locator('.undo-bar').innerText(),
     )
 
     /*
@@ -3002,7 +3021,7 @@ async function main() {
     check(
       'a deleted record offers to be recovered rather than deleted again',
       (await deletedRow.getByRole('button', { name: 'Recover', exact: true }).count()) === 1 &&
-        (await deletedRow.getByRole('button', { name: 'Delete', exact: true }).count()) === 0,
+        (await deletedRow.getByRole('button', { name: 'Hide', exact: true }).count()) === 0,
       await deletedRow
         .locator('.inline-row-actions button')
         .allInnerTexts()
@@ -3018,7 +3037,7 @@ async function main() {
     )
     check(
       'and it is a live record again, with the delete button back',
-      (await deletedRow.getByRole('button', { name: 'Delete', exact: true }).count()) === 1,
+      (await deletedRow.getByRole('button', { name: 'Hide', exact: true }).count()) === 1,
     )
     // And the toggle is per-page state, not stored: it decides what this screen
     // prints, not what the document page prints.

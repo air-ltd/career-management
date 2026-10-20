@@ -60,5 +60,5 @@ const TOGGLES: {
 }[] = [
   { key: 'includeStories', label: 'Stories' },
   { key: 'includeQuestions', label: 'Interview questions' },
-  { key: 'includeDeleted', label: 'Deleted records' },
+  { key: 'includeDeleted', label: 'Hidden records' },
 ]

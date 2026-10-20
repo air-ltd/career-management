@@ -80,7 +80,7 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
       <section>
         <h2>{definition.singular} not found</h2>
         <p className="hint">
-          It may have been deleted.{' '}
+          It may have been hidden.{' '}
           <a href={`#${definition.listPath}`}>Back to {definition.plural.toLowerCase()}</a>.
         </p>
       </section>

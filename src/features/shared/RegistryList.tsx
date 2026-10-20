@@ -92,7 +92,7 @@ export function RegistryList({ registryKey, now }: RegistryListProps) {
 
       {undo !== null && (
         <div className="undo-bar" role="status">
-          <span>Deleted {undo.label}.</span>
+          <span>Hidden {undo.label}.</span>
           <button
             type="button"
             className="button"

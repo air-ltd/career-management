@@ -72,9 +72,9 @@ export function InlineRow({
    */
   onDelete?: (id: string) => void
   /**
-   * Brings this record back, for one that has been deleted.
+   * Brings this record back, for one that has been hidden.
    *
-   * A deleted record offers to be recovered rather than deleted again: deleting
+   * A hidden record offers to be recovered rather than hidden again: hiding
    * it a second time is not a thing a record can be asked to do, and the control
    * that undoes the mistake is the one the user is looking for.
    */
@@ -102,7 +102,7 @@ export function InlineRow({
         */}
         <a className="inline-row-toggle" href={editHref}>
           <span className="inline-row-heading">
-            {isDeleted && <span className="badge">deleted</span>}
+            {isDeleted && <span className="badge">hidden</span>}
             {/*
               On the row, not only in the form.
 
@@ -131,11 +131,11 @@ export function InlineRow({
             Edit
           </a>
           {/*
-            A deleted record is offered back rather than deleted again.
+            A hidden record is offered back rather than hidden again.
 
-            The button that deleted it is replaced rather than joined by a second
-            one: a row with "Delete" and "Recover" side by side reads as a record
-            that is both deleted and not, and the only one of the two that can be
+            The button that hid it is replaced rather than joined by a second
+            one: a row with "Hide" and "Recover" side by side reads as a record
+            that is both hidden and not, and the only one of the two that can be
             pressed is the one that is right.
           */}
           {isDeleted
@@ -158,7 +158,7 @@ export function InlineRow({
                     onDelete(text(record, 'id'))
                   }}
                 >
-                  Delete
+                  Hide
                 </button>
               )}
         </div>
@@ -200,7 +200,7 @@ export function InlineSection({
   preview?: (record: Record<string, unknown>) => React.ReactNode
   /** Deletes one record; see `InlineRow`. */
   onDelete?: (id: string) => void
-  /** Brings a deleted record back; see `InlineRow`. */
+  /** Brings a hidden record back; see `InlineRow`. */
   onRecover?: (id: string) => void
   /**
    * Where the "add" link goes.

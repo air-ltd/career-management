@@ -102,7 +102,7 @@ export function RecordList({
                 onToggleShowDeleted(event.target.checked)
               }}
             />
-            Show deleted
+            Show hidden
           </label>
         </div>
 
@@ -142,7 +142,7 @@ export function RecordList({
                 <span className="record-row-heading">
                   {/* Deletion is a state, not an absence, so it is named rather
                       than shown as a blank. */}
-                  {item.deleted && <span className="badge">deleted</span>}
+                  {item.deleted && <span className="badge">hidden</span>}
                   {item.heading}
                 </span>
                 {item.detail !== '' && <span className="record-row-detail">{item.detail}</span>}
@@ -162,11 +162,11 @@ export function RecordList({
                   <EditIcon />
                 </a>
                 {/*
-                  A deleted record is offered back rather than deleted again.
+                  A hidden record is offered back rather than hidden again.
 
-                  The button that deleted it is replaced rather than joined by a
-                  second one: a row with "Delete" and "Recover" side by side reads
-                  as a record that is both deleted and not.
+                  The button that hid it is replaced rather than joined by a second
+                  one: a row with "Hide" and "Recover" side by side reads as a
+                  record that is both hidden and not.
                 */}
                 {item.deleted ? (
                   onRecover !== undefined && (
@@ -188,7 +188,7 @@ export function RecordList({
                     onClick={() => {
                       onDelete(item.id)
                     }}
-                    aria-label={`Delete ${item.heading}`}
+                    aria-label={`Hide ${item.heading}`}
                   >
                     <TrashIcon />
                   </button>

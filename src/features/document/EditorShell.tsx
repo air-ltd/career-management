@@ -51,7 +51,7 @@ export function EditorShell({
 
       {editor.undo !== null && (
         <div className="undo-bar" role="status">
-          <span>Deleted {editor.undo.label}.</span>
+          <span>Hidden {editor.undo.label}.</span>
           <button type="button" className="button" onClick={editor.restore}>
             <UndoIcon />
             Undo
