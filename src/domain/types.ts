@@ -84,6 +84,19 @@ export const achievementSchema = z.looseObject({
   jobId: z.string().min(1),
   achievement: z.string(),
   story: z.string(),
+  /**
+   * Where this achievement sits among the ones belonging to the same job.
+   *
+   * Lower comes first. The order is scoped to the parent rather than the table,
+   * because the same numbers mean different things under different jobs — so the
+   * value is only ever compared with siblings.
+   *
+   * Optional, and the absence is meaningful rather than merely cautious: a record
+   * written before this existed has no order, and it is sorted as if it were last.
+   * Making it required would reject those rows, and a rejected achievement is not a
+   * row that is ignored — it is a row the document cannot show at all.
+   */
+  order: z.number().optional(),
 })
 
 /**

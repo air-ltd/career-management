@@ -8,5 +8,6 @@
 9. [x] include an option on a job to hide responsibilities and achievements (this should hide them on the print only) - there should be a clear indicator in the edit page to show this is the case.
 10. [x] add an about page that talks about the data storage and that we do not have any of the users data.
 11. [x] question categories should be listed alphabetically.
-12. [ ] LATER: Add a manual ordering capability for achievements (within a job) and questions (within a question category)
-13. [x] Can you abbreviate September to "Sep" rather than "Sept" in date ranges.
+12. [x] Add a manual ordering capability for achievements (within a job) - by dragging them to a new place, with the arrow keys as the keyboard route.
+13. [ ] Add a manual ordering capability for questions (within a question category).
+14. [x] Can you abbreviate September to "Sep" rather than "Sept" in date ranges.

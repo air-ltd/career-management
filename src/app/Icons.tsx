@@ -116,3 +116,21 @@ export const DocumentIcon = icon(
     <polyline points="14 2 14 8 20 8" />
   </>,
 )
+
+/**
+ * The grip on a handle the user drags.
+ *
+ * Six dots rather than lines, because the thing is a grip and lines read as
+ * "resize". Drawn as circles rather than filled dots so it matches the weight of
+ * the other icons, which are all strokes.
+ */
+export const GripIcon = icon(
+  <>
+    <circle cx="9" cy="6" r="1.4" />
+    <circle cx="15" cy="6" r="1.4" />
+    <circle cx="9" cy="12" r="1.4" />
+    <circle cx="15" cy="12" r="1.4" />
+    <circle cx="9" cy="18" r="1.4" />
+    <circle cx="15" cy="18" r="1.4" />
+  </>,
+)

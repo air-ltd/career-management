@@ -20,6 +20,7 @@ import type {
   QuestionCategory,
   Settings,
 } from '../domain/types'
+import { compareByOrder } from '../domain/order'
 
 export type Preset = 'cv' | 'interview'
 
@@ -162,10 +163,16 @@ export function buildDocumentModel(input: {
     list.push(achievement)
     achievementsByJob.set(achievement.jobId, list)
   }
-  // Achievements within a job, oldest update first so a later edit appears where
-  // the user put it rather than at the front.
+  /*
+   * Achievements within a job, in the order the user put them.
+   *
+   * The same comparison the editor uses, deliberately: the editor is where the
+   * order is changed and this is where it is read, and a list the user arranged
+   * printing in a different order would leave them with no way of telling that
+   * the arrangement did not take.
+   */
   for (const list of achievementsByJob.values()) {
-    list.sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : 1))
+    list.sort(compareByOrder)
   }
 
   // Awards and education are two entities in storage and one table in the document

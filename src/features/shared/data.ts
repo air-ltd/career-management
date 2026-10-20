@@ -66,6 +66,15 @@ export async function saveFields(
   id: string | null,
   values: Record<string, string | boolean>,
   now: Date,
+  /**
+   * The record a new one is being created from, when it is not blank.
+   *
+   * A nested add form starts from a partly filled record so the parent is not
+   * lost. The fields the form owns are written from the form's own values; the
+   * ones it does not own — an achievement's place among its siblings, say — are
+   * written from here, because there is nowhere else for them to come from.
+   */
+  seeded?: Record<string, unknown>,
 ): Promise<string> {
   const definition = REGISTRY[key]
   const table = db.table(definition.table)
@@ -89,8 +98,19 @@ export async function saveFields(
     definition.fields({ jobs: [], questionCategories: [], now }).map((f) => f.name),
   )
 
+  // A new record keeps the fields the form does not own, so a nested add form can
+  // say where the new record goes rather than leaving that to be guessed later.
+  const carried: Record<string, unknown> = {}
+  if (existing === undefined && seeded !== undefined) {
+    for (const [name, value] of Object.entries(seeded)) {
+      if (owned.has(name)) continue
+      if (name === 'id' || name === 'updatedAt' || name === 'deletedAt') continue
+      carried[name] = value
+    }
+  }
+
   const next: Record<string, unknown> = {
-    ...(existing ?? {}),
+    ...(existing ?? carried),
     id: recordId,
     updatedAt: stamp,
     deletedAt: existing?.deletedAt ?? null,
@@ -119,6 +139,44 @@ export async function saveFields(
 
 export async function deleteRecord(key: RegistryKey, id: string, now: Date): Promise<void> {
   await softDelete(db.table(REGISTRY[key].table), id, now)
+}
+
+/**
+ * Write the order of a job's achievements.
+ *
+ * Every achievement under the job is written, not only the one that moved: the
+ * order is a property of the whole group — 0, 1, 2 — so a group where only some
+ * records were rewritten would have a partial order rather than an order, and
+ * the records that were left out would keep an order that no longer says where
+ * they are.
+ *
+ * `updatedAt` moves with the order, because two devices merge by last-write-wins
+ * per record: an order that is not newer than the copy on the other device would
+ * be discarded there, and the rearrangement would silently not happen.
+ *
+ * A record whose order did not change is not written at all. Reordering one
+ * achievement renumbers the group, but most of the numbers come out the same, and
+ * a record that did not change does not need to look like it did — a write with a
+ * new timestamp on every sibling would make every device treat the whole job as
+ * changed.
+ */
+export async function saveAchievementOrder(
+  jobId: string,
+  orderedIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  const table = db.achievements
+  const stamp = now.toISOString()
+  for (const [index, id] of orderedIds.entries()) {
+    const existing = await table.get(id)
+    if (!existing) continue
+    // The order only means anything among one job's achievements, so a record
+    // that has been moved to another job is not written here.
+    if (existing.jobId !== jobId) continue
+    if (existing.order === index) continue
+    await table.put({ ...existing, order: index, updatedAt: stamp })
+  }
+  bumpRevision()
 }
 
 /**

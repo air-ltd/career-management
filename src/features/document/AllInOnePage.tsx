@@ -22,6 +22,10 @@ import { useState } from 'react'
 import { InlineEditor, InlineRow, InlineSection } from './InlineEditor'
 import { EditorShell, AddChildButton } from './EditorShell'
 import { collapse, storyPreview, useEditorState } from './editorState'
+import { OrderAnnouncement, OrderHandle } from './OrderHandle'
+import { useRowOrder } from './useRowOrder'
+import { orderForNew, sortByOrder } from '../../domain/order'
+import { saveAchievementOrder } from '../shared/data'
 import { text } from './recordText'
 import { formatDateRange, formatYear } from '../../domain/format'
 import { REGISTRY } from '../shared/registry'
@@ -85,6 +89,9 @@ export function AllInOnePage({ now }: { now: Date }) {
             job={job}
             records={editor.visible(editor.records.achievements)}
             onDelete={editor.deleteFrom('achievements')}
+            onReorder={(ids) => {
+              void saveAchievementOrder(text(job, 'id'), ids, now)
+            }}
             showStories={showStories}
             fields={REGISTRY.achievements.fields(context)}
             now={now}
@@ -180,11 +187,16 @@ function endDateOf(record: Record<string, unknown>): string | null {
  * No count is shown. The achievements are the list; a number beside the button
  * that opens it is the same information twice, and it costs a line of height on
  * every job.
+ *
+ * The order is the user's, and it is the order the document prints them in. The
+ * list here is sorted the same way the document is, so the arrangement the user
+ * makes is the arrangement they see on the page.
  */
 function AchievementsUnderJob({
   job,
   records,
   onDelete,
+  onReorder,
   showStories,
   fields,
   now,
@@ -194,6 +206,7 @@ function AchievementsUnderJob({
   job: Record<string, unknown>
   records: Row[]
   onDelete: (id: string) => void
+  onReorder: (ids: string[]) => void
   showStories: boolean
   fields: readonly Field[]
   now: Date
@@ -201,7 +214,16 @@ function AchievementsUnderJob({
   onToggleAdding: () => void
 }) {
   const jobId = text(job, 'id')
-  const mine = records.filter((record) => text(record, 'jobId') === jobId)
+  const mine = sortByOrder(records.filter((record) => text(record, 'jobId') === jobId))
+  const ids = mine.map((record) => text(record, 'id'))
+  const order = useRowOrder({
+    ids,
+    onReorder,
+    describe: (id) => {
+      const record = mine.find((candidate) => text(candidate, 'id') === id)
+      return record === undefined ? 'Achievement' : text(record, 'achievement')
+    },
+  })
 
   // Nothing to show and nothing open: render no box at all. "No achievements"
   // beside an add button says less than the absence does.
@@ -209,26 +231,37 @@ function AchievementsUnderJob({
 
   return (
     <div className="inline-children">
-      {mine.map((achievement) => (
-        <InlineRow
-          key={text(achievement, 'id')}
-          registryKey="achievements"
-          record={achievement}
-          heading={text(achievement, 'achievement')}
-          detail=""
-          onDelete={onDelete}
-          preview={storyPreview(text(achievement, 'story'), showStories)}
-          fields={fields}
-          now={now}
-          onSaved={() => undefined}
-        />
-      ))}
+      <OrderAnnouncement message={order.message} />
+      {mine.map((achievement, index) => {
+        const id = text(achievement, 'id')
+        const rowProps = order.rowProps(id, index)
+        return (
+          <InlineRow
+            key={id}
+            registryKey="achievements"
+            record={achievement}
+            heading={text(achievement, 'achievement')}
+            detail=""
+            onDelete={onDelete}
+            preview={storyPreview(text(achievement, 'story'), showStories)}
+            fields={fields}
+            now={now}
+            onSaved={() => undefined}
+            handle={<OrderHandle handleProps={order.handleProps(id, index)} />}
+            drop={rowProps['data-drop']}
+            onDragOver={rowProps.onDragOver}
+            onDrop={rowProps.onDrop}
+          />
+        )
+      })}
 
       {adding && (
         // Pre-seeded with the parent, so the new record is not created orphaned.
+        // And with a place in the list, so it lands at the top rather than
+        // wherever the order happened to leave it.
         <InlineEditor
           registryKey="achievements"
-          record={{ jobId, achievement: '', story: '' }}
+          record={{ jobId, achievement: '', story: '', order: orderForNew(mine) }}
           fields={fields}
           now={now}
           onDone={onToggleAdding}

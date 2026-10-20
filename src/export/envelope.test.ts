@@ -23,6 +23,7 @@ import type { Mergeable, Snapshot } from '../domain/types'
 const AT = at
 
 const job = jobRow
+const achievement = achievementRow
 
 function snapshotOf(jobs: Mergeable[]): Snapshot {
   return { ...emptySnapshot(1), entities: { ...emptySnapshot(1).entities, jobs } }
@@ -78,6 +79,29 @@ describe('parseEnvelope', () => {
     const kept = entities.settings[0] as Record<string, unknown> | undefined
     expect(kept?.['format']).toBeUndefined()
     expect(kept?.['pageSize']).toBe('A4')
+  })
+
+  it('keeps an achievement row written before the manual order existed', () => {
+    /*
+     * `order` was added after documents were already in circulation, and an
+     * achievement without it has to keep working — it is a record that prints
+     * where it always did. Required, `narrowTables` would reject the row, and a
+     * rejected achievement is not a row that is ignored: it is a row the document
+     * cannot show at all.
+     */
+    const withoutOrder = achievement('a1')
+    const withOrder = achievement('a2', { order: 3 })
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, achievements: [withoutOrder, withOrder] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.achievements).toHaveLength(2)
+    const plain = entities.achievements[0] as Record<string, unknown> | undefined
+    const ordered = entities.achievements[1] as Record<string, unknown> | undefined
+    expect(plain?.['order']).toBeUndefined()
+    expect(ordered?.['order']).toBe(3)
   })
 
   it('keeps a job row written before the summary setting existed', () => {

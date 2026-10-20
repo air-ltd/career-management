@@ -104,6 +104,49 @@ describe('buildDocumentModel', () => {
     expect(model.awardsEducation).toHaveLength(2)
   })
 
+  it("prints a job's achievements in the order the user set", () => {
+    /*
+     * The order is the user's decision, and the document is where it is read.
+     * The fixture stores them the other way round, so a test that passed on
+     * creation order would pass on anything.
+     */
+    const model = buildDocumentModel(
+      rows({
+        jobs: [jobRow('j1')],
+        achievements: [
+          achievementRow('a1', { jobId: 'j1', order: 2 }),
+          achievementRow('a2', { jobId: 'j1', order: 0 }),
+          achievementRow('a3', { jobId: 'j1', order: 1 }),
+        ],
+      }),
+    )
+
+    expect(model.achievementsByJob.get('j1')?.map((record) => record.id)).toEqual([
+      'a2',
+      'a3',
+      'a1',
+    ])
+  })
+
+  it('keeps achievements that have no order after the ones that have one', () => {
+    /*
+     * Records written before the order existed have none, and a new achievement
+     * goes above them — so an ordered record and an unordered one cannot be in
+     * the same list without the order deciding between them.
+     */
+    const model = buildDocumentModel(
+      rows({
+        jobs: [jobRow('j1')],
+        achievements: [
+          achievementRow('a1', { jobId: 'j1' }),
+          achievementRow('a2', { jobId: 'j1', order: 0 }),
+        ],
+      }),
+    )
+
+    expect(model.achievementsByJob.get('j1')?.map((record) => record.id)).toEqual(['a2', 'a1'])
+  })
+
   it('excludes question categories from the CV by default', () => {
     const model = buildDocumentModel(
       rows({

@@ -115,7 +115,20 @@ export function InlineEditor({
         onSubmit={(next) => {
           void (async () => {
             try {
-              await saveFields(registryKey, isNew ? null : recordId, next, now)
+              /*
+               * The seeded record goes along on a new one only. It carries the
+               * fields the form does not own — where an achievement goes among
+               * its siblings — and there is nowhere else for them to come from.
+               * An existing record keeps its own, because `saveFields` writes
+               * from what is already stored.
+               */
+              await saveFields(
+                registryKey,
+                isNew ? null : recordId,
+                next,
+                now,
+                isNew && record !== null ? record : undefined,
+              )
               setSaved(true)
               onDone()
             } catch (caught) {
@@ -139,6 +152,10 @@ export function InlineRow({
   fields,
   now,
   actions,
+  handle,
+  drop,
+  onDragOver,
+  onDrop,
   onDelete,
   onSaved,
 }: {
@@ -163,6 +180,21 @@ export function InlineRow({
   /** Buttons shown beside Edit — "add achievement", and the like. */
   actions?: React.ReactNode
   /**
+   * A grip the user drags the row by, for a list whose order they can change.
+   *
+   * The row's own control is the disclosure that opens its editor, so the grip is
+   * a separate control rather than a change to that one: dragging a row and
+   * opening it are different actions, and a button that did both would be a
+   * button that did neither well.
+   */
+  handle?: React.ReactNode
+  /** Where a dragged row would land if it were dropped on this one. */
+  drop?: 'before' | 'after' | ''
+  /** Called as a dragged row passes over this one. */
+  onDragOver?: (event: React.DragEvent) => void
+  /** Called when a dragged row is dropped on this one. */
+  onDrop?: (event: React.DragEvent) => void
+  /**
    * Deletes this record.
    *
    * Passed in rather than looked up, because the row does not know what the
@@ -185,8 +217,10 @@ export function InlineRow({
       // devtools, confirm a record was saved under a real id rather than an empty
       // one, which is the bug a nested add form can introduce.
       data-record-id={text(record, 'id')}
+      {...(handle === undefined ? {} : { onDragOver, onDrop, 'data-drop': drop })}
     >
       <div className="inline-row-head">
+        {handle}
         <button
           type="button"
           className="inline-row-toggle"

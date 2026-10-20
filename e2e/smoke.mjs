@@ -2206,6 +2206,118 @@ async function main() {
       (await about.getByText('Syncing is optional', { exact: true }).count()) === 1,
     )
 
+    /*
+     * Manual order of a job's achievements.
+     *
+     * The point of the feature is the printed document, so every check here ends
+     * at the document rather than at the editor: the editor is where the order is
+     * made, and the document is where it has to be honoured.
+     */
+    await createInEditor(page, origin, {
+      section: 'Work history',
+      label: 'job',
+      expect: 'Orderable Co',
+      fields: { Company: 'Orderable Co', 'Job title': 'Role', 'Start date': '2021-01-01' },
+    })
+    for (const name of ['FIRST', 'SECOND', 'THIRD']) {
+      await createInEditor(page, origin, {
+        section: 'Work history',
+        label: 'achievement',
+        expect: name,
+        fields: { Job: 'Orderable Co - Role', Achievement: name },
+      })
+    }
+
+    const orderableGroup = page
+      .locator('.inline-row-group')
+      .filter({ hasText: 'Orderable Co' })
+      .first()
+    const achievementRows = orderableGroup.locator('.inline-children .inline-row')
+    const editorOrder = async () =>
+      (
+        await orderableGroup.locator('.inline-children .inline-row-heading').allInnerTexts()
+      ).map((text) => text.trim())
+    const printedOrder = async () => {
+      await go(page, origin, '/document')
+      await page.locator('.doc').waitFor()
+      return page.evaluate(() => {
+        const job = [...document.querySelectorAll('.doc-job')].find((candidate) =>
+          candidate.textContent.includes('Orderable Co'),
+        )
+        if (!job) return []
+        return [...job.querySelectorAll('.doc-achievement')].map((item) =>
+          item.textContent.trim(),
+        )
+      })
+    }
+
+    check(
+      'a new achievement goes to the top of the list',
+      JSON.stringify(await editorOrder()) === JSON.stringify(['THIRD', 'SECOND', 'FIRST']),
+      JSON.stringify(await editorOrder()),
+    )
+    check(
+      'the document prints them in the same order the editor shows',
+      JSON.stringify(await printedOrder()) === JSON.stringify(['THIRD', 'SECOND', 'FIRST']),
+      JSON.stringify(await printedOrder()),
+    )
+
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    check(
+      'every achievement has a grip to drag it by',
+      (await achievementRows.locator('.inline-order-handle').count()) === 3,
+    )
+
+    // Drag the last one to the top. Dropped on the top of the first row, so it
+    // lands above it rather than in the middle of it.
+    const handles = achievementRows.locator('.inline-order-handle')
+    await handles.nth(2).dragTo(achievementRows.nth(0), { targetPosition: { x: 30, y: 2 } })
+    await page.waitForTimeout(700)
+
+    check(
+      'dragging an achievement moves it',
+      JSON.stringify(await editorOrder()) === JSON.stringify(['FIRST', 'THIRD', 'SECOND']),
+      JSON.stringify(await editorOrder()),
+    )
+    check(
+      'the document prints the order the user dragged',
+      JSON.stringify(await printedOrder()) === JSON.stringify(['FIRST', 'THIRD', 'SECOND']),
+      JSON.stringify(await printedOrder()),
+    )
+
+    /*
+     * The keyboard route, because a drag is invisible without a mouse and the
+     * document has to be reachable for everyone who has to read it.
+     */
+    await go(page, origin, '/')
+    await page.locator('.all-in-one').waitFor()
+    const keyboardHandle = achievementRows.nth(2).locator('.inline-order-handle')
+    await keyboardHandle.focus()
+    await keyboardHandle.press('Enter')
+    check(
+      'the grip says it has picked the record up',
+      (await keyboardHandle.getAttribute('aria-pressed')) === 'true',
+    )
+    await keyboardHandle.press('ArrowUp')
+    await page.waitForTimeout(700)
+    check(
+      'the arrow keys move it',
+      JSON.stringify(await editorOrder()) === JSON.stringify(['FIRST', 'SECOND', 'THIRD']),
+      JSON.stringify(await editorOrder()),
+    )
+    check(
+      'and the move is announced',
+      ((await orderableGroup.locator('.sr-only[role="status"]').textContent()) ?? '').includes(
+        'SECOND',
+      ),
+    )
+    check(
+      'the document prints that too',
+      JSON.stringify(await printedOrder()) === JSON.stringify(['FIRST', 'SECOND', 'THIRD']),
+      JSON.stringify(await printedOrder()),
+    )
+
     await go(page, origin, '/sync')
     await page.locator('.sync-page').waitFor()
 

@@ -131,6 +131,25 @@ async function seed(page, origin) {
     .click()
   await page.waitForTimeout(600)
 
+  // An achievement, so the grip it is dragged by is on the page. A control that
+  // only appears once there is something to drag is a control the audit would
+  // otherwise never see.
+  await go(page, origin, '/')
+  await page.locator('.all-in-one').waitFor()
+  await page
+    .locator('.inline-section')
+    .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
+    .getByRole('button', { name: 'Add achievement' })
+    .first()
+    .click()
+  await page.locator('.inline-editor').waitFor()
+  await fill(page, 'Achievement', 'Cut the billing page load time in half.')
+  await page
+    .locator('.inline-editor')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click()
+  await page.waitForTimeout(600)
+
   // A question category, so the interview route has its own sections rather than
   // an empty state.
   await go(page, origin, '/interview')

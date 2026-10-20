@@ -781,6 +781,89 @@ code {
   color: var(--text-muted);
 }
 
+/*
+ * The grip a row is dragged by.
+ *
+ * A button rather than a drawn handle, because it is the keyboard route as well
+ * as the mouse one: it takes focus, it is announced, and the arrow keys move the
+ * record while it is held. A `div` with a mousedown listener would be none of
+ * those things.
+ *
+ * Quiet until it is wanted. The grip is always there — a row that cannot be
+ * moved has to look different from one that can — but it is the muted colour and
+ * it only takes the accent on hover or when the row is held.
+ */
+.inline-order-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.inline-order-handle:hover {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.inline-order-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The record is held: by the keyboard, or by a drag in progress. */
+.inline-order-handle[aria-pressed='true'],
+.inline-order-handle[data-grabbed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  cursor: grabbing;
+}
+
+/*
+ * Where a dragged row would land.
+ *
+ * A line on the row the record would land above, rather than a gap between two
+ * rows — the rows are stacked flush, so there is no gap to draw in. The line is
+ * on the row itself rather than a pseudo-element hanging above it, so it cannot
+ * be clipped by the list it is in.
+ */
+.inline-row[data-drop='before'] {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.inline-row[data-drop='after'] {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+/*
+ * For content that is announced but not shown.
+ *
+ * The reorder announcements are read out as the record moves, and they are of no
+ * use to anyone looking at the screen — a line of text appearing under the list
+ * would be noise. Clipped to a pixel rather than `display: none`, which would
+ * take it out of the accessibility tree along with everything else.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ----------------------------------------------------------------- document */
 /*
  * The document classes (D11). One stylesheet for the editor and the document,
