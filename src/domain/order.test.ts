@@ -104,3 +104,18 @@ describe('orderForNew', () => {
     expect(orderForNew([row('a', 5), row('b', 9)])).toBe(4)
   })
 })
+
+describe('a record whose identifiers are not strings', () => {
+  it('is still ordered, and not stringified into nonsense', () => {
+    /*
+     * The comparison reads the id and the timestamp as text. A record that
+     * carries a number instead of a string is not one the app writes, but the
+     * comparison must not fall over on it — and it must not turn the number
+     * into "[object Object]" and sort by that.
+     */
+    const numeric = { id: 7, updatedAt: 8, order: 1 }
+    const other = { id: 9, updatedAt: 10, order: 0 }
+    expect(compareByOrder(numeric, other)).toBeGreaterThan(0)
+    expect(compareByOrder(numeric, numeric)).toBe(0)
+  })
+})

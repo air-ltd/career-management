@@ -11,12 +11,15 @@ import { toMarkdown, markdownExporter } from './markdown'
 import { toPlainText, plainTextExporter } from './plainText'
 import { buildDocumentModel, PRESETS, type ExportOptions } from '../model'
 import { defaultSettings } from '../envelope'
+import type { Question, QuestionCategory } from '../../domain/types'
 import {
   achievementRow,
   awardRow,
   educationRow,
   jobRow,
   profileRow,
+  questionCategoryRow,
+  questionRow,
 } from '../../test/factories'
 
 const OPTIONS: ExportOptions = PRESETS['cv'].options
@@ -141,6 +144,93 @@ describe('the plain-text exporter', () => {
     const blob = await plainTextExporter.build(model())
     expect(blob.type).toBe('text/plain;charset=utf-8')
     expect(await blob.text()).toContain('Acme: Engineer')
+  })
+})
+
+describe('what the exporters carry that the CV does not show', () => {
+  it('carries the interview questions, which the CV preset leaves out', () => {
+    /*
+     * The interview document is a different document, not a longer CV: the
+     * questions are in the model and in the export, and the preset is what says
+     * the CV does not carry them.
+     */
+    const interview = buildDocumentModel({
+      options: PRESETS['interview'].options,
+      settings: defaultSettings(new Date(0)),
+      profiles: [],
+      jobs: [],
+      achievements: [],
+      awards: [],
+      education: [],
+      questionCategories: [
+        questionCategoryRow('c1', { title: 'Behavioural' }) as unknown as QuestionCategory,
+      ],
+      questions: [
+        questionRow('q1', {
+          categoryId: 'c1',
+          question: 'Why us?',
+          answer: 'Because.',
+        }) as unknown as Question,
+      ],
+    })
+    const markdown = toMarkdown(interview)
+    expect(markdown).toContain('Behavioural')
+    expect(markdown).toContain('Why us?')
+    expect(markdown).toContain('Because.')
+    // The plain text uppercases the titles and leaves the prose as it is.
+    expect(toPlainText(interview)).toContain('INTERVIEW QUESTIONS')
+    expect(toPlainText(interview)).toContain('Why us?')
+  })
+
+  it('carries a story, which is a record the CV preset leaves out but the other one keeps', () => {
+    const withStory = model({
+      jobs: [
+        jobRow('j1', {
+          company: 'Acme',
+          jobTitle: 'Engineer',
+          startDate: '2020-01-01',
+          endDate: '2024-03-31',
+          responsibilities: 'Ran the thing.',
+          story: 'And it was hard.',
+        }),
+      ],
+      achievements: [],
+    })
+    const markdown = toMarkdown(withStory)
+    expect(markdown).toContain('And it was hard.')
+    expect(markdown).toContain('*And it was hard.*')
+    expect(toPlainText(withStory)).toContain('And it was hard.')
+  })
+
+  it('carries the achievements of a role', () => {
+    const markdown = toMarkdown(model())
+    expect(markdown).toContain('- Shipped it')
+    expect(toPlainText(model())).toContain('- Shipped it')
+  })
+
+  it('leaves out a section this build does not know how to draw', () => {
+    /*
+     * A document written by a later build may have a section this one has never
+     * heard of. It is kept rather than dropped (D6), and the exporter leaves it
+     * alone rather than guessing at it.
+     */
+    const fromTheFuture = model({
+      settings: {
+        ...defaultSettings(new Date(0)),
+        sectionOrder: ['somethingNew', 'workHistory'],
+        sections: ['somethingNew', 'workHistory'],
+      },
+    })
+    const markdown = toMarkdown(fromTheFuture)
+    expect(markdown).toContain('Acme: Engineer')
+    expect(markdown).not.toContain('somethingNew')
+  })
+
+  it('leaves out a section the document does not have', () => {
+    // The questions section, in a document with no questions: nothing to print,
+    // so nothing is printed.
+    const markdown = toMarkdown(model())
+    expect(markdown).not.toContain('Interview questions')
   })
 })
 

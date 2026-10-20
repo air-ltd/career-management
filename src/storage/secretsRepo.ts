@@ -76,9 +76,10 @@ export const tokenStore = {
  * Reset for tests.
  *
  * The secrets database is a second Dexie instance, so the shared test setup
- * cannot clear it for us.
+ * cannot clear it for us. It clears the whole store, which is right for a test
+ * file that only holds credentials.
  */
-export async function clearTokenStoreForTests(): Promise<void> {
+export async function clearSecretsForTests(): Promise<void> {
   await secretsDb.delete()
   await secretsDb.open()
 }

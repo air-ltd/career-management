@@ -114,3 +114,14 @@ describe('templateSummary', () => {
     expect(summary).not.toContain('10pt')
   })
 })
+
+describe('the summary of a template with a section this build does not know', () => {
+  it('names the section, rather than leaving a gap in the summary', () => {
+    const template = {
+      ...builtInTemplate(NOW),
+      sectionOrder: ['somethingNew', 'workHistory'],
+      sections: ['somethingNew', 'workHistory'],
+    }
+    expect(templateSummary(template)).toContain('somethingNew')
+  })
+})

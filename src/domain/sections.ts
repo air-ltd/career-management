@@ -74,12 +74,12 @@ export function nameFor(key: string, headings: Record<string, string> | undefine
 }
 
 /**
- * The order, with any section the document does not know about left where it was.
+ * The order this build draws from.
  *
  * A document written by a later build may have a section this one has never heard
- * of. Dropping it would change the document — the order would collapse and the
- * unknown section would lose its place — so it is kept, and the view ignores keys
- * it does not know how to draw.
+ * of. The *stored* order keeps it and its place; the order this build draws
+ * from leaves it out, because there is nothing here to draw it with — and the
+ * sections this build does know keep the places they had.
  */
 export function resolveOrder(
   order: readonly string[] | undefined,

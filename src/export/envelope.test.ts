@@ -164,6 +164,25 @@ describe('parseEnvelope', () => {
     expect(result.message).toBe('Not a career management document file.')
   })
 
+  it('says what is wrong with a file that is ours but is broken', () => {
+    /*
+     * A file that claims to be ours and is not readable is a different failure
+     * from a file that is somebody else's, and the message says which: the first
+     * is a document that has been damaged, and the second is a file the user
+     * picked by mistake.
+     */
+    const result = parseEnvelope(
+      { format: 'career-management-document', formatVersion: 1, schemaVersion: 'not a number' },
+      1,
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('not a valid document')
+    // The message names the field, so a user can tell what is wrong with a file
+    // they have in front of them.
+    expect(result.message).toContain('schemaVersion')
+  })
+
   it('rejects a non-object rather than listing object-shape issues', () => {
     expect(parseEnvelope('nope', 1)).toEqual({
       ok: false,
