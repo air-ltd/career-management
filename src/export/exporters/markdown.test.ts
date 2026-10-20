@@ -18,11 +18,18 @@ import {
   jobRow,
   profileRow,
 } from '../../test/factories'
-import type { Mergeable } from '../../domain/types'
 
 const OPTIONS: ExportOptions = PRESETS['cv'].options
 
-function model(overrides: Partial<Parameters<typeof buildDocumentModel>[0]> = {}) {
+/**
+ * Build a model from a loose input.
+ *
+ * The cast is once, here, for the same reason the Word exporter's test does it:
+ * the factories return full valid records, so the compiler has nothing to add.
+ */
+type LooseInput = { [K in keyof Parameters<typeof buildDocumentModel>[0]]: unknown }
+
+function model(overrides: Partial<LooseInput> = {}) {
   return buildDocumentModel({
     options: OPTIONS,
     settings: defaultSettings(new Date(0)),
@@ -42,7 +49,7 @@ function model(overrides: Partial<Parameters<typeof buildDocumentModel>[0]> = {}
     questionCategories: [],
     questions: [],
     ...overrides,
-  })
+  } as Parameters<typeof buildDocumentModel>[0])
 }
 
 describe('the Markdown exporter', () => {
