@@ -137,6 +137,12 @@ export const jobs: EntityDefinition = {
   editPath: (id) => `/jobs/${id}/edit`,
   fields: () => [
     {
+      kind: 'checkbox',
+      name: 'hideDetail',
+      label: 'Hide responsibilities and achievements from the document',
+      hint: 'Keeps the role as one line — company, title and dates — without the detail under it. The editor still shows everything.',
+    },
+    {
       kind: 'text',
       name: 'company',
       label: 'Company',
@@ -163,12 +169,6 @@ export const jobs: EntityDefinition = {
       label: 'Story',
       hint: 'Interview preparation. Left out of the CV document and included in the preparation document.',
     },
-    {
-      kind: 'checkbox',
-      name: 'hideDetail',
-      label: 'Hide responsibilities and achievements from the document',
-      hint: 'Keeps the role as one line — company, title and dates — without the detail under it. The editor still shows everything.',
-    },
   ],
   describe: (row) => {
     const record = as<Job>(row)
@@ -188,6 +188,13 @@ export const achievements: EntityDefinition = {
 
   editPath: (id) => `/achievements/${id}/edit`,
   fields: (context) => [
+    { kind: 'text', name: 'achievement', label: 'Achievement', required: true },
+    {
+      kind: 'textarea',
+      name: 'story',
+      label: 'Story',
+      hint: 'Interview preparation, not part of the CV document.',
+    },
     {
       kind: 'select',
       name: 'jobId',
@@ -195,13 +202,6 @@ export const achievements: EntityDefinition = {
       required: true,
       options: jobOptions(context.jobs),
       hint: 'Achievements belong to exactly one job.',
-    },
-    { kind: 'text', name: 'achievement', label: 'Achievement', required: true },
-    {
-      kind: 'textarea',
-      name: 'story',
-      label: 'Story',
-      hint: 'Interview preparation, not part of the CV document.',
     },
   ],
   describe: (row, context) => {

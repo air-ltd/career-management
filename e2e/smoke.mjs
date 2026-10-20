@@ -398,6 +398,14 @@ async function main() {
       .filter({ hasText: 'Acme' })
       .count()
     check('the achievement job dropdown is populated from the saved jobs', jobOption > 0)
+    const achievementLabels = await page
+      .locator('.inline-editor .field > label')
+      .allInnerTexts()
+    check(
+      'the job link is the last thing on the achievement card',
+      achievementLabels.length > 0 && achievementLabels[achievementLabels.length - 1] === 'Job',
+      JSON.stringify(achievementLabels),
+    )
     await page.locator('.inline-editor').getByRole('button', { name: 'Cancel' }).click()
 
     check(
@@ -429,6 +437,13 @@ async function main() {
       { exact: true },
     )
     check('the job form offers to hide its detail', (await hideDetail.count()) === 1)
+
+    const jobLabels = await page.locator('.inline-editor .field > label').allInnerTexts()
+    check(
+      'the hide option is the first thing on the job card',
+      jobLabels[0] === 'Hide responsibilities and achievements from the document',
+      JSON.stringify(jobLabels),
+    )
 
     check(
       'the row does not claim to be a summary before it is one',
