@@ -24,18 +24,20 @@ export interface SettingsPageProps {
 export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
-  // The key is read from storage, never from the document. Read once, at mount:
-  // it does not change while the page is open except through the buttons below.
-  const [providerKey, setProviderKey] = useState(() =>
-    readProviderKey(chatCompletionsProvider.id),
-  )
+  // The key is read from the secrets store, never from the document.
+  const [providerKey, setProviderKey] = useState('')
   const [keySaved, setKeySaved] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const [current, allProfiles] = await Promise.all([readSettings(), db.profiles.toArray()])
+      const [current, allProfiles, storedKey] = await Promise.all([
+        readSettings(),
+        db.profiles.toArray(),
+        readProviderKey(chatCompletionsProvider.id),
+      ])
+      if (!cancelled) setProviderKey(storedKey)
       if (cancelled) return
       setSettings(current)
       setProfiles(allProfiles.filter((profile) => profile.deletedAt === null))
@@ -230,8 +232,9 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
             type="button"
             className="button"
             onClick={() => {
-              writeProviderKey(chatCompletionsProvider.id, providerKey.trim())
-              setKeySaved(true)
+              void writeProviderKey(chatCompletionsProvider.id, providerKey.trim()).then(() => {
+                setKeySaved(true)
+              })
             }}
           >
             Save key
@@ -240,9 +243,10 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
             type="button"
             className="button"
             onClick={() => {
-              clearProviderKey()
-              setProviderKey('')
-              setKeySaved(true)
+              void clearProviderKey(chatCompletionsProvider.id).then(() => {
+                setProviderKey('')
+                setKeySaved(true)
+              })
             }}
           >
             Forget key

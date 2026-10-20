@@ -6,12 +6,11 @@
  * and a key compiled in is a key every visitor has (G1). So the key is the
  * user's own, and it is theirs alone.
  *
- * `localStorage`, and not the document. The document syncs to Dropbox and is
+ * The secrets store, and not the document. The document syncs to Dropbox and is
  * exported; a key in it would travel to a third party and be written into files
- * the user sends to employers. The key is in this browser, on this device, and
- * nowhere else. That is also why it is not covered by the backup: restoring a
- * document onto another machine restores the document, and the user sets the key
- * again there.
+ * the user sends to employers. The secrets store is a separate database that is
+ * never synced, never exported and never backed up — the same store the Dropbox
+ * OAuth token is kept in, and for the same reason (SEC4).
  *
  * The blast radius is worth stating plainly: a key sitting next to a CV means
  * that an XSS or a malicious dependency goes from "reads your CV" to "spends
@@ -19,23 +18,20 @@
  * it is never written to a log.
  */
 
-/** The storage key. Namespaced, like the theme's. */
-const STORAGE_KEY = 'cmd:provider-key'
+import { secrets } from '../storage/secretsRepo'
 
-/** The provider the key is for, so a second provider gets its own. */
-export interface StoredKey {
-  providerId: string
-  key: string
+/** The name the key is stored under, per provider. */
+function secretName(providerId: string): string {
+  return `provider:${providerId}`
 }
 
 /** The key for a provider, if there is one. */
-export function readProviderKey(providerId: string): string {
+export async function readProviderKey(providerId: string): Promise<string> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (raw === null) return ''
-    const parsed = JSON.parse(raw) as Partial<StoredKey>
-    if (parsed.providerId !== providerId) return ''
-    return typeof parsed.key === 'string' ? parsed.key : ''
+    const stored = await secrets.read(secretName(providerId))
+    if (typeof stored !== 'object' || stored === null) return ''
+    const key = (stored as { key?: unknown }).key
+    return typeof key === 'string' ? key : ''
   } catch {
     // A browser with storage disabled, or a value that is not ours. Either way
     // there is no key, and the feature says so rather than failing.
@@ -43,23 +39,23 @@ export function readProviderKey(providerId: string): string {
   }
 }
 
-/** Store the key for a provider, replacing any other provider's. */
-export function writeProviderKey(providerId: string, key: string): void {
+/** Store the key for a provider. */
+export async function writeProviderKey(providerId: string, key: string): Promise<void> {
   try {
     if (key === '') {
-      window.localStorage.removeItem(STORAGE_KEY)
+      await secrets.clear(secretName(providerId))
       return
     }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ providerId, key }))
+    await secrets.write(secretName(providerId), { key })
   } catch {
     // Nothing to do: the key is not stored, and the next read says so.
   }
 }
 
 /** Forget the key. */
-export function clearProviderKey(): void {
+export async function clearProviderKey(providerId: string): Promise<void> {
   try {
-    window.localStorage.removeItem(STORAGE_KEY)
+    await secrets.clear(secretName(providerId))
   } catch {
     // As above.
   }

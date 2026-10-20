@@ -32,18 +32,43 @@ const secretsDb = new SecretsDb()
 /** A stable singleton key. Two clients are deliberately not supported. */
 const TOKEN_KEY = 'dropbox'
 
-export const tokenStore = {
-  async read(): Promise<unknown> {
-    const row = await secretsDb.secrets.get(TOKEN_KEY)
+/**
+ * The secrets store, by name.
+ *
+ * One store for every credential the app holds, each under its own name, so
+ * that adding a second one — the assistant's provider key — is a name rather
+ * than a second database.
+ *
+ * The store is opaque to its callers: this module does not know what a secret
+ * looks like. Only the holder of a secret parses the shape, so adding a field
+ * to `DropboxTokens` does not require touching the storage layer at all.
+ */
+export const secrets = {
+  async read(name: string): Promise<unknown> {
+    const row = await secretsDb.secrets.get(name)
     return row?.value
   },
 
+  async write(name: string, value: unknown): Promise<void> {
+    await secretsDb.secrets.put({ key: name, value })
+  },
+
+  async clear(name: string): Promise<void> {
+    await secretsDb.secrets.delete(name)
+  },
+}
+
+export const tokenStore = {
+  async read(): Promise<unknown> {
+    return secrets.read(TOKEN_KEY)
+  },
+
   async write(value: unknown): Promise<void> {
-    await secretsDb.secrets.put({ key: TOKEN_KEY, value })
+    await secrets.write(TOKEN_KEY, value)
   },
 
   async clear(): Promise<void> {
-    await secretsDb.secrets.delete(TOKEN_KEY)
+    await secrets.clear(TOKEN_KEY)
   },
 }
 

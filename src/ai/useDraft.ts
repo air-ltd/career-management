@@ -12,7 +12,7 @@
  * only offered when there is a key to send it with.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { readProviderKey } from './key'
 import type { AiProvider } from './provider'
 
@@ -43,15 +43,34 @@ export function useDraft(provider: AiProvider): DraftState {
   const [error, setError] = useState<string | null>(null)
   // Read once, at mount: the key can only be set on the settings page, and
   // setting it means leaving this one, so the page comes back afresh.
-  const [hasKey, setHasKey] = useState(() => readProviderKey(provider.id) !== '')
+  const [hasKey, setHasKey] = useState(false)
 
   const refresh = useCallback(() => {
-    setHasKey(readProviderKey(provider.id) !== '')
+    void (async () => {
+      setHasKey((await readProviderKey(provider.id)) !== '')
+    })()
+  }, [provider.id])
+
+  /*
+   * The key is read on mount, in an effect rather than in the state
+   * initialiser, because the store is a database and reading it is asynchronous.
+   * The state starts false and becomes true a moment later, which is why the
+   * panel appears a moment after the page opens.
+   */
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const key = await readProviderKey(provider.id)
+      if (!cancelled) setHasKey(key !== '')
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [provider.id])
 
   const run = useCallback(
     async (current: string) => {
-      const key = readProviderKey(provider.id)
+      const key = await readProviderKey(provider.id)
       if (key === '') {
         setError('There is no key for this provider. Add one in Settings.')
         return
