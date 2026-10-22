@@ -10,7 +10,7 @@
  * smaller failure than a confident wrong number.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DocumentModel } from '../../export/model'
 import { pageGeometry } from '../../export/page'
 
@@ -171,34 +171,46 @@ function typicalAchievementLines(container: HTMLElement): number {
  * Returned together because a caller needs both: the ref to put on the document
  * container, and the report to display. Separate functions would let the two
  * drift, and the report is only meaningful for the element the ref is on.
+ *
+ * The ref is a callback rather than an object, and that is the whole point of
+ * it. The element being measured is not always in the page: the editing pages
+ * render it only once they have loaded, and a ref object is read once, at the
+ * moment the effect runs, which is too early. A callback ref is called when the
+ * element attaches, so the measurement happens when there is something to
+ * measure — which is the only time it can be right.
  */
 export function useFitReport(model: DocumentModel | null): {
-  ref: React.RefObject<HTMLDivElement | null>
+  ref: (element: HTMLDivElement | null) => void
   report: FitReport | null
 } {
-  const ref = useRef<HTMLDivElement | null>(null)
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
   const [report, setReport] = useState<FitReport | null>(null)
 
   useEffect(() => {
-    const element = ref.current
-    if (element === null || model === null) {
-      setReport(null)
-      return
-    }
+    if (element === null || model === null) return
 
-    const update = () => {
+    /*
+     * The measurement is the observer's callback, and the observer's first
+     * callback is the measurement.
+     *
+     * It reads the rendered document, which is a thing outside React, and a
+     * thing that is not in the page until it is laid out. Setting the report
+     * from inside the callback rather than from the body of the effect means
+     * the measurement happens when there is a rendered document to measure —
+     * which is the only time the number means anything — and it means the
+     * effect does not set state on the way in.
+     *
+     * The viewport is not the page, so a resize changes what the measurement
+     * means. Re-measuring keeps the report honest without a manual refresh.
+     */
+    const observer = new ResizeObserver(() => {
       setReport(measureFit({ element, model }))
-    }
-    update()
-
-    // The viewport is not the page, so a resize changes what the measurement
-    // means. Re-measuring keeps the report honest without a manual refresh.
-    const observer = new ResizeObserver(update)
+    })
     observer.observe(element)
     return () => {
       observer.disconnect()
     }
-  }, [model])
+  }, [element, model])
 
-  return { ref, report }
+  return { ref: setElement, report }
 }

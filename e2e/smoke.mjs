@@ -112,6 +112,22 @@ async function go(page, origin, hash) {
 }
 
 /**
+ * Open the rail's format card, if it is closed.
+ *
+ * The card's state is a preference the user has, remembered in this browser —
+ * so a closed card is a legitimate state and not a fault. The estimate lives
+ * inside the card, so a test that reads the estimate opens the card first, the
+ * way a user would.
+ */
+async function openFormatCard(page) {
+  const card = page.locator('details.document-format')
+  await card.waitFor()
+  if (await card.evaluate((element) => element.open)) return
+  await card.locator('summary').click()
+  await page.waitForTimeout(200)
+}
+
+/**
  * Move between the app's own pages, without reloading.
  *
  * `go` loads the site afresh, which is right for a test that starts from
@@ -649,10 +665,13 @@ async function main() {
      * too — and it has to say the same thing as the document page's, because it
      * is the same document, measured the same way.
      */
+    await openFormatCard(page)
     const documentEstimate = await page.locator('.fit-report').innerText()
     await go(page, origin, '/')
+    await openFormatCard(page)
     const editEstimate = await page.locator('.fit-report').innerText()
     await go(page, origin, '/interview')
+    await openFormatCard(page)
     const questionsEstimate = await page.locator('.fit-report').innerText()
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
