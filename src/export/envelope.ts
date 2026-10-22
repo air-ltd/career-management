@@ -30,7 +30,16 @@ export const FORMAT_VERSION = 1
  * has to be able to recognise a newer document and refuse it (D7) rather than
  * interpret what it does not understand.
  */
-export const SCHEMA_VERSION = 1
+/**
+ * Bumped to 2 for the templates table.
+ *
+ * A new table is a breaking change, and deliberately so: an older build reading
+ * a document with templates in it would strip the table it does not know about —
+ * the quietest way there is to lose a user's templates — so instead the version
+ * goes up and the older build refuses the document rather than interpreting what
+ * it does not understand (D7).
+ */
+export const SCHEMA_VERSION = 2
 
 const isoInstant = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: 'must be an ISO instant',
@@ -63,6 +72,8 @@ const entityTables = {
   education: entityTable,
   questionCategories: entityTable,
   questions: entityTable,
+  templates: entityTable,
+  phrases: entityTable,
 }
 
 export const envelopeSchema = z.object({
@@ -255,5 +266,6 @@ export function defaultSettings(now: Date) {
     fontSizePt: 10,
     density: 'normal' as const,
     targetPages: 1,
+    format: 'compressed' as const,
   }
 }

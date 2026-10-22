@@ -16,29 +16,29 @@
  * about stories and deleted records. Only the sections differ.
  */
 
-import { useState } from 'react'
-import { InlineEditor, InlineRow, InlineSection } from './InlineEditor'
-import { AddChildButton, EditorShell } from './EditorShell'
+import { InlineRow, InlineSection } from './InlineRows'
+import { PlusIcon } from '../../app/Icons'
+import { EditorShell } from './EditorShell'
 import { storyPreview, useEditorState, type Row } from './editorState'
+import { OrderAnnouncement, OrderHandle } from './OrderHandle'
+import { useRowOrder } from './useRowOrder'
+import { sortByOrder } from '../../domain/order'
+import { saveQuestionOrder } from '../shared/data'
+import type { ExportOptions } from '../../export/model'
 import { text } from './recordText'
 import { REGISTRY } from '../shared/registry'
-import type { Field } from '../shared/fields'
 
-export function QuestionsPage({ now }: { now: Date }) {
-  const editor = useEditorState(now)
-  const { context, showStories } = editor
-
-  /*
-   * Which category, if any, has its "add a question" form open.
-   *
-   * Held here rather than inside the child component so the button that opens it
-   * can sit beside the category's own Edit button — the same arrangement the
-   * career page uses for adding an achievement to a job, so the two pages are
-   * navigated the same way.
-   */
-  const [addingChildFor, setAddingChildFor] = useState<string | null>(null)
-  const toggleChild = (categoryId: string) =>
-    setAddingChildFor((previous) => (previous === categoryId ? null : categoryId))
+export function QuestionsPage({
+  now,
+  options,
+  onOptionsChange,
+}: {
+  now: Date
+  options: ExportOptions
+  onOptionsChange: (next: ExportOptions) => void
+}) {
+  const editor = useEditorState(options, onOptionsChange, now)
+  const { showStories } = editor
 
   return (
     <EditorShell editor={editor} className="document-page all-in-one questions-page">
@@ -46,36 +46,37 @@ export function QuestionsPage({ now }: { now: Date }) {
         title="Question categories"
         registryKey="questionCategories"
         onDelete={editor.deleteFrom('questionCategories')}
+        onRecover={editor.recoverFrom('questionCategories')}
         records={editor.ordered('questionCategories')}
         describe={(record) => ({ heading: text(record, 'title'), detail: '' })}
-        fields={REGISTRY.questionCategories.fields(context)}
-        now={now}
         emptyText="No question categories yet."
+        newHref={REGISTRY.questionCategories.newPath}
         preview={(record) => storyPreview(text(record, 'story'), showStories)}
         actionsFor={(category) => (
-          <AddChildButton
-            label="Add question"
-            expanded={addingChildFor === text(category, 'id')}
-            onClick={() => toggleChild(text(category, 'id'))}
-          />
+          // The link names the category, so the form starts with it filled in
+          // rather than asking which category the question belongs to.
+          <a
+            className="button button-small button-icon"
+            title="Add question"
+            aria-label="Add question"
+            href={`#/questions/all/new?category=${encodeURIComponent(text(category, 'id'))}`}
+          >
+            <PlusIcon size={14} />
+          </a>
         )}
         renderChildren={(category) => (
           <QuestionsUnderCategory
             category={category}
             records={editor.visible(editor.records.questions)}
             onDelete={editor.deleteFrom('questions')}
+            onRecover={editor.recoverFrom('questions')}
+            onReorder={(ids) => {
+              void saveQuestionOrder(text(category, 'id'), ids, now)
+            }}
             showStories={showStories}
-            fields={REGISTRY.questions.fields(context)}
-            now={now}
-            adding={addingChildFor === text(category, 'id')}
-            onToggleAdding={() => toggleChild(text(category, 'id'))}
           />
         )}
       />
-
-      <p className="page-cross-link">
-        <a href="#/">← Work history, awards and education</a>
-      </p>
     </EditorShell>
   )
 }
@@ -85,63 +86,69 @@ export function QuestionsPage({ now }: { now: Date }) {
  *
  * Indented because the parent is what gives them meaning: a question with no
  * category cannot be displayed anywhere, so seeing the grouping is the point.
+ *
+ * The order is the user's, and it is the order the preparation document prints
+ * them in. The list here is sorted the same way the document is, so the
+ * arrangement the user makes is the arrangement they see on the page.
  */
 function QuestionsUnderCategory({
   category,
   records,
   onDelete,
+  onRecover,
+  onReorder,
   showStories,
-  fields,
-  now,
-  adding,
-  onToggleAdding,
 }: {
   category: Record<string, unknown>
   records: Row[]
   onDelete: (id: string) => void
+  onRecover: (id: string) => void
+  onReorder: (ids: string[]) => void
   showStories: boolean
-  fields: readonly Field[]
-  now: Date
-  adding: boolean
-  onToggleAdding: () => void
 }) {
   const categoryId = text(category, 'id')
-  const mine = records.filter((record) => text(record, 'categoryId') === categoryId)
+  const mine = sortByOrder(
+    records.filter((record) => text(record, 'categoryId') === categoryId),
+  )
+  const ids = mine.map((record) => text(record, 'id'))
+  const order = useRowOrder({
+    ids,
+    onReorder,
+    describe: (id) => {
+      const record = mine.find((candidate) => text(candidate, 'id') === id)
+      return record === undefined ? 'Question' : text(record, 'question')
+    },
+  })
 
-  // Nothing to show and nothing open: render no box at all. "No questions" beside
-  // an add button says less than the absence does.
-  if (mine.length === 0 && !adding) return null
+  // Nothing to show: render no box at all. "No questions" beside an add button
+  // says less than the absence does.
+  if (mine.length === 0) return null
 
   return (
     <div className="inline-children">
-      {mine.map((question) => (
-        <InlineRow
-          key={text(question, 'id')}
-          registryKey="questions"
-          record={question}
-          heading={text(question, 'question')}
-          detail=""
-          onDelete={onDelete}
-          // A question's answer is its story, and follows the same rule as every
-          // other record's — with stories excluded there is no answer here either.
-          preview={storyPreview(text(question, 'answer'), showStories)}
-          fields={fields}
-          now={now}
-          onSaved={() => undefined}
-        />
-      ))}
-
-      {adding && (
-        // Pre-seeded with the parent, so the new record is not created orphaned.
-        <InlineEditor
-          registryKey="questions"
-          record={{ categoryId, question: '', answer: '' }}
-          fields={fields}
-          now={now}
-          onDone={onToggleAdding}
-          onCancel={onToggleAdding}
-        />
-      )}
+      <OrderAnnouncement message={order.message} />
+      {mine.map((question, index) => {
+        const id = text(question, 'id')
+        const rowProps = order.rowProps(id, index)
+        return (
+          <InlineRow
+            key={id}
+            registryKey="questions"
+            record={question}
+            heading={text(question, 'question')}
+            detail=""
+            onDelete={onDelete}
+            onRecover={onRecover}
+            // A question's answer is its story, and follows the same rule as every
+            // other record's — with stories excluded there is no answer here either.
+            preview={storyPreview(text(question, 'answer'), showStories)}
+            handle={<OrderHandle handleProps={order.handleProps(id, index)} />}
+            drop={rowProps['data-drop']}
+            onDragOver={rowProps.onDragOver}
+            onDrop={rowProps.onDrop}
+          />
+        )
+      })}
     </div>
   )
 }

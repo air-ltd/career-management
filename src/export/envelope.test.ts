@@ -9,6 +9,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   FORMAT,
+  FORMAT_VERSION,
+  SCHEMA_VERSION,
   defaultSettings,
   narrowTables,
   parseEnvelope,
@@ -16,13 +18,15 @@ import {
   toEnvelope,
 } from './envelope'
 import { emptySnapshot } from '../domain/merge'
-import { achievementRow, at, jobRow } from '../test/factories'
+import { achievementRow, at, jobRow, questionRow } from '../test/factories'
 import type { Envelope } from './envelope'
 import type { Mergeable, Snapshot } from '../domain/types'
 
 const AT = at
 
 const job = jobRow
+const achievement = achievementRow
+const question = questionRow
 
 function snapshotOf(jobs: Mergeable[]): Snapshot {
   return { ...emptySnapshot(1), entities: { ...emptySnapshot(1).entities, jobs } }
@@ -46,6 +50,106 @@ function envelopeOf(snapshot: Snapshot): RawEnvelope {
 }
 
 describe('parseEnvelope', () => {
+  it('keeps a settings row written before the format setting existed', () => {
+    /*
+     * `format` was added after documents were already in circulation, and a document
+     * without it has to keep working. Required, `narrowTables` would reject the
+     * settings row — and a rejected settings row takes the page size, the type size
+     * and the profile with it, for a setting that only decides spacing.
+     *
+     * Checked here rather than through `parseEnvelope` because that is the layer
+     * that decides: it validates `id` and leaves every other field alone. The
+     * per-record schemas, this one included, are applied by `narrowTables`.
+     */
+    const settings = {
+      id: 'settings',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      deletedAt: null,
+      activeProfileId: null,
+      pageSize: 'A4',
+      fontSizePt: 10,
+      density: 'normal',
+      targetPages: 1,
+      // No `format`. That absence is the entire point.
+    }
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, settings: [settings] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.settings).toHaveLength(1)
+    const kept = entities.settings[0] as Record<string, unknown> | undefined
+    expect(kept?.['format']).toBeUndefined()
+    expect(kept?.['pageSize']).toBe('A4')
+  })
+
+  it('keeps an achievement row written before the manual order existed', () => {
+    /*
+     * `order` was added after documents were already in circulation, and an
+     * achievement without it has to keep working — it is a record that prints
+     * where it always did. Required, `narrowTables` would reject the row, and a
+     * rejected achievement is not a row that is ignored: it is a row the document
+     * cannot show at all.
+     */
+    const withoutOrder = achievement('a1')
+    const withOrder = achievement('a2', { order: 3 })
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, achievements: [withoutOrder, withOrder] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.achievements).toHaveLength(2)
+    const plain = entities.achievements[0] as Record<string, unknown> | undefined
+    const ordered = entities.achievements[1] as Record<string, unknown> | undefined
+    expect(plain?.['order']).toBeUndefined()
+    expect(ordered?.['order']).toBe(3)
+  })
+
+  it('keeps a question row written before the manual order existed', () => {
+    /*
+     * `order` was added after documents were already in circulation, and a
+     * question without it has to keep working. Required, `narrowTables` would
+     * reject the row, and a rejected question is not a row that is ignored: it is
+     * a row the preparation document cannot show at all.
+     */
+    const withoutOrder = question('q1')
+    const withOrder = question('q2', { order: 3 })
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, questions: [withoutOrder, withOrder] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.questions).toHaveLength(2)
+    const plain = entities.questions[0] as Record<string, unknown> | undefined
+    const ordered = entities.questions[1] as Record<string, unknown> | undefined
+    expect(plain?.['order']).toBeUndefined()
+    expect(ordered?.['order']).toBe(3)
+  })
+
+  it('keeps a job row written before the summary setting existed', () => {
+    /*
+     * `hideDetail` was added after documents were already in circulation. A job
+     * without it is a job that prints in full — the only behaviour there was — so
+     * making the field required would reject those rows and take the role with them.
+     */
+    const jobWithoutIt = job('j1')
+    const jobWithIt = job('j2', { hideDetail: true })
+    const { entities, rejected } = narrowTables({
+      schemaVersion: 1,
+      entities: { ...emptySnapshot(1).entities, jobs: [jobWithoutIt, jobWithIt] },
+    })
+
+    expect(rejected).toEqual([])
+    expect(entities.jobs).toHaveLength(2)
+    const plain = entities.jobs[0] as Record<string, unknown> | undefined
+    const summarised = entities.jobs[1] as Record<string, unknown> | undefined
+    expect(plain?.['hideDetail']).toBeUndefined()
+    expect(summarised?.['hideDetail']).toBe(true)
+  })
+
   it('round-trips a document this build wrote', () => {
     const snapshot = snapshotOf([job('a'), job('b', { deletedAt: AT(5) })])
     const result = parseEnvelope(envelopeOf(snapshot), 1)
@@ -60,6 +164,25 @@ describe('parseEnvelope', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.message).toBe('Not a career management document file.')
+  })
+
+  it('says what is wrong with a file that is ours but is broken', () => {
+    /*
+     * A file that claims to be ours and is not readable is a different failure
+     * from a file that is somebody else's, and the message says which: the first
+     * is a document that has been damaged, and the second is a file the user
+     * picked by mistake.
+     */
+    const result = parseEnvelope(
+      { format: 'career-management-document', formatVersion: 1, schemaVersion: 'not a number' },
+      1,
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('not a valid document')
+    // The message names the field, so a user can tell what is wrong with a file
+    // they have in front of them.
+    expect(result.message).toContain('schemaVersion')
   })
 
   it('rejects a non-object rather than listing object-shape issues', () => {
@@ -213,5 +336,39 @@ describe('toEnvelope', () => {
     const counts = toEnvelope(snapshotOf([job('a')]), new Date(0)).counts
     expect(counts['jobs']).toBe(1)
     expect(counts['awards']).toBe(0)
+  })
+})
+
+describe('a file that is not a valid document', () => {
+  /*
+   * The message is what the user reads when the import fails, and it has to say
+   * what was wrong with the file rather than that something was. Zod's issues
+   * are turned into one line each, and the path is included, so the user can
+   * tell which part of the file the app did not like.
+   */
+  it('says what is wrong with it, and where', () => {
+    const result = parseEnvelope(
+      { format: FORMAT, formatVersion: FORMAT_VERSION, schemaVersion: SCHEMA_VERSION },
+      SCHEMA_VERSION,
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('not a valid document')
+    // The path of the field that is wrong, so the user can tell which part of
+    // the file the app did not like.
+    expect(result.message).toContain('exportedAt')
+  })
+
+  it("says plainly when the file is not this app's file at all", () => {
+    const notOurs = parseEnvelope({ format: 'something-else' }, SCHEMA_VERSION)
+    expect(notOurs.ok).toBe(false)
+    if (notOurs.ok) return
+    expect(notOurs.message).toBe('Not a career management document file.')
+
+    const notAnObject = parseEnvelope('a string', SCHEMA_VERSION)
+    expect(notAnObject.ok).toBe(false)
+    if (notAnObject.ok) return
+    expect(notAnObject.message).toBe('Not a career management document file.')
   })
 })

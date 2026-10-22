@@ -17,7 +17,9 @@ import {
   type Question,
   type QuestionCategory,
   type Settings,
+  type Phrase,
   type Snapshot,
+  type Template,
 } from '../domain/types'
 
 /**
@@ -38,6 +40,8 @@ interface AppSchema {
   education: Table<Education, string>
   questionCategories: Table<QuestionCategory, string>
   questions: Table<Question, string>
+  templates: Table<Template, string>
+  phrases: Table<Phrase, string>
 }
 
 export const db = new Dexie('career-management-doc') as Dexie & AppSchema
@@ -59,6 +63,20 @@ db.version(1).stores({
   education: 'id, updatedAt',
   questionCategories: 'id, updatedAt',
   questions: 'id, categoryId, updatedAt',
+})
+
+/**
+ * Schema version 2: the templates table.
+ *
+ * A separate version rather than a change to version 1, because version numbers
+ * are never reused (above). The upgrade is a new table and nothing else — the
+ * built-in template is seeded by the app rather than by the upgrade, so that a
+ * database created by an older build and one created by this build end up with
+ * exactly the same template.
+ */
+db.version(2).stores({
+  templates: 'id, updatedAt',
+  phrases: 'id, updatedAt',
 })
 
 /**

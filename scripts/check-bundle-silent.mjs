@@ -2,10 +2,17 @@
  * SEC1: the app MUST talk to exactly two third-party origins.
  *
  * The requirement is an exact count, so this checks an exact list. A check that
- * only confirmed the two Dropbox hosts were *present* would pass against a bundle
+ * only confirmed the Dropbox hosts were *present* would pass against a bundle
  * also phoning an analytics endpoint, a font CDN or a telemetry beacon — which is
  * precisely the case the requirement exists to catch, and the reason "the allow-list
  * is present" is not the same claim as "the allow-list is the whole allow-list".
+ *
+ * The third was the assistant's provider. The assistant is not in this release
+ * (see `src/ai/enabled.ts`), so the policy no longer permits it and the request
+ * would be blocked — but the code is still in the bundle, so the host is still
+ * named here. Keeping the name is the honest thing: this check is about what
+ * the bundle *references*, and the gap between that and what the policy
+ * *permits* is exactly the gap this check exists to make visible.
  *
  * Scans the built bundle rather than the source, because the property is about what
  * ships. A dependency added at build time, a stray URL in a comment that got
@@ -23,7 +30,7 @@ import { join, resolve } from 'node:path'
 const DIST = resolve(import.meta.dirname, '..', 'dist')
 
 /** SEC1, restated here so a change to it is a change to both. */
-const ALLOWED_HOSTS = ['api.dropboxapi.com', 'content.dropboxapi.com']
+const ALLOWED_HOSTS = ['api.dropboxapi.com', 'content.dropboxapi.com', 'api.openai.com']
 
 /**
  * Hosts the app legitimately names that are not network endpoints.
@@ -44,6 +51,12 @@ const ALLOWED_HOST_SUBSTRINGS = [
   'w3.org',
   'github.com',
   'schema.org',
+  // OOXML's namespaces, which the Word exporter's library writes into the file
+  // it builds, and one documentation link in an error message it can throw. The
+  // export is assembled in the browser from namespace names: nothing is fetched.
+  'openxmlformats.org',
+  'schemas.microsoft.com',
+  'answers.microsoft.com',
 ]
 
 /**

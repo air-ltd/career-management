@@ -122,8 +122,25 @@ code {
 
 /* ------------------------------------------------------------------ layout */
 
+/*
+ * The width of the app.
+ *
+ * Wide enough for the document card to be the width of the printed page's text
+ * column, which is what makes the card worth reading: the card is the page, and
+ * a card narrower than the page wraps early and misleads.
+ *
+ * The arithmetic, at 96dpi: the A4 text column is 189mm, which is 714px, and the
+ * card carries a 24px margin of paper on each side, so the card is 764px. The
+ * document is shown at 125% (see `.doc`), so the card is 955px. The document page
+ * puts that beside a 15rem rail with a 1rem gap, so the content has to be 1211px,
+ * and the app's own 1rem of padding on each side makes that 1243px — 78rem.
+ *
+ * Every page gets the width, not just the document page, because the card is the
+ * same width wherever it appears and a page that sized itself differently from
+ * the page next to it would be the inconsistency.
+ */
 .app {
-  max-width: 60rem;
+  max-width: 78rem;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -271,7 +288,21 @@ code {
   color: var(--accent-text);
 }
 
-.button-primary:hover {
+/*
+ * The primary button's hover.
+ *
+ * `.button:hover` above sets the background to the surface colour, and it has the
+ * same specificity as the rule that made this button the accent colour — so on
+ * hover the blue was replaced by the surface while the label kept the accent's
+ * own text colour. White on near-white, or near-black on near-black in the dark
+ * theme, and the label became unreadable exactly when the pointer was on it.
+ *
+ * The background is set again here, at a higher specificity than the generic
+ * hover rather than merely later in the file, so it cannot be lost again by
+ * something added below it.
+ */
+.button.button-primary:hover {
+  background: var(--accent);
   filter: brightness(1.1);
 }
 
@@ -489,6 +520,19 @@ code {
   vertical-align: middle;
 }
 
+/*
+ * A state the row is in, rather than a warning.
+ *
+ * Deliberately not the amber used for warnings: this says the record is doing
+ * something on purpose, and colouring it like a problem would train the eye to
+ * ignore the one that matters.
+ */
+.badge-note {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
 .badge-ok {
   background: #dcfce7;
   color: #14532d;
@@ -598,6 +642,32 @@ code {
   display: none;
 }
 
+/*
+ * Laid out, but not seen.
+ *
+ * The estimate on the editing pages is measured from this copy, and a copy that
+ * is not laid out has no lines to count: `display: none` takes it out of the
+ * layout entirely, and the measurement finds nothing to measure.
+ *
+ * So on the screen it is laid out — off to the left, where it cannot be seen —
+ * and hidden with `visibility`, which takes it out of the page and out of the
+ * accessibility tree without taking it out of the layout. It stays the same
+ * measure, the same type and the same leading as the paper, which is the whole
+ * point of measuring it here.
+ *
+ * Printed, the screen rule does not apply and the copy is shown as it always
+ * was.
+ */
+@media screen {
+  .all-in-one-print {
+    display: block;
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    visibility: hidden;
+  }
+}
+
 .inline-section {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -685,6 +755,14 @@ code {
   font-style: italic;
 }
 
+/*
+ * The row's heading, which is a link to the record.
+ *
+ * It was a button that expanded the form underneath; it is a link to the page the
+ * form is on. A link is underlined by default and a row of text is not, so the
+ * underline is taken off — and taken off only here, so a link that means
+ * something still looks like a link everywhere else.
+ */
 .inline-row-toggle {
   flex: 1 1 auto;
   display: flex;
@@ -696,6 +774,7 @@ code {
   font: inherit;
   color: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   min-width: 0;
 }
@@ -710,22 +789,22 @@ code {
   font-size: 0.92rem;
 }
 
+/*
+ * An achievement's text is the text, not a heading.
+ *
+ * A role's heading is a heading — the company and the title, and it should read
+ * as one. An achievement is a line the user wrote, and setting it in the bold of
+ * a heading makes it look like a title rather than the thing it is.
+ */
+.inline-row-achievements .inline-row-heading,
+.inline-row-questions .inline-row-heading {
+  font-weight: 400;
+}
+
 .inline-row-detail {
   color: var(--text-muted);
   font-size: 0.82rem;
   white-space: nowrap;
-}
-
-/* The chevron sits with the text baseline rather than vertically centred, which
-   is what a text row needs. */
-.inline-row-toggle svg {
-  align-self: center;
-  transition: transform 120ms ease;
-  color: var(--text-muted);
-}
-
-.inline-row-toggle[aria-expanded='true'] svg {
-  transform: rotate(180deg);
 }
 
 .is-deleted .inline-row-heading {
@@ -768,6 +847,89 @@ code {
   color: var(--text-muted);
 }
 
+/*
+ * The grip a row is dragged by.
+ *
+ * A button rather than a drawn handle, because it is the keyboard route as well
+ * as the mouse one: it takes focus, it is announced, and the arrow keys move the
+ * record while it is held. A `div` with a mousedown listener would be none of
+ * those things.
+ *
+ * Quiet until it is wanted. The grip is always there — a row that cannot be
+ * moved has to look different from one that can — but it is the muted colour and
+ * it only takes the accent on hover or when the row is held.
+ */
+.inline-order-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.inline-order-handle:hover {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.inline-order-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The record is held: by the keyboard, or by a drag in progress. */
+.inline-order-handle[aria-pressed='true'],
+.inline-order-handle[data-grabbed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  cursor: grabbing;
+}
+
+/*
+ * Where a dragged row would land.
+ *
+ * A line on the row the record would land above, rather than a gap between two
+ * rows — the rows are stacked flush, so there is no gap to draw in. The line is
+ * on the row itself rather than a pseudo-element hanging above it, so it cannot
+ * be clipped by the list it is in.
+ */
+.inline-row[data-drop='before'] {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.inline-row[data-drop='after'] {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+/*
+ * For content that is announced but not shown.
+ *
+ * The reorder announcements are read out as the record moves, and they are of no
+ * use to anyone looking at the screen — a line of text appearing under the list
+ * would be noise. Clipped to a pixel rather than `display: none`, which would
+ * take it out of the accessibility tree along with everything else.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ----------------------------------------------------------------- document */
 /*
  * The document classes (D11). One stylesheet for the editor and the document,
@@ -786,7 +948,82 @@ code {
   padding: 1.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  line-height: 1.45;
+  line-height: 1.45; /*
+   * The width is the measure, not the outside of the card.
+   *
+   * The document is laid out in a box the width of the page's content area and
+   * set at the document's own type size, so the text on screen wraps where the
+   * text on paper wraps. That is the whole point of the card: the user is
+   * reading it to see what the printed page will look like, and a card whose
+   * measure is narrower than the page's is a card that wraps early and lies.
+   *
+   * With `border-box` the padding came out of the measure instead, and the
+   * screen was 48px narrower than the paper — about a seventh of a line of
+   * text, and enough for the wrapping to differ.
+   *
+   * So the width is the content box and the padding is the paper around it,
+   * which is what it looks like anyway. The print stylesheet takes the padding
+   * and the border away, and the box is then the page's content area exactly.
+   */
+  box-sizing: content-box;
+  /*
+   * The leading, as it prints.
+   *
+   * A variable, because two things need this number and must not be told
+   * separately: the paper, and the fit report — which measures the document as
+   * it will print, and the screen is airier than the paper. The fit report puts
+   * this value on the document for the length of one measurement; see
+   * `FitReport`.
+   */
+  line-height: var(--doc-leading, 1.45);
+}
+
+/*
+ * The screen is airier than the paper.
+ *
+ * Reading on a screen is not reading on paper: the eye has nowhere to rest
+ * between the lines, and the type is smaller on the page than it is in the
+ * hand. A tenth more leading makes a document comfortable to read without making
+ * it a web article.
+ *
+ * Screen only. Printed, this is the page, and the page's leading is the one the
+ * document was laid out for.
+ */
+@media screen {
+  .doc {
+    line-height: calc(var(--doc-leading, 1.45) + 0.15);
+  }
+}
+
+/*
+ * The print's leading, put on for the length of one measurement.
+ *
+ * More specific than the screen's rule above, so it wins whichever order the two
+ * are in.
+ */
+.doc[data-fit-printing] {
+  line-height: var(--doc-leading, 1.45);
+}
+
+/*
+ * The document, shown larger than it prints.
+ *
+ * The card is a page held up to the light: the same document, the same measure
+ * and the same type, at a size that can be read without leaning in. It is scaled
+ * as a whole rather than having its type enlarged, because the point of the card
+ * is that the text wraps where the paper's text wraps, and that only holds if the
+ * measure and the type grow together.
+ *
+ * 150% of the browser is what a reader reaches for; this is the same idea
+ * applied to the document alone, so the rest of the app stays at its own size.
+ *
+ * Screen only. Printed, the document is the page — scaled up it would be a
+ * different document, and one that does not fit the paper.
+ */
+@media screen {
+  .doc {
+    zoom: 1.25;
+  }
 }
 /*
  * The ink for the document's own headings: the name at the top, and the section
@@ -963,7 +1200,7 @@ code {
  * company.
  *
  * 18ch, which is the width of the widest range the document can produce,
- * "Sept 1999 - Sept 2026", in the bold weight both halves of the line use.
+ * "Sep 1999 - Sep 2026", in the bold weight both halves of the line use.
  *
  * Measured, not guessed: at 12ch the longest range wrapped, and a wrapped range
  * breaks the column alignment the width exists for.
@@ -1004,6 +1241,18 @@ code {
 
 .doc-body p:last-child {
   margin-bottom: 0;
+}
+
+/*
+ * A role the user chose to keep without its detail.
+ *
+ * Hides the responsibilities, the story and the achievements, and leaves the header
+ * line: company, title and dates. The role is still in the CV — it was in the
+ * career, and a CV that quietly omits a year of it is worse than a long one.
+ */
+.doc-job-summarised > .doc-body,
+.doc-job-summarised > .doc-achievements {
+  display: none;
 }
 
 .doc-achievements {
@@ -1129,7 +1378,7 @@ code {
 
 /* D29: density is a spacing control, separate from type size. */
 .doc-density-compact {
-  line-height: 1.3;
+  --doc-leading: 1.3;
 }
 .doc-density-compact .doc-job {
   margin-bottom: 0.6rem;
@@ -1142,13 +1391,37 @@ code {
 }
 
 .doc-density-comfortable {
-  line-height: 1.6;
+  --doc-leading: 1.6;
 }
 .doc-density-comfortable .doc-job {
   margin-bottom: 1.4rem;
 }
 .doc-density-comfortable .doc-section {
   margin-top: 1.6rem;
+}
+
+/*
+ * Expanded: one blank line after every job.
+ *
+ * On the job rather than on the achievements, so the line comes after the role
+ * whatever it holds. That is the point: a role with no achievements still gets one,
+ * because the blank line is what separates one role from the next and that is true
+ * of every role — the old rule only separated the roles that happened to have
+ * bullets under them.
+ *
+ * A role reduced to a single line (the summary setting) is the exception, and the
+ * exception is the same idea: there is no content to separate, so it gets no line.
+ *
+ * After the density rules above on purpose, so this wins over them. "Expanded" is
+ * the user asking for the blank line, and it should not quietly depend on which
+ * spacing they happened to have chosen — the two were competing for the same gap.
+ */
+.doc-format-expanded .doc-job {
+  margin-bottom: 1em;
+}
+
+.doc-format-expanded .doc-job-summarised {
+  margin-bottom: 0;
 }
 
 /* ------------------------------------------------------------ document page */
@@ -1280,6 +1553,213 @@ code {
   font-size: 0.9rem;
 }
 
+/*
+ * The export menu.
+ *
+ * A disclosure that opens a list of formats, because the formats are an occasional
+ * thing and a row of buttons takes more of the rail than the choice deserves.
+ */
+/*
+ * The two buttons fill the rail: the print button takes the width the export
+ * glyph does not, so the row reads as one thing rather than two.
+ */
+.document-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.document-actions > .button {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.export-menu {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.export-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.export-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.export-menu-list {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
+.export-menu-list .button {
+  width: 100%;
+  justify-content: flex-start;
+  background: var(--surface);
+}
+
+/*
+ * The content card: the sections and what else to include.
+ */
+.document-content {
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.document-includes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.document-includes label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.document-content-title {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/*
+ * The format card.
+ *
+ * One card for everything about how the document looks, so the rail reads as a
+ * list of decisions rather than a list of controls.
+ */
+.document-format {
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.6rem 0.7rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.document-format-title {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.document-format .field {
+  font-size: 0.85rem;
+}
+
+.document-format .field-hint {
+  font-size: 0.78rem;
+}
+
+/*
+ * The template picker.
+ *
+ * The summary line is what makes the choice a choice rather than a guess: it says
+ * what the template is — the page size, the type, the spacing, the order of the
+ * sections — before it is chosen (D60).
+ */
+.document-template-summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.document-template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+/*
+ * The document's sections: which are in it, in what order, and what they are
+ * called.
+ */
+.document-sections {
+  font-size: 0.9rem;
+}
+
+.document-sections > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.document-section-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.4rem 0 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.document-section-include {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.document-section-controls {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.document-section-controls input[type='text'] {
+  flex: 1 1 6rem;
+  min-width: 0;
+  padding: 0.2rem 0.35rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.document-template-actions input[type='text'] {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .document-field select {
   width: 100%;
 }
@@ -1337,19 +1817,6 @@ code {
   }
 }
 
-/*
- * The way from one editing page to the other.
- *
- * A full-width rule and a label rather than a button in the rail, because it is
- * not an action on anything on this page — it is a different page, and the rail
- * holds the controls for *this* one. Sits under the sections so it is reached by
- * finishing the work rather than by interrupting it.
- */
-.page-cross-link {
-  margin: 1.5rem 0 0;
-  grid-column: 1 / -1;
-}
-
 .document-paper {
   overflow-x: auto;
 }
@@ -1381,6 +1848,38 @@ code {
 .fit-records ul {
   margin: 0.3rem 0 0;
   padding-left: 1.2rem;
+}
+
+/*
+ * The writing-support material, offered in the form it is used in.
+ *
+ * A disclosure rather than a list, because it is a library of things to reach for
+ * rather than something to read through, and a form with twenty phrases in it
+ * is a form nobody finishes.
+ */
+.record-assist {
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.record-assist > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.record-assist-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start;
+}
+
+.record-assist-list .button {
+  text-align: left;
+  font-weight: 400;
 }
 
 /* --------------------------------------------------------------------- sync */

@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react'
 import { RecordList } from './RecordList'
-import { deleteRecord, useFieldContext, useRecords } from './data'
+import { deleteRecord, restoreRecord, useFieldContext, useRecords } from './data'
 import { REGISTRY, type RegistryKey } from './registry'
 import { UndoIcon } from '../../app/Icons'
 import type { Mergeable } from '../../domain/types'
@@ -84,12 +84,15 @@ export function RegistryList({ registryKey, now }: RegistryListProps) {
         onDelete={(id) => {
           void handleDelete(id)
         }}
+        onRecover={(id) => {
+          void restoreRecord(registryKey, id, now)
+        }}
         emptyText={`No ${definition.plural.toLowerCase()} yet.`}
       />
 
       {undo !== null && (
         <div className="undo-bar" role="status">
-          <span>Deleted {undo.label}.</span>
+          <span>Hidden {undo.label}.</span>
           <button
             type="button"
             className="button"

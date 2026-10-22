@@ -12,6 +12,8 @@ import { listActive, listAll, newId, restore, softDelete } from '../../storage/r
 import { REGISTRY, type FieldContext, type RegistryKey } from './registry'
 import type { Job, Mergeable, QuestionCategory, Settings } from '../../domain/types'
 import { defaultSettings } from '../../export/envelope'
+import { orderForNew } from '../../domain/order'
+import type { Table } from 'dexie'
 
 /**
  * Re-read a table whenever the storage revision changes.
@@ -112,13 +114,116 @@ export async function saveFields(
     }
   }
 
+  /*
+   * Where a new record goes among its siblings.
+   *
+   * Worked out here rather than in the form, because the parent is chosen in the
+   * form: the order of an achievement depends on which job it belongs to, and
+   * the form is where that is decided. The form is on a page of its own now, so
+   * there is no list beside it to count.
+   */
+  if (isNew) {
+    const order = await orderForNewRecord(key, next)
+    if (order !== null) next['order'] = order
+  }
+
   await table.put(next)
   bumpRevision()
   return recordId
 }
 
+/**
+ * The order a new record takes among the ones already under the same parent.
+ *
+ * A new achievement goes to the top of its job's achievements and a new question
+ * to the top of its category's questions, because the top is where the newest
+ * thing belongs in a list that is otherwise ordered by the user's judgement.
+ *
+ * `null` for a record that is not in an ordered group, and for one whose parent
+ * has not been chosen yet — there is no order to give it yet.
+ */
+async function orderForNewRecord(
+  key: RegistryKey,
+  values: Record<string, unknown>,
+): Promise<number | null> {
+  if (key === 'achievements') {
+    const jobId = values['jobId']
+    if (typeof jobId !== 'string' || jobId === '') return null
+    const siblings = await db.achievements.where('jobId').equals(jobId).toArray()
+    return orderForNew(siblings)
+  }
+  if (key === 'questions') {
+    const categoryId = values['categoryId']
+    if (typeof categoryId !== 'string' || categoryId === '') return null
+    const siblings = await db.questions.where('categoryId').equals(categoryId).toArray()
+    return orderForNew(siblings)
+  }
+  return null
+}
+
 export async function deleteRecord(key: RegistryKey, id: string, now: Date): Promise<void> {
   await softDelete(db.table(REGISTRY[key].table), id, now)
+}
+
+/**
+ * Write the order of a group of records that are ordered among their siblings.
+ *
+ * Every record in the group is written, not only the one that moved: the order is
+ * a property of the whole group — 0, 1, 2 — so a group where only some records
+ * were rewritten would have a partial order rather than an order, and the records
+ * that were left out would keep an order that no longer says where they are.
+ *
+ * `updatedAt` moves with the order, because two devices merge by last-write-wins
+ * per record: an order that is not newer than the copy on the other device would
+ * be discarded there, and the rearrangement would silently not happen.
+ *
+ * A record whose order did not change is not written at all. Reordering one
+ * record renumbers the group, but most of the numbers come out the same, and a
+ * record that did not change does not need to look like it did — a write with a
+ * new timestamp on every sibling would make every device treat the whole group as
+ * changed.
+ *
+ * `parentColumn` is the column the group shares — the job, or the question
+ * category. The order only means anything among one parent's records, so a
+ * record that has been moved to another parent is not written here.
+ */
+export async function saveGroupOrder<T extends Mergeable & { order?: number | undefined }>(
+  table: Table<T, string>,
+  parentColumn: string,
+  parentId: string,
+  orderedIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  const stamp = now.toISOString()
+  for (const [index, id] of orderedIds.entries()) {
+    const existing = await table.get(id)
+    if (!existing) continue
+    // The column the group shares is not on the type — the table is generic over
+    // which of the seven it was given — so it is read the loose way.
+    const parent = (existing as unknown as Record<string, unknown>)[parentColumn]
+    if (parent !== parentId) continue
+    if (existing.order === index) continue
+    await table.put({ ...existing, order: index, updatedAt: stamp })
+  }
+  bumpRevision()
+}
+
+/** Write the order of a job's achievements. */
+export async function saveAchievementOrder(
+  jobId: string,
+  orderedIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  await saveGroupOrder(db.achievements, 'jobId', jobId, orderedIds, now)
+}
+
+/** Write the order of a category's questions. */
+export async function saveQuestionOrder(
+  categoryId: string,
+  orderedIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  await saveGroupOrder(db.questions, 'categoryId', categoryId, orderedIds, now)
 }
 
 /**

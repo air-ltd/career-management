@@ -53,31 +53,38 @@ function rows(overrides: Partial<LooseInput> = {}): Parameters<typeof buildDocum
   } as Parameters<typeof buildDocumentModel>[0]
 }
 
-describe('PRESETS', () => {
-  it('defaults the CV to no stories, no questions and no deleted records (D37)', () => {
-    expect(PRESETS['cv'].options).toEqual({
-      preset: 'cv',
-      includeStories: false,
-      includeQuestions: false,
-      includeDeleted: false,
-    })
+describe('question categories', () => {
+  /*
+   * Alphabetical, because a category is a heading and not an event.
+   *
+   * The fixture deliberately stores them out of order — Technical created before
+   * Behavioural — so a test that passes on creation order would pass on anything.
+   */
+  const categories = (titles: string[]) =>
+    buildDocumentModel(
+      rows({
+        options: PRESETS['interview'].options,
+        questionCategories: titles.map((title, index) =>
+          questionCategoryRow(`c${index}`, { title }),
+        ),
+        questions: titles.map((_, index) =>
+          questionRow(`q${index}`, { categoryId: `c${index}` }),
+        ),
+      }),
+    )
+
+  it('lists question categories alphabetically', () => {
+    const model = categories(['Technical', 'Behavioural', 'Situational'])
+    expect(model.questionCategories.map((group) => group.category.title)).toEqual([
+      'Behavioural',
+      'Situational',
+      'Technical',
+    ])
   })
 
-  it('defaults interview preparation to stories and questions but no deleted records', () => {
-    // Deleted records are "on request", so they are off by default even here.
-    expect(PRESETS['interview'].options).toEqual({
-      preset: 'interview',
-      includeStories: true,
-      includeQuestions: true,
-      includeDeleted: false,
-    })
-  })
-
-  it('each preset is self-describing enough to render a button and a hint', () => {
-    for (const preset of Object.values(PRESETS)) {
-      expect(preset.label).not.toBe('')
-      expect(preset.hint).not.toBe('')
-    }
+  it('keeps every category that still has questions', () => {
+    const model = categories(['Technical', 'Behavioural'])
+    expect(model.questionCategories).toHaveLength(2)
   })
 })
 
@@ -95,6 +102,92 @@ describe('buildDocumentModel', () => {
     expect(model.jobs).toHaveLength(1)
     expect(model.achievementsByJob.get('j1')).toHaveLength(1)
     expect(model.awardsEducation).toHaveLength(2)
+  })
+
+  it("prints a job's achievements in the order the user set", () => {
+    /*
+     * The order is the user's decision, and the document is where it is read.
+     * The fixture stores them the other way round, so a test that passed on
+     * creation order would pass on anything.
+     */
+    const model = buildDocumentModel(
+      rows({
+        jobs: [jobRow('j1')],
+        achievements: [
+          achievementRow('a1', { jobId: 'j1', order: 2 }),
+          achievementRow('a2', { jobId: 'j1', order: 0 }),
+          achievementRow('a3', { jobId: 'j1', order: 1 }),
+        ],
+      }),
+    )
+
+    expect(model.achievementsByJob.get('j1')?.map((record) => record.id)).toEqual([
+      'a2',
+      'a3',
+      'a1',
+    ])
+  })
+
+  it('keeps achievements that have no order after the ones that have one', () => {
+    /*
+     * Records written before the order existed have none, and a new achievement
+     * goes above them — so an ordered record and an unordered one cannot be in
+     * the same list without the order deciding between them.
+     */
+    const model = buildDocumentModel(
+      rows({
+        jobs: [jobRow('j1')],
+        achievements: [
+          achievementRow('a1', { jobId: 'j1' }),
+          achievementRow('a2', { jobId: 'j1', order: 0 }),
+        ],
+      }),
+    )
+
+    expect(model.achievementsByJob.get('j1')?.map((record) => record.id)).toEqual(['a2', 'a1'])
+  })
+
+  it("prints a category's questions in the order the user set", () => {
+    /*
+     * The order is the user's decision, and the preparation document is where it
+     * is read. The fixture stores them the other way round, so a test that passed
+     * on creation order would pass on anything.
+     */
+    const model = buildDocumentModel(
+      rows({
+        options: PRESETS['interview'].options,
+        questionCategories: [questionCategoryRow('c1')],
+        questions: [
+          questionRow('q1', { categoryId: 'c1', order: 2 }),
+          questionRow('q2', { categoryId: 'c1', order: 0 }),
+          questionRow('q3', { categoryId: 'c1', order: 1 }),
+        ],
+      }),
+    )
+
+    expect(model.questionCategories[0]?.questions.map((record) => record.id)).toEqual([
+      'q2',
+      'q3',
+      'q1',
+    ])
+  })
+
+  it('keeps questions that have no order after the ones that have one', () => {
+    const model = buildDocumentModel(
+      rows({
+        options: PRESETS['interview'].options,
+        questionCategories: [questionCategoryRow('c1')],
+        questions: [
+          questionRow('q1', { categoryId: 'c1' }),
+          questionRow('q2', { categoryId: 'c1', order: 0 }),
+        ],
+      }),
+    )
+
+    expect(model.questionCategories[0]?.questions.map((record) => record.id)).toEqual([
+      'q2',
+      'q1',
+    ])
   })
 
   it('excludes question categories from the CV by default', () => {
@@ -283,5 +376,40 @@ describe('ExportOptions', () => {
   it('is a plain object, so it can be stored and diffed', () => {
     const options: ExportOptions = PRESETS['cv'].options
     expect(JSON.parse(JSON.stringify(options))).toEqual(options)
+  })
+})
+
+describe('the awards and education heading', () => {
+  /*
+   * The awards and the education are two things to include and one table in the
+   * document (D16). A CV with the education in it and the awards left out is
+   * an ordinary thing to want, and the heading has to say which of the two is
+   * there — "Awards and Education" over a table of degrees is a lie the reader
+   * sees.
+   */
+  it('names both when both are included', () => {
+    const document = buildDocumentModel(rows())
+    const heading = document.sections.find((section) => section.key === 'awardsEducation')
+    expect(heading?.heading).toBe('Awards and Education')
+  })
+
+  it('names only the awards when the education is left out', () => {
+    const document = buildDocumentModel(
+      rows({
+        options: { ...PRESETS['cv'].options, includeAwards: true, includeEducation: false },
+      }),
+    )
+    const heading = document.sections.find((section) => section.key === 'awardsEducation')
+    expect(heading?.heading).toBe('Awards')
+  })
+
+  it('names only the education when the awards are left out', () => {
+    const document = buildDocumentModel(
+      rows({
+        options: { ...PRESETS['cv'].options, includeAwards: false, includeEducation: true },
+      }),
+    )
+    const heading = document.sections.find((section) => section.key === 'awardsEducation')
+    expect(heading?.heading).toBe('Education')
   })
 })

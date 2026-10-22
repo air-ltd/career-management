@@ -9,13 +9,10 @@
  * document depending on which page you pressed it from.
  */
 
-import {
-  PRESETS,
-  type ExportOptions,
-  type Preset,
-  type DocumentModel,
-} from '../../export/model'
-import { IncludeOptions } from './IncludeOptions'
+import type { ExportOptions, DocumentModel } from '../../export/model'
+import { ExportMenu } from './ExportMenu'
+import { ContentCard } from './ContentCard'
+import { FormatCard } from './FormatCard'
 import { PrintIcon } from '../../app/Icons'
 import type { FitReport } from './FitReport'
 import type { Profile, Settings } from '../../domain/types'
@@ -75,45 +72,27 @@ export function DocumentChrome({
             visible result until it is used — so it belongs where the eye lands,
             not at the foot of a list the user has to read past to reach.
           */}
-          <div className="button-row document-print">
-            {/* D22: print is the browser's job, not a generated file. */}
+          {/*
+            The two ways the document leaves, on one line.
+
+            Printing is the browser's job (D22); the formats are a file the app
+            writes. The Word export is fetched when it is chosen rather than with
+            the page, which is what makes it safe to offer alongside the other two
+            — the `docx` library is the largest dependency in the project and
+            most sessions never reach it.
+          */}
+          <div className="button-row document-actions">
             <button type="button" className="button" onClick={() => window.print()}>
               <PrintIcon />
-              Print / save as PDF
+              Print / PDF
             </button>
-            {/*
-              The Word export is built, tested and working — but not offered.
-
-              `downloadDocxFrom` in `export/exporters/download.ts` still does the
-              whole thing, and the exporter and its tests are unchanged; only this
-              button is gone. It was the largest dependency in the project and
-              doubled the page weight for a feature most sessions never reached.
-              Reinstating it is restoring this one line:
-
-                  <button onClick={() => void downloadDocxFrom(model)}>Word</button>
-            */}
+            <ExportMenu model={model} />
           </div>
 
-          {/* D36, D37: the primary control — which document, not what else is in
-              it — presented the same way as the profile below it, so the rail reads
-              as a list of settings rather than as a list of things of two kinds. */}
-          <div className="document-field document-preset">
-            <label htmlFor="document-preset">Document</label>
-            <select
-              id="document-preset"
-              value={options.preset}
-              onChange={(event) => {
-                onOptionsChange(PRESETS[event.target.value as Preset].options)
-              }}
-            >
-              {(Object.keys(PRESETS) as Preset[]).map((preset) => (
-                <option key={preset} value={preset}>
-                  {PRESETS[preset].label}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {/*
+            The profile, first of the settings: it is the name at the top of the
+            document, so it is the first thing wrong when it is wrong.
+          */}
           <div className="document-field document-profile">
             <label htmlFor="document-profile">Profile</label>
             {/*
@@ -152,58 +131,22 @@ export function DocumentChrome({
             </select>
           </div>
 
-          <IncludeOptions options={options} onChange={onOptionsChange} />
+          {/* What the document contains: one question, one card. */}
+          <ContentCard options={options} onOptionsChange={onOptionsChange} />
 
           {/*
-            D32. For the CV preset only: an estimated page count against the target,
-            and the specific records to shorten. Never an auto-fit, and never a
-            warning on interview preparation (D40).
+            The shape of the printed page: the whitespace, the type and the
+            paper. They are one card because they change each other — a bigger
+            type on a smaller page is a different document.
           */}
-          {fit !== null && fit !== undefined && (
-            <div className={fit.over ? 'fit-report fit-over' : 'fit-report'} role="status">
-              <p>
-                Estimated {fit.report.pages} {fit.report.pages === 1 ? 'page' : 'pages'}
-                {fit.report.target !== null && (
-                  <>
-                    {' '}
-                    (target {fit.report.target}) — <em>an estimate</em>
-                  </>
-                )}
-              </p>
-
-              {fit.report.target !== null && (
-                <p className="fit-hint">
-                  {fit.over
-                    ? 'The app will not shrink the text to make this fit. Shorten the records below.'
-                    : 'Nothing to shorten. If it prints over a page, it will say so here.'}
-                </p>
-              )}
-
-              {fit.report.overLong.length > 0 && (
-                <div className="fit-records">
-                  <p>
-                    These will run to {fit.report.overLong[0]?.lines} lines when most are{' '}
-                    {fit.report.typicalLines}:
-                  </p>
-                  <ul>
-                    {fit.report.overLong.map((record) => (
-                      <li key={record.achievementId}>
-                        <a href={`#/achievements/${record.achievementId}/edit`}>
-                          {jobName(model, record.jobId)}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+          <FormatCard
+            settings={settings}
+            saveSettings={saveSettings}
+            model={model}
+            {...(fit === null || fit === undefined ? {} : { fit })}
+          />
         </div>
       </div>
     </>
   )
-}
-
-function jobName(model: { jobs: { id: string; company: string }[] }, jobId: string): string {
-  return model.jobs.find((job) => job.id === jobId)?.company ?? 'a job'
 }

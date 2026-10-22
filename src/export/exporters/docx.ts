@@ -28,6 +28,7 @@ import type { DocumentModel } from '../model'
 import type { DocumentExporter } from './types'
 import { AWARDS_SECTION_TITLE } from '../model'
 import { pageGeometry, wordPageSize } from '../page'
+import { formatMonthYear } from '../../domain/format'
 
 /**
  * Half a point size, which is how Word expresses type size.
@@ -45,7 +46,22 @@ const HEADING_SIZE = {
 } as const
 
 /** A paragraph with blank lines between blocks, which is how stories read. */
-function paragraphs(text: string, size: number, italics = false): Paragraph[] {
+/**
+ * The paragraphs of a block of text.
+ *
+ * The indent is a parameter rather than something applied afterwards: a
+ * `Paragraph` is an object with its runs inside it, and spreading one into
+ * another `Paragraph` copies the properties of the object and not the runs it
+ * holds — so the text is dropped and what is left is an empty paragraph. The
+ * text of an achievement's story was lost to Word that way, and lost quietly:
+ * the paragraph was there, so the export looked right.
+ */
+function paragraphs(
+  text: string,
+  size: number,
+  italics = false,
+  indent?: { left: number },
+): Paragraph[] {
   const blocks = text
     .split(/\n{2,}|\n/)
     .map((block) => block.trim())
@@ -56,6 +72,7 @@ function paragraphs(text: string, size: number, italics = false): Paragraph[] {
       new Paragraph({
         children: [new TextRun({ text: block, size: size * HALF_POINTS_PER_PT, italics })],
         spacing: { after: 120 },
+        ...(indent === undefined ? {} : { indent }),
       }),
   )
 }
@@ -130,8 +147,8 @@ export const docxExporter: DocumentExporter = {
         // D17: displayed at month precision, which is CV convention.
         const range =
           job.endDate === null
-            ? `${formatMonth(job.startDate)} - present`
-            : `${formatMonth(job.startDate)} - ${formatMonth(job.endDate)}`
+            ? `${formatMonthYear(job.startDate)} - present`
+            : `${formatMonthYear(job.startDate)} - ${formatMonthYear(job.endDate)}`
 
         /**
          * `<dates>  <company>: <job title>` on one line — matching the on-screen
@@ -183,13 +200,10 @@ export const docxExporter: DocumentExporter = {
             }),
           )
           if (model.options.includeStories && achievement.story !== '') {
-            for (const paragraph of paragraphs(achievement.story, size, true)) {
-              children.push(
-                new Paragraph({
-                  ...paragraph,
-                  indent: { left: 360 },
-                }),
-              )
+            // Indented under the bullet, so the story reads as belonging to the
+            // achievement it belongs to.
+            for (const paragraph of paragraphs(achievement.story, size, true, { left: 360 })) {
+              children.push(paragraph)
             }
           }
         }
@@ -287,15 +301,4 @@ function jobHeading(job: { company: string; jobTitle: string }): string {
   if (job.company === '') return job.jobTitle
   if (job.jobTitle === '') return job.company
   return `${job.company}: ${job.jobTitle}`
-}
-
-/** `Jan 2024` from `2024-01-31`, matching the on-screen document (D17). */
-function formatMonth(isoDate: string): string {
-  const parsed = new Date(`${isoDate}T00:00:00Z`)
-  if (Number.isNaN(parsed.getTime())) return isoDate
-  return new Intl.DateTimeFormat('en-NZ', {
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(parsed)
 }

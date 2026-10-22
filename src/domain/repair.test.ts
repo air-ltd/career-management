@@ -29,6 +29,16 @@ function withRows(
   }
 }
 
+const achievement = (id: string, text: string): Mergeable =>
+  ({
+    id,
+    updatedAt: '1970-01-01T00:00:01.000Z',
+    deletedAt: null,
+    jobId: 'j1',
+    achievement: text,
+    story: '',
+  }) as unknown as Mergeable
+
 const question = (id: string, text: string): Mergeable =>
   ({
     id,
@@ -113,5 +123,36 @@ describe('repairUnusableIds', () => {
     const result = repairUnusableIds(input, makeId)
     expect(result.snapshot.schemaVersion).toBe(input.schemaVersion)
     expect(result.snapshot.entities['jobs']).toBe(input.entities['jobs'])
+  })
+})
+
+describe('a record that cannot be given an id', () => {
+  /*
+   * The repair gives a record with no usable id a fresh one, so that it can be
+   * edited and merged. But the generator can fail: it can return a blank id, or
+   * one that collides with a record already there. A record that still has no
+   * usable id is reported rather than left silently broken — the user is told
+   * it cannot be edited until it is resolved, rather than finding out when
+   * they cannot find it.
+   */
+  it('is reported rather than kept broken', () => {
+    const snapshot = withRows({ achievements: [achievement('   ', 'A record with no id')] })
+
+    const result = repairUnusableIds(snapshot, () => '')
+
+    expect(result.unrepairable).toEqual([{ table: 'achievements' }])
+    expect(result.repaired).toEqual([])
+  })
+
+  it('is reported when the generator collides with a record already there', () => {
+    const snapshot = withRows({
+      achievements: [achievement('a1', 'The first'), achievement('', 'The second, with no id')],
+    })
+
+    // A generator that keeps handing out the id that is already taken.
+    const result = repairUnusableIds(snapshot, () => 'a1')
+
+    expect(result.unrepairable).toEqual([{ table: 'achievements' }])
+    expect(result.repaired).toEqual([])
   })
 })

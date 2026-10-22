@@ -21,6 +21,7 @@ import type {
   EntityTableName,
   Job,
   Mergeable,
+  Phrase,
   Profile,
   Question,
   QuestionCategory,
@@ -65,11 +66,25 @@ export interface EntityDefinition {
    * a dead link survives for years.
    */
   newPath?: string
+  /**
+   * The parent a record belongs to, for an entity whose records are grouped.
+   *
+   * `column` is the field on the record that names the parent; `query` is what
+   * the link that starts a new record calls it. The link carries the parent's id
+   * — "add an achievement under this job" — so the form starts with the parent
+   * filled in rather than asking for it again.
+   */
+  parent?: { column: string; query: string }
   /** The edit route for one record. */
   editPath: (id: string) => string
   fields: (context: FieldContext) => readonly Field[]
   /** The two lines a list row shows. */
   describe: (record: Row, context: FieldContext) => { heading: string; detail: string }
+  /**
+   * The field the writing-support material goes into, for the entities that are
+   * written from a bank of phrases (Phase 9).
+   */
+  assistField?: string
 }
 
 export interface FieldContext {
@@ -130,12 +145,19 @@ export const jobs: EntityDefinition = {
   singular: 'Job',
   plural: 'Jobs',
   table: 'jobs',
+  newPath: '/jobs/new',
   // As for achievements, awards and education: the all-in-one editor is where jobs
   // are created and listed, so there is no jobs list to return to and no standalone
   // form to go to. The per-record edit route stays, for the same reason theirs do.
   listPath: '/',
   editPath: (id) => `/jobs/${id}/edit`,
   fields: () => [
+    {
+      kind: 'checkbox',
+      name: 'hideDetail',
+      label: 'Hide responsibilities and achievements from the document',
+      hint: 'Keeps the role as one line — company, title and dates — without the detail under it. The editor still shows everything.',
+    },
     {
       kind: 'text',
       name: 'company',
@@ -177,11 +199,22 @@ export const achievements: EntityDefinition = {
   singular: 'Achievement',
   plural: 'Achievements',
   table: 'achievements',
+  newPath: '/achievements/new',
+  // Which job an achievement belongs to, and what the link that starts one calls
+  // it. The link names the job so the form starts with it filled in.
+  parent: { column: 'jobId', query: 'job' },
   // No list route of its own; the all-in-one editor is the list for this entity.
   listPath: '/',
 
   editPath: (id) => `/achievements/${id}/edit`,
   fields: (context) => [
+    { kind: 'text', name: 'achievement', label: 'Achievement', required: true },
+    {
+      kind: 'textarea',
+      name: 'story',
+      label: 'Story',
+      hint: 'Interview preparation, not part of the CV document.',
+    },
     {
       kind: 'select',
       name: 'jobId',
@@ -189,13 +222,6 @@ export const achievements: EntityDefinition = {
       required: true,
       options: jobOptions(context.jobs),
       hint: 'Achievements belong to exactly one job.',
-    },
-    { kind: 'text', name: 'achievement', label: 'Achievement', required: true },
-    {
-      kind: 'textarea',
-      name: 'story',
-      label: 'Story',
-      hint: 'Interview preparation, not part of the CV document.',
     },
   ],
   describe: (row, context) => {
@@ -206,6 +232,14 @@ export const achievements: EntityDefinition = {
         jobOptions(context.jobs).find((option) => option.value === record.jobId)?.label ?? '',
     }
   },
+  /**
+   * The field the writing-support material goes into.
+   *
+   * Set on the entities whose text is written from a bank of phrases (Phase 9).
+   * An achievement is the one that is written from a bank: the fit report counts
+   * the lines of an achievement, and a phrase is a line of one.
+   */
+  assistField: 'achievement',
 }
 
 function awardEducationFields(): readonly Field[] {
@@ -235,10 +269,47 @@ function describeAwardEducation(record: { year: number; institution: string; wha
   }
 }
 
+/**
+ * The phrases: the writing-support material (Phase 9).
+ *
+ * Not a document entity — nothing here prints. It is a library the user writes
+ * for themselves, and the editor offers it while they write.
+ */
+export const phrases: EntityDefinition = {
+  singular: 'Phrase',
+  plural: 'Phrases',
+  table: 'phrases',
+  listPath: '/',
+  newPath: '/phrases/new',
+  editPath: (id) => `/phrases/${id}/edit`,
+  fields: () => [
+    {
+      kind: 'textarea',
+      name: 'text',
+      label: 'Phrase',
+      required: true,
+      rows: 2,
+      hint: 'The words themselves. Clicking one in the editor puts it in the field you are writing.',
+    },
+    {
+      kind: 'textarea',
+      name: 'note',
+      label: 'When to use it',
+      rows: 2,
+      hint: 'For your own reference. It never prints and never leaves this device except through your own sync.',
+    },
+  ],
+  describe: (row) => {
+    const record = as<Phrase>(row)
+    return { heading: record.text, detail: record.note }
+  },
+}
+
 export const awards: EntityDefinition = {
   singular: 'Award',
   plural: 'Awards',
   table: 'awards',
+  newPath: '/awards/new',
   // No list route of its own; the all-in-one editor is the list for this entity.
   listPath: '/',
 
@@ -251,6 +322,7 @@ export const education: EntityDefinition = {
   singular: 'Education',
   plural: 'Education',
   table: 'education',
+  newPath: '/education/new',
   // No list route of its own; the all-in-one editor is the list for this entity.
   listPath: '/',
 
@@ -284,8 +356,13 @@ export const questions: EntityDefinition = {
   table: 'questions',
   listPath: '/questions/all',
   newPath: '/questions/all/new',
+  // Which category a question belongs to, and what the link that starts one
+  // calls it. The link names the category so the form starts with it filled in.
+  parent: { column: 'categoryId', query: 'category' },
   editPath: (id) => `/questions/${id}/edit`,
   fields: (context) => [
+    { kind: 'textarea', name: 'question', label: 'Question', required: true, rows: 3 },
+    { kind: 'textarea', name: 'answer', label: 'Answer' },
     {
       kind: 'select',
       name: 'categoryId',
@@ -293,8 +370,6 @@ export const questions: EntityDefinition = {
       required: true,
       options: categoryOptions(context.questionCategories),
     },
-    { kind: 'textarea', name: 'question', label: 'Question', required: true, rows: 3 },
-    { kind: 'textarea', name: 'answer', label: 'Answer' },
   ],
   describe: (row, context) => {
     const record = as<Question>(row)
@@ -317,6 +392,7 @@ export const REGISTRY = {
   education,
   questionCategories,
   questions,
+  phrases,
 } as const
 
 export type RegistryKey = keyof typeof REGISTRY

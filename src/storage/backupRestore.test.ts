@@ -140,6 +140,8 @@ function fullDocument(): Snapshot {
           answer: 'A prepared answer',
         }),
       ],
+      templates: [],
+      phrases: [],
     },
   }
 }
@@ -265,5 +267,7 @@ function emptyEntities(): Snapshot['entities'] {
     education: [],
     questionCategories: [],
     questions: [],
+    templates: [],
+    phrases: [],
   }
 }

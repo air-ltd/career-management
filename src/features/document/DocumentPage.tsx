@@ -9,15 +9,21 @@
  * `DocumentChrome` and `useDocumentSource`.
  */
 
-import { useState } from 'react'
-import { PRESETS, type ExportOptions } from '../../export/model'
+import type { ExportOptions } from '../../export/model'
 import { DocumentView } from './DocumentView'
 import { DocumentChrome } from './DocumentChrome'
 import { useFitReport } from './FitReport'
 import { useDocument, usePageRule } from './useDocumentSource'
 
-export function DocumentPage({ now }: { now: Date }) {
-  const [options, setOptions] = useState<ExportOptions>(PRESETS['cv'].options)
+export function DocumentPage({
+  now,
+  options,
+  onOptionsChange,
+}: {
+  now: Date
+  options: ExportOptions
+  onOptionsChange: (next: ExportOptions) => void
+}) {
   // D43: the paper size comes from the document's own settings.
   const { model, settings, saveSettings, liveProfiles } = useDocument(options, now)
   usePageRule(settings.pageSize)
@@ -28,7 +34,7 @@ export function DocumentPage({ now }: { now: Date }) {
     <section className="document-page">
       <DocumentChrome
         options={options}
-        onOptionsChange={setOptions}
+        onOptionsChange={onOptionsChange}
         settings={settings}
         saveSettings={saveSettings}
         liveProfiles={liveProfiles}

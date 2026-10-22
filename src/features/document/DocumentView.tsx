@@ -10,8 +10,7 @@
  * markup (D13), which is the root cause of the legacy app's `&amp;` corruption.
  */
 
-import { AWARDS_SECTION_TITLE } from '../../export/model'
-import type { DocumentModel } from '../../export/model'
+import type { DocumentModel, DocumentSection } from '../../export/model'
 import { pageGeometry } from '../../export/page'
 import { formatDateRange } from '../../domain/format'
 
@@ -22,7 +21,7 @@ export function DocumentView({ model }: { model: DocumentModel }) {
 
   return (
     <div
-      className={`doc doc-density-${model.settings.density}`}
+      className={`doc doc-density-${model.settings.density} doc-format-${model.settings.format ?? 'compressed'}`}
       // The measurement width, in points. `getComputedStyle` then reads it back
       // as pixels, which is how the fit report converts to the page box without
       // assuming a viewport.
@@ -30,6 +29,9 @@ export function DocumentView({ model }: { model: DocumentModel }) {
         width: `${geometry.contentWidthPt}pt`,
         fontSize: `${model.settings.fontSizePt}pt`,
       }}
+      // The fit report measures this element, so it is marked rather than found
+      // by its class — the same way the achievements are marked.
+      data-fit-document=""
     >
       {model.profile === null ? (
         <p className="doc-empty">
@@ -65,16 +67,60 @@ export function DocumentView({ model }: { model: DocumentModel }) {
         which is the one context where the heading does work that the job lines
         themselves cannot.
       */}
+      {model.sections.map((section) => {
+        switch (section.key) {
+          case 'workHistory':
+            return <WorkHistorySection key={section.key} model={model} section={section} />
+          case 'awardsEducation':
+            return (
+              <AwardsSection
+                key={section.key}
+                model={model}
+                section={section}
+                stories={stories}
+              />
+            )
+          case 'questions':
+            return <QuestionsSection key={section.key} model={model} section={section} />
+          default:
+            // A section this build does not know how to draw. It is kept in the
+            // document rather than dropped (D6), and the view leaves it alone.
+            return null
+        }
+      })}
+    </div>
+  )
+}
+
+/** The work history: the jobs, under the name. */
+function WorkHistorySection({
+  model,
+  section,
+}: {
+  model: DocumentModel
+  section: DocumentSection
+}) {
+  const stories = model.options.includeStories
+  return (
+    <>
       {model.jobs.length === 0 ? (
         <p className="doc-empty">No jobs yet.</p>
       ) : (
-        <section className="doc-section doc-section-work" aria-label="Work history">
+        <section className="doc-section doc-section-work" aria-label={section.name}>
           {model.jobs.map((job) => (
             // D33: a job is never split across a page, and its heading is never
             // orphaned at the foot of one.
             <article
               key={job.id}
-              className={classFor('doc-job', job.deletedAt)}
+              className={[
+                classFor('doc-job', job.deletedAt),
+                // Recorded on the job itself rather than by filtering it out, so the
+                // role is still in the document as a line — and so the editor can
+                // show what is happening rather than the user finding out from the PDF.
+                job.hideDetail === true ? 'doc-job-summarised' : '',
+              ]
+                .filter((name) => name !== '')
+                .join(' ')}
               style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
             >
               {/*
@@ -132,11 +178,25 @@ export function DocumentView({ model }: { model: DocumentModel }) {
           ))}
         </section>
       )}
+    </>
+  )
+}
 
-      {model.awardsEducation.length > 0 && (
-        <section className="doc-section" aria-label={AWARDS_SECTION_TITLE}>
-          <h2 className="doc-section-title">{AWARDS_SECTION_TITLE}</h2>
-          {/*
+/** The awards and education table. */
+function AwardsSection({
+  model,
+  section,
+  stories,
+}: {
+  model: DocumentModel
+  section: DocumentSection
+  stories: boolean
+}) {
+  if (model.awardsEducation.length === 0) return null
+  return (
+    <section className="doc-section" aria-label={section.name}>
+      {section.heading !== '' && <h2 className="doc-section-title">{section.heading}</h2>}
+      {/*
             D16: one combined table, real tabular data, which D34 allows.
 
             No column titles. Each row is a year, an institution and what it was
@@ -145,55 +205,63 @@ export function DocumentView({ model }: { model: DocumentModel }) {
             without it. `scope` on the cells would not help here either: the
             columns are what they are by position, not by label.
           */}
-          <table className="doc-award-table">
-            <tbody>
-              {model.awardsEducation.map((entry, index) => (
-                <tr
-                  key={`${entry.kind}-${String(entry.year)}-${entry.institution}-${index}`}
-                  className={classFor('', entry.deletedAt)}
-                >
-                  <td className="doc-award-year">{formatYear(entry.year)}</td>
-                  <td className="doc-award-institution">{entry.institution}</td>
-                  <td className="doc-award-what">
-                    {entry.what}
-                    {stories && entry.story !== '' && (
-                      <span className="doc-award-story">{toParagraphs(entry.story)}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {model.questionCategories.length > 0 && (
-        <section className="doc-section" aria-label="Interview questions">
-          <h2 className="doc-section-title">Interview questions</h2>
-          {model.questionCategories.map((group) => (
-            <div
-              key={group.category.id}
-              className={classFor('doc-question-group', group.category.deletedAt)}
-              style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+      <table className="doc-award-table">
+        <tbody>
+          {model.awardsEducation.map((entry, index) => (
+            <tr
+              key={`${entry.kind}-${String(entry.year)}-${entry.institution}-${index}`}
+              className={classFor('', entry.deletedAt)}
             >
-              <h3 className="doc-question-category">{group.category.title}</h3>
-              <dl className="doc-questions">
-                {group.questions.map((question) => (
-                  <div
-                    key={question.id}
-                    className={classFor('doc-question', question.deletedAt)}
-                    style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
-                  >
-                    <dt>{question.question}</dt>
-                    {question.answer !== '' && <dd>{toParagraphs(question.answer)}</dd>}
-                  </div>
-                ))}
-              </dl>
-            </div>
+              <td className="doc-award-year">{formatYear(entry.year)}</td>
+              <td className="doc-award-institution">{entry.institution}</td>
+              <td className="doc-award-what">
+                {entry.what}
+                {stories && entry.story !== '' && (
+                  <span className="doc-award-story">{toParagraphs(entry.story)}</span>
+                )}
+              </td>
+            </tr>
           ))}
-        </section>
-      )}
-    </div>
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+/** The interview questions, by category. */
+function QuestionsSection({
+  model,
+  section,
+}: {
+  model: DocumentModel
+  section: DocumentSection
+}) {
+  if (model.questionCategories.length === 0) return null
+  return (
+    <section className="doc-section" aria-label={section.name}>
+      {section.heading !== '' && <h2 className="doc-section-title">{section.heading}</h2>}
+      {model.questionCategories.map((group) => (
+        <div
+          key={group.category.id}
+          className={classFor('doc-question-group', group.category.deletedAt)}
+          style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+        >
+          <h3 className="doc-question-category">{group.category.title}</h3>
+          <dl className="doc-questions">
+            {group.questions.map((question) => (
+              <div
+                key={question.id}
+                className={classFor('doc-question', question.deletedAt)}
+                style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+              >
+                <dt>{question.question}</dt>
+                {question.answer !== '' && <dd>{toParagraphs(question.answer)}</dd>}
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </section>
   )
 }
 

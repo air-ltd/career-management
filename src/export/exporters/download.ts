@@ -7,6 +7,7 @@
  */
 
 import type { DocumentModel } from '../model'
+import type { DocumentExporter } from './types'
 
 /** Hand a blob to the browser as a download. */
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -19,6 +20,20 @@ export function downloadBlob(blob: Blob, filename: string): void {
   setTimeout(() => {
     URL.revokeObjectURL(url)
   }, 0)
+}
+
+/**
+ * Build a document in a format and download it.
+ *
+ * The model goes in and a file comes out, and nothing in between decides what the
+ * document is: the format is a function of the model (D21, D39).
+ */
+export async function downloadFrom(
+  exporter: DocumentExporter,
+  model: DocumentModel,
+): Promise<void> {
+  const blob = await exporter.build(model)
+  downloadBlob(blob, `career-management-document.${exporter.fileExtension}`)
 }
 
 /**

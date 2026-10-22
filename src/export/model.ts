@@ -20,11 +20,30 @@ import type {
   QuestionCategory,
   Settings,
 } from '../domain/types'
+import { compareByOrder, sortByOrder } from '../domain/order'
+import {
+  DEFAULT_SECTION_HEADINGS,
+  DEFAULT_SECTIONS,
+  headingFor,
+  nameFor,
+  resolveOrder,
+  type SectionKey,
+} from '../domain/sections'
 
 export type Preset = 'cv' | 'interview'
 
 export interface ExportOptions {
   preset: Preset
+  /**
+   * Whether the work history is in the document.
+   *
+   * A section can be left out, the same way a story or a hidden record can.
+   */
+  includeWorkHistory: boolean
+  /** Whether the awards are in the document. */
+  includeAwards: boolean
+  /** Whether the education is in the document. */
+  includeEducation: boolean
   includeStories: boolean
   includeQuestions: boolean
   includeDeleted: boolean
@@ -48,6 +67,9 @@ export const PRESETS: Record<Preset, { label: string; hint: string; options: Exp
       hint: 'What is sent to an employer. No stories, no interview questions.',
       options: {
         preset: 'cv',
+        includeWorkHistory: true,
+        includeAwards: true,
+        includeEducation: true,
         includeStories: false,
         includeQuestions: false,
         includeDeleted: false,
@@ -58,6 +80,9 @@ export const PRESETS: Record<Preset, { label: string; hint: string; options: Exp
       hint: 'Everything, including stories and prepared answers. No page target.',
       options: {
         preset: 'interview',
+        includeWorkHistory: true,
+        includeAwards: true,
+        includeEducation: true,
         includeStories: true,
         includeQuestions: true,
         includeDeleted: false,
@@ -91,6 +116,22 @@ export interface QuestionCategoryGroup {
  * Sorted once here rather than in each consumer, so the on-screen document and
  * the exported one cannot disagree about what comes first.
  */
+/**
+ * One section of the document, as the document has decided to have it.
+ *
+ * The heading and the name are separate because a section can have no visible
+ * heading and still need a name: the work history prints no title and is still
+ * announced as "Work history".
+ */
+export interface DocumentSection {
+  /** The section's key. */
+  key: string
+  /** The heading as it prints. Empty means no visible heading. */
+  heading: string
+  /** The name of the section, for the screen reader and the printed document. */
+  name: string
+}
+
 export interface DocumentModel {
   options: ExportOptions
   /** Null when no profile is selected, which is a state the user can be in. */
@@ -99,6 +140,13 @@ export interface DocumentModel {
   achievementsByJob: Map<string, Achievement[]>
   awardsEducation: AwardEducationEntry[]
   questionCategories: QuestionCategoryGroup[]
+  /**
+   * The sections, in the order they are to appear (D57).
+   *
+   * The document's shape, decided by the template and carried in the settings.
+   * The view draws them in this order and does not decide it for itself.
+   */
+  sections: DocumentSection[]
   settings: Settings
 }
 
@@ -109,6 +157,26 @@ export interface DocumentModel {
  * them forever because they stop an offline device resurrecting a deletion —
  * which is a different question from whether they belong on a printed page.
  */
+/**
+ * A section's heading, as the document has it.
+ *
+ * A template can name a section anything it likes, and that is the heading it
+ * gets. Where the template has said nothing, the heading says what is in it: a
+ * document with the awards in it and the education out of it is not called
+ * "Awards and Education".
+ */
+function sectionHeading(
+  key: string,
+  options: ExportOptions,
+  headings: Record<string, string> | undefined,
+): string {
+  const named = headingFor(key, headings)
+  if (named !== DEFAULT_SECTION_HEADINGS[key as SectionKey]) return named
+  if (key !== 'awardsEducation') return named
+  if (options.includeAwards && options.includeEducation) return 'Awards and Education'
+  return options.includeAwards ? 'Awards' : 'Education'
+}
+
 export function buildDocumentModel(input: {
   options: ExportOptions
   settings: Settings
@@ -162,14 +230,25 @@ export function buildDocumentModel(input: {
     list.push(achievement)
     achievementsByJob.set(achievement.jobId, list)
   }
-  // Achievements within a job, oldest update first so a later edit appears where
-  // the user put it rather than at the front.
+  /*
+   * Achievements within a job, in the order the user put them.
+   *
+   * The same comparison the editor uses, deliberately: the editor is where the
+   * order is changed and this is where it is read, and a list the user arranged
+   * printing in a different order would leave them with no way of telling that
+   * the arrangement did not take.
+   */
   for (const list of achievementsByJob.values()) {
-    list.sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : 1))
+    list.sort(compareByOrder)
   }
 
   // Awards and education are two entities in storage and one table in the document
   // (D16). Combined here so no consumer has to remember to combine them.
+  /*
+   * The awards and the education are one table in the document (D16), but they
+   * are two things to include: a CV with the education in it and the awards left
+   * out is an ordinary thing to want.
+   */
   const awardsEducation: AwardEducationEntry[] = [
     ...input.awards.filter(keepLive).map((award) => ({
       kind: 'award' as const,
@@ -187,21 +266,71 @@ export function buildDocumentModel(input: {
       story: entry.story,
       deletedAt: entry.deletedAt,
     })),
-  ].sort((a, b) =>
-    a.year === b.year ? (a.institution < b.institution ? -1 : 1) : b.year - a.year,
-  )
+  ]
+    .filter((entry) =>
+      entry.kind === 'award' ? options.includeAwards : options.includeEducation,
+    )
+    .sort((a, b) =>
+      a.year === b.year ? (a.institution < b.institution ? -1 : 1) : b.year - a.year,
+    )
 
   const questionCategories: QuestionCategoryGroup[] = options.includeQuestions
     ? input.questionCategories
         .filter(keepLive)
         .map((category) => ({
           category,
-          questions: input.questions
-            .filter((question) => question.categoryId === category.id && keepLive(question))
-            .sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : 1)),
+          /*
+           * The questions within a category, in the order the user put them.
+           *
+           * The same comparison the editor uses, for the same reason: the editor
+           * is where the order is changed and this is where it is read.
+           */
+          questions: sortByOrder(
+            input.questions.filter(
+              (question) => question.categoryId === category.id && keepLive(question),
+            ),
+          ),
         }))
         .filter((group) => group.questions.length > 0)
+        /*
+         * Alphabetically, not in whatever order storage returned them.
+         *
+         * A category is a heading rather than an event: "Behavioural", "Situational",
+         * "Technical" have no chronology, so the order they come out in is an
+         * accident of when they were created. Reading them A to Z is the ordering a
+         * reader expects and the one that stays the same when a category is added in
+         * the middle.
+         *
+         * The order of the questions *within* a category is the user's, and is
+         * decided above.
+         */
+        .sort((a, b) => a.category.title.localeCompare(b.category.title))
     : []
+
+  /*
+   * The sections, in the order the document has decided on.
+   *
+   * A template sets the order and which sections appear (D57); the settings carry
+   * it, because a template is a choice of settings and the document is what
+   * remembers the choice. A document written before either existed has neither,
+   * and gets the order and the sections the app has always produced.
+   */
+  const sectionOrder = resolveOrder(input.settings.sectionOrder)
+  const included = new Set(input.settings.sections ?? DEFAULT_SECTIONS)
+  const sections: DocumentSection[] = sectionOrder
+    .filter((key) => included.has(key))
+    .filter((key) => {
+      // A section the user has left out is not in the document at all, rather than
+      // in it and empty: an empty section prints as a gap.
+      if (key === 'workHistory') return options.includeWorkHistory
+      if (key === 'awardsEducation') return options.includeAwards || options.includeEducation
+      return true
+    })
+    .map((key) => ({
+      key,
+      heading: sectionHeading(key, options, input.settings.sectionHeadings),
+      name: nameFor(key, input.settings.sectionHeadings),
+    }))
 
   return {
     options,
@@ -210,6 +339,7 @@ export function buildDocumentModel(input: {
     achievementsByJob,
     awardsEducation,
     questionCategories,
+    sections,
     settings: input.settings,
   }
 }

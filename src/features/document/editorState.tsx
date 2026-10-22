@@ -23,7 +23,7 @@ import { text } from './recordText'
 import { useDocument, usePageRule } from './useDocumentSource'
 import { deleteRecord, restoreRecord, useFieldContext, useRecords } from '../shared/data'
 import { REGISTRY, type RegistryKey } from '../shared/registry'
-import { PRESETS, type ExportOptions } from '../../export/model'
+import type { ExportOptions } from '../../export/model'
 import { filterRecords } from '../shared/sort'
 import type { Mergeable } from '../../domain/types'
 
@@ -58,6 +58,8 @@ export function inDocumentOrder(records: Mergeable[]): Row[] {
 
 /** What both pages need, from one place. */
 export interface EditorState {
+  /** The clock, for anything that is stamped when it is written. */
+  now: Date
   context: ReturnType<typeof useFieldContext>
   model: ReturnType<typeof useDocument>['model']
   options: ExportOptions
@@ -78,12 +80,18 @@ export interface EditorState {
   visible: (records: Row[]) => Row[]
   /** A delete handler that names what it deleted, for the undo message. */
   deleteFrom: (key: RegistryKey) => (id: string) => void
+  /** Brings a deleted record back. */
+  recoverFrom: (key: RegistryKey) => (id: string) => void
   undo: { key: RegistryKey; id: string; label: string } | null
   restore: () => void
   loading: boolean
 }
 
-export function useEditorState(now: Date): EditorState {
+export function useEditorState(
+  options: ExportOptions,
+  setOptions: (next: ExportOptions) => void,
+  now: Date,
+): EditorState {
   const context = useFieldContext(now)
 
   /*
@@ -95,8 +103,12 @@ export function useEditorState(now: Date): EditorState {
    * is built and kept live, so the button produces the document rather than a
    * printout of the editor. It shares the document page's chrome, so the two print
    * buttons give the same document.
+   *
+   * The options are the app's, not this page's: a record is edited on a page of
+   * its own now, and coming back to the editor has to arrive with the same
+   * choices — "include stories" off because it was off a moment ago is a
+   * surprise, and one that would happen on every edit.
    */
-  const [options, setOptions] = useState<ExportOptions>(PRESETS['cv'].options)
   const { model, settings, saveSettings, liveProfiles } = useDocument(options, now)
   usePageRule(settings.pageSize)
 
@@ -130,11 +142,13 @@ export function useEditorState(now: Date): EditorState {
   const { records: education, loading: eduLoading } = useRecords<Row>('education')
   const { records: categories, loading: catLoading } = useRecords<Row>('questionCategories')
   const { records: questions, loading: qLoading } = useRecords<Row>('questions')
+  const { records: phrases, loading: pLoading } = useRecords<Row>('phrases')
 
   const loading =
     profilesLoading ||
     jobsLoading ||
     achLoading ||
+    pLoading ||
     awardsLoading ||
     eduLoading ||
     catLoading ||
@@ -167,6 +181,7 @@ export function useEditorState(now: Date): EditorState {
     education,
     questionCategories: categories,
     questions,
+    phrases,
   }
 
   const showStories = options.includeStories
@@ -195,6 +210,20 @@ export function useEditorState(now: Date): EditorState {
     }
 
   /**
+   * Bring a deleted record back.
+   *
+   * A separate write rather than an undo of the delete, because a deleted record
+   * is still in the database with a tombstone on it: clearing the tombstone is
+   * the same last-write-wins edit every other change is, and a record restored
+   * here resolves the same way whether it came from this device or another.
+   */
+  const recoverFrom =
+    (key: RegistryKey) =>
+    (id: string): void => {
+      void restoreRecord(key, id, now)
+    }
+
+  /**
    * What a section lists: tombstones as asked for, then searched, then ordered.
    *
    * Search reads the two lines the row shows rather than the whole record. The row
@@ -210,10 +239,25 @@ export function useEditorState(now: Date): EditorState {
         (field) => field !== '',
       )
     })
+    /*
+     * Everything except question categories is a chronology: a job starts on a date,
+     * an award is in a year, so newest-first means something. A category is a
+     * heading, not an event — Behavioural and Technical have no order but the
+     * alphabet — and listing them by when they were created is an accident of use
+     * rather than anything the reader asked for. So those alone go A to Z.
+     */
+    if (key === 'questionCategories') {
+      return [...searched].sort((a, b) =>
+        REGISTRY[key]
+          .describe(a, context)
+          .heading.localeCompare(REGISTRY[key].describe(b, context).heading),
+      )
+    }
     return inDocumentOrder(searched)
   }
 
   return {
+    now,
     context,
     model,
     options,
@@ -229,6 +273,7 @@ export function useEditorState(now: Date): EditorState {
     ordered,
     visible,
     deleteFrom: (key) => deleteFrom(key, records[key]),
+    recoverFrom,
     undo,
     restore: () => {
       const target = undo

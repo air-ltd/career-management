@@ -60,7 +60,7 @@ jobs:
       - name: Check for bundled secrets
         run: npm run check:secrets
 
-      - name: Check the bundle names no host beyond Dropbox (SEC1)
+      - name: Check the bundle names no host beyond the allowed two (SEC1)
         run: npm run check:silent
 
   smoke:

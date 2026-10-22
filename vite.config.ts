@@ -45,12 +45,18 @@ function pagesSpaFallback() {
 /**
  * Origins the app is permitted to talk to.
  *
- * SEC1 allows exactly the Dropbox API hosts and nothing else, so these are the
- * only two hostnames permitted to appear in `connect-src`. They are duplicated
- * from `src/sync/dropbox/config.ts` on purpose: a build script cannot import
+ * SEC1 allows the Dropbox API hosts and nothing else, so these are the only
+ * hostnames permitted to appear in `connect-src`. They are duplicated from
+ * `src/sync/dropbox/config.ts` on purpose: a build script cannot import
  * application source without dragging TypeScript into the config loader, and a
  * second copy that a test can compare is safer than one that has silently
  * drifted. `e2e/smoke.mjs` asserts the served policy against this list.
+ *
+ * The assistant's provider is not here, and that is deliberate: the assistant
+ * is not in this release (see `src/ai/enabled.ts`), and a permission the app
+ * does not need is a channel out of the user's document that does not have to
+ * be closed. The code for the feature is still in the bundle, so it is still
+ * named there — but the policy will not let it reach anything.
  */
 const CSP_CONNECT_ORIGINS = ['https://api.dropboxapi.com', 'https://content.dropboxapi.com']
 

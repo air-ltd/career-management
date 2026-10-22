@@ -8,7 +8,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { AddIcon, EditIcon, TrashIcon } from '../../app/Icons'
+import { AddIcon, EditIcon, TrashIcon, UndoIcon } from '../../app/Icons'
 import { filterRecords } from './sort'
 
 export interface ListItem {
@@ -35,6 +35,13 @@ export interface RecordListProps {
   onQueryChange: (value: string) => void
   /** U10: the chosen ordering. "Document order" is the default everywhere. */
   onDelete: (id: string) => void
+  /**
+   * Brings a deleted record back.
+   *
+   * A deleted record offers to be recovered rather than deleted again, so the
+   * control that undoes the mistake is the one the user is looking for.
+   */
+  onRecover?: (id: string) => void
   /** Rendered under a row — nested lists, for jobs and their achievements. */
   children?: (id: string) => ReactNode
   emptyText: string
@@ -53,6 +60,7 @@ export function RecordList({
   query,
   onQueryChange,
   onDelete,
+  onRecover,
   children,
   emptyText,
   childrenLabel,
@@ -81,9 +89,13 @@ export function RecordList({
             404s. `RegistryEdit` and the navigation use the same form.
           */}
           {newHref !== undefined && (
-            <a className="button button-primary" href={`#${newHref}`}>
-              <AddIcon />
-              {newLabel}
+            <a
+              className="button button-primary button-icon"
+              title={newLabel}
+              aria-label={newLabel}
+              href={`#${newHref}`}
+            >
+              <AddIcon size={14} />
             </a>
           )}
           <label className="show-deleted">
@@ -94,7 +106,7 @@ export function RecordList({
                 onToggleShowDeleted(event.target.checked)
               }}
             />
-            Show deleted
+            Show hidden
           </label>
         </div>
 
@@ -134,7 +146,7 @@ export function RecordList({
                 <span className="record-row-heading">
                   {/* Deletion is a state, not an absence, so it is named rather
                       than shown as a blank. */}
-                  {item.deleted && <span className="badge">deleted</span>}
+                  {item.deleted && <span className="badge">hidden</span>}
                   {item.heading}
                 </span>
                 {item.detail !== '' && <span className="record-row-detail">{item.detail}</span>}
@@ -153,16 +165,38 @@ export function RecordList({
                 >
                   <EditIcon />
                 </a>
-                <button
-                  type="button"
-                  className="button"
-                  onClick={() => {
-                    onDelete(item.id)
-                  }}
-                  aria-label={`Delete ${item.heading}`}
-                >
-                  <TrashIcon />
-                </button>
+                {/*
+                  A hidden record is offered back rather than hidden again.
+
+                  The button that hid it is replaced rather than joined by a second
+                  one: a row with "Hide" and "Recover" side by side reads as a
+                  record that is both hidden and not.
+                */}
+                {item.deleted ? (
+                  onRecover !== undefined && (
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => {
+                        onRecover(item.id)
+                      }}
+                      aria-label={`Recover ${item.heading}`}
+                    >
+                      <UndoIcon />
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => {
+                      onDelete(item.id)
+                    }}
+                    aria-label={`Hide ${item.heading}`}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
               </div>
 
               {children !== undefined && (

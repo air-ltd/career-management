@@ -15,6 +15,16 @@ describe('formatMonthYear', () => {
     expect(formatMonthYear('1999-12-01')).toBe('Dec 1999')
   })
 
+  it('abbreviates September to three letters', () => {
+    /*
+     * `en-NZ` gives "Sept", which is not the abbreviation the document prints:
+     * every other month is three letters, and "Sept" reads as a typo beside them.
+     * The month names are fixed here rather than taken from `Intl`, so this holds
+     * whatever ICU data the machine carries.
+     */
+    expect(formatMonthYear('2024-09-15')).toBe('Sep 2024')
+  })
+
   it('is not affected by the machine timezone', () => {
     // A date at UTC midnight is the previous day in any negative-offset zone, and
     // would render as the wrong month if the parser did not pin UTC.
@@ -63,5 +73,19 @@ describe('formatYear', () => {
 describe('currentYear', () => {
   it('reads the UTC year, so a new year boundary does not depend on local time', () => {
     expect(currentYear(new Date('2024-06-15T00:00:00Z'))).toBe(2024)
+  })
+})
+
+describe('a date that will not parse', () => {
+  /*
+   * An unparseable date in the document is a data problem the user needs to
+   * see, not a blank to hide: the stored value is unhelpful but honest, and it
+   * keeps the rest of the document readable.
+   */
+  it('is shown as it is stored', () => {
+    expect(formatMonthYear('not a date')).toBe('not a date')
+    expect(formatMonthYear('2024-13-45')).toBe('2024-13-45')
+    // A date in the wrong shape — a full timestamp, or a day-month-year.
+    expect(formatMonthYear('31/01/2024')).toBe('31/01/2024')
   })
 })

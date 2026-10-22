@@ -10,7 +10,7 @@
  * smaller failure than a confident wrong number.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DocumentModel } from '../../export/model'
 import { pageGeometry } from '../../export/page'
 
@@ -43,19 +43,56 @@ export function measureFit({ element, model }: FitInput): FitReport | null {
   if (element === null) return null
 
   const geometry = pageGeometry(model.settings.pageSize)
-  const style = window.getComputedStyle(element)
 
-  // The content box, in points. `padding` is included so the measurement matches
-  // what the printed page will actually show.
+  /*
+   * The document, not the box it is in.
+   *
+   * The box carries the padding and the border that only exist on screen — the
+   * paper around the document — and the height that matters is the height that
+   * prints. Measuring the box counted that paper as content, and it was fifty
+   * pixels: two and a half lines of a document that prints on one page, and
+   * enough to report two.
+   *
+   * The document is found by the marker on it rather than by its class, which is
+   * the same way the achievements are found.
+   */
+  const document = element.querySelector<HTMLElement>('[data-fit-document]')
+  // No fallback: the box around the document is not the document, and measuring
+  // it would count the paper around the text as content. With no document there
+  // is nothing to measure, and no report is better than a wrong one.
+  if (document === null) return null
+
+  /*
+   * The height, as it will print.
+   *
+   * The screen is airier than the paper, so the screen's height is not the
+   * paper's height, and a page count taken from it would be wrong in the one
+   * direction that matters — reporting two pages for a document that prints on
+   * one.
+   *
+   * So the print's leading is put on the document for the length of one
+   * measurement and taken off again. The height is read straight after, which
+   * forces the layout to settle first, so the number is the settled one.
+   */
+  document.setAttribute('data-fit-printing', '')
+  const style = window.getComputedStyle(document)
   const heightPt = cssLengthToNumber(style.height) * 0.75
-
+  document.removeAttribute('data-fit-printing')
   const pages = Math.max(1, Math.ceil(heightPt / geometry.contentHeightPt))
 
   return {
     pages,
-    target: model.options.preset === 'cv' ? model.settings.targetPages : null,
-    overLong: overLongAchievements(element),
-    typicalLines: typicalAchievementLines(element),
+    /*
+     * The target, for a CV.
+     *
+     * A CV has a page to fit on; an interview-preparation document has not, and
+     * one that runs to eight pages is working correctly (D40). Which of the two
+     * this is, is decided by what is in it: the questions are what make it the
+     * interview document, and the questions are in the content card.
+     */
+    target: model.options.includeQuestions ? null : model.settings.targetPages,
+    overLong: overLongAchievements(document),
+    typicalLines: typicalAchievementLines(document),
   }
 }
 
@@ -70,7 +107,17 @@ function linesOf(element: HTMLElement): number {
   const style = window.getComputedStyle(element)
   const lineHeight = cssLengthToNumber(style.lineHeight)
   if (!Number.isFinite(lineHeight) || lineHeight <= 0) return 1
-  return Math.max(1, Math.round(element.getBoundingClientRect().height / lineHeight))
+  /*
+   * The computed height, not the rendered one.
+   *
+   * The card is shown larger than it prints, and the browser reports the two
+   * differently: the computed height is the document's own, the rendered one is
+   * the scaled-up box on the screen. Dividing the rendered height by the
+   * computed line height would count a quarter more lines than the achievement
+   * has — and it would say so about every achievement in the document.
+   */
+  const height = cssLengthToNumber(style.height)
+  return Math.max(1, Math.round(height / lineHeight))
 }
 
 /**
@@ -82,7 +129,7 @@ function linesOf(element: HTMLElement): number {
  * achievement at a fixed character count is a number the user will learn to
  * ignore.
  */
-function overLongAchievements(container: HTMLElement) {
+export function overLongAchievements(container: HTMLElement) {
   const achievements = Array.from(
     container.querySelectorAll<HTMLElement>('[data-fit-achievement]'),
   )
@@ -97,7 +144,10 @@ function overLongAchievements(container: HTMLElement) {
     if (lines >= median * 2 && lines >= 2) {
       overLong.push({
         jobId: element.dataset['fitJob'] ?? '',
-        achievementId: element.dataset['fitAchievement'] ?? '',
+        // The id, from the attribute that carries it. `data-fit-achievement` is the
+        // marker that says "this is an achievement" and is empty; the id is on
+        // `data-fit-achievement-id`.
+        achievementId: element.dataset['fitAchievementId'] ?? '',
         lines,
       })
     }
@@ -121,34 +171,46 @@ function typicalAchievementLines(container: HTMLElement): number {
  * Returned together because a caller needs both: the ref to put on the document
  * container, and the report to display. Separate functions would let the two
  * drift, and the report is only meaningful for the element the ref is on.
+ *
+ * The ref is a callback rather than an object, and that is the whole point of
+ * it. The element being measured is not always in the page: the editing pages
+ * render it only once they have loaded, and a ref object is read once, at the
+ * moment the effect runs, which is too early. A callback ref is called when the
+ * element attaches, so the measurement happens when there is something to
+ * measure — which is the only time it can be right.
  */
 export function useFitReport(model: DocumentModel | null): {
-  ref: React.RefObject<HTMLDivElement | null>
+  ref: (element: HTMLDivElement | null) => void
   report: FitReport | null
 } {
-  const ref = useRef<HTMLDivElement | null>(null)
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
   const [report, setReport] = useState<FitReport | null>(null)
 
   useEffect(() => {
-    const element = ref.current
-    if (element === null || model === null) {
-      setReport(null)
-      return
-    }
+    if (element === null || model === null) return
 
-    const update = () => {
+    /*
+     * The measurement is the observer's callback, and the observer's first
+     * callback is the measurement.
+     *
+     * It reads the rendered document, which is a thing outside React, and a
+     * thing that is not in the page until it is laid out. Setting the report
+     * from inside the callback rather than from the body of the effect means
+     * the measurement happens when there is a rendered document to measure —
+     * which is the only time the number means anything — and it means the
+     * effect does not set state on the way in.
+     *
+     * The viewport is not the page, so a resize changes what the measurement
+     * means. Re-measuring keeps the report honest without a manual refresh.
+     */
+    const observer = new ResizeObserver(() => {
       setReport(measureFit({ element, model }))
-    }
-    update()
-
-    // The viewport is not the page, so a resize changes what the measurement
-    // means. Re-measuring keeps the report honest without a manual refresh.
-    const observer = new ResizeObserver(update)
+    })
     observer.observe(element)
     return () => {
       observer.disconnect()
     }
-  }, [model])
+  }, [element, model])
 
-  return { ref, report }
+  return { ref: setElement, report }
 }

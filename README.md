@@ -53,9 +53,33 @@ Two checks there are worth knowing about:
   bundle. The Dropbox keys in `src/sync/appKey.ts` are OAuth *client ids*, which
   are public by construction and appear in the consent screen URL. An App secret
   is a different thing and must never be here.
-- **`check:citations`** fails the build if a `D1`…`D53` or `SY1`…`SY34`
+- **`check:citations`** fails the build if a `D1`…`D72` or `SY1`…`SY34`
   reference in source does not resolve. Renumbering a requirement in the spec
   breaks the build rather than silently orphaning the code that refers to it.
+- **`check:silent`** fails the build if the built bundle names a host beyond the
+  ones the content security policy allows: the two Dropbox origins. It is an
+  exact list, not a subset — a bundle that also phoned an analytics endpoint
+  would fail it.
+
+## Where things are
+
+The rail beside the document is about **the document**: its profile, what it
+contains, its type, its whitespace, and its paper. Everything in it changes the
+thing on the screen beside it. The estimate of how many pages it will take is
+at the bottom of it, and it is on the editing pages too — the point of an
+estimate is to tell you while you are writing.
+
+The whitespace is one setting — *Compact* or *Additional Whitespace* — rather
+than a spacing and a layout that fought each other.
+
+The **settings page** is about **the app**: the theme. Nothing about the
+document, because a wrong page size is something you notice while looking at the
+document and not in a page you have to go and remember.
+
+The document can be printed, or exported as Markdown, plain text or Word — the
+export button is a share glyph beside the print button, and each format is
+fetched only when it is chosen, so the Word export costs nothing until it is
+pressed.
 
 ## Data
 
@@ -125,14 +149,59 @@ the 100 achievements under them are really interview questions; dates were store
 as `YYYYMMDD` text and are now ISO; and text that the old app escaped but never
 unescaped (`Jared &amp; Church`) is decoded.
 
+## Releasing
+
+The site is deployed by the workflow in `.github/workflows/deploy.yml`, and the
+workflow is the whole release process:
+
+1. **Push the branch and open a pull request.** The verify and smoke jobs run on
+   every pull request, and they are blocking — a red one means the bundle that
+   would be deployed does not pass.
+2. **Merge to `main`.** The deploy job runs only on a push to `main`, and only
+   after both of those jobs have passed.
+3. **Nothing else.** There is no version to bump, no tag to cut and nothing to
+   publish: the build *is* the release, and the site is the build.
+
+### The document format version
+
+The file in the Dropbox app folder carries a layout version, and the build
+understands a range of them. A build that meets a newer file **refuses it**
+rather than interpreting what it does not understand, so the two directions are
+both safe:
+
+- A new build meets an old file: it merges it, adds the new tables, and
+  publishes the result.
+- An old build meets a new file: it stops syncing and says so. **Reload the
+  page** — the site is static, so a reload picks up the current build and the
+  sync works again. Until then, the old build writes nothing, so nothing is
+  lost.
+
+The layout version went to **2** with the templates and the phrases, both of
+which are new tables rather than new fields on old ones. A document written
+before them opens exactly as it did: the built-in template is the document the app
+has always produced, and there is a test that says so.
+
+The phrases are not offered in this release (the section, the achievement-form
+disclosure and the routes are hidden), but the table stays in the file: a
+document that already has phrases keeps them, and they still sync.
+
+### Before a release
+
+```bash
+npm run verify    # typecheck, format, lint, secrets, citations, unit tests, build
+npm run test:e2e  # a real browser against the production build
+npm run test:a11y # axe, over eight routes
+```
+
 ## Repository layout
 
 ```
 src/
 ├── app/          shell, router, theme, icons
-├── domain/       merge, date formatting — pure, no I/O
-├── storage/      IndexedDB via Dexie, token store
-├── export/       the synchronised file format
+├── ai/           the assistant: a provider, a key, a draft — not in this release
+├── domain/       merge, date formatting, templates, sections — pure, no I/O
+├── storage/      IndexedDB via Dexie, the secrets store
+├── export/       the synchronised file format, and the exporters
 ├── sync/         provider contract, engine, scheduler, Dropbox
 └── features/     profiles, jobs, achievements, awards, education,
                  questions, document, settings, sync
