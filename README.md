@@ -53,28 +53,28 @@ Two checks there are worth knowing about:
   bundle. The Dropbox keys in `src/sync/appKey.ts` are OAuth *client ids*, which
   are public by construction and appear in the consent screen URL. An App secret
   is a different thing and must never be here.
-- **`check:citations`** fails the build if a `D1`…`D64` or `SY1`…`SY34`
+- **`check:citations`** fails the build if a `D1`…`D72` or `SY1`…`SY34`
   reference in source does not resolve. Renumbering a requirement in the spec
   breaks the build rather than silently orphaning the code that refers to it.
 - **`check:silent`** fails the build if the built bundle names a host beyond the
-  three the content security policy allows: the two Dropbox origins and the
-  assistant's provider. It is an exact list, not a subset — a bundle that also
-  phoned an analytics endpoint would fail it.
+  ones the content security policy allows: the two Dropbox origins. It is an
+  exact list, not a subset — a bundle that also phoned an analytics endpoint
+  would fail it.
 
 ## Where things are
 
-The rail beside the document is about **the document**: its template (a CV or an
-interview-preparation document), its profile, its style, its type, its
-whitespace, what it contains, and its paper. Everything in it changes the thing
-on the screen beside it.
+The rail beside the document is about **the document**: its profile, what it
+contains, its type, its whitespace, and its paper. Everything in it changes the
+thing on the screen beside it. The estimate of how many pages it will take is
+at the bottom of it, and it is on the editing pages too — the point of an
+estimate is to tell you while you are writing.
 
 The whitespace is one setting — *Compact* or *Additional Whitespace* — rather
 than a spacing and a layout that fought each other.
 
-The **settings page** is about **the app**: the theme, and the key for the
-assistant. Nothing about the document, because a wrong page size is something you
-notice while looking at the document and not in a page you have to go and
-remember.
+The **settings page** is about **the app**: the theme. Nothing about the
+document, because a wrong page size is something you notice while looking at the
+document and not in a page you have to go and remember.
 
 The document can be printed, or exported as Markdown, plain text or Word — the
 export button is a share glyph beside the print button, and each format is
@@ -194,7 +194,7 @@ npm run test:a11y # axe, over eight routes
 ```
 src/
 ├── app/          shell, router, theme, icons
-├── ai/           the assistant: a provider, a key, a draft
+├── ai/           the assistant: a provider, a key, a draft — not in this release
 ├── domain/       merge, date formatting, templates, sections — pure, no I/O
 ├── storage/      IndexedDB via Dexie, the secrets store
 ├── export/       the synchronised file format, and the exporters
