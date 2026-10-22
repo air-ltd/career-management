@@ -10,6 +10,8 @@ import type { ReactNode } from 'react'
 import { DocumentChrome } from './DocumentChrome'
 import { DocumentView } from './DocumentView'
 import { useFitReport } from './FitReport'
+import { HideRowButtons } from './HideRowButtons'
+import { useCloseOpenRowOnTouchElsewhere } from './rowReveal'
 import { UndoIcon } from '../../app/Icons'
 import type { EditorState } from './editorState'
 
@@ -39,6 +41,9 @@ export function EditorShell({
    * a hook cannot be called conditionally.
    */
   const { ref, report } = useFitReport(editor.model)
+
+  // A row opened by a swipe closes when the finger touches something else.
+  useCloseOpenRowOnTouchElsewhere()
 
   if (editor.loading) return <p className="hint">Loading…</p>
 
@@ -89,6 +94,15 @@ export function EditorShell({
         `.document-paper`.
       */}
       <div className="all-in-one-content">
+        {/*
+          The control that switches the every-row mode back off.
+
+          Fixed to the corner of the screen by the stylesheet, so a long press
+          anywhere on the page leaves its way out on the screen.
+          It renders nothing unless every row is showing, and only on a phone.
+        */}
+        <HideRowButtons />
+
         {/*
           Search and order for every section on this page, in one place.
 

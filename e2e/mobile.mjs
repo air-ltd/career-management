@@ -181,6 +181,21 @@ async function seed(page, origin) {
   await fill(page, 'Responsibilities', 'Led the billing platform rewrite.')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.waitForTimeout(600)
+
+  // A second job, because "every row" cannot be checked on one row: a mode that
+  // opened a single row would pass a check made against a page with a single row
+  // in it.
+  await page
+    .locator('.inline-section')
+    .filter({ has: page.locator('h2', { hasText: 'Work history' }) })
+    .getByRole('link', { name: 'Add job', exact: true })
+    .first()
+    .click()
+  await page.locator('.record-form').waitFor()
+  await fill(page, 'Company', 'Second Employer')
+  await fill(page, 'Start date', '2016-01-01')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.waitForTimeout(600)
 }
 
 /** The phone checks, against a seeded app. */
@@ -341,83 +356,160 @@ async function checkPhoneLayout(page, origin) {
  * A row's controls are behind the row.
  *
  * Four buttons on every row is a screen of buttons, so on a phone they are
- * collapsed until the row is opened. Two ways in, and both are checked here:
- * a long press and a swipe.
+ * collapsed until they are asked for. The two gestures mean two things and are
+ * checked as two things: a swipe opens the row under the finger and only that
+ * row, and a long press opens every row at once and stays open until the
+ * control it puts on the page switches it off.
  */
 async function checkRowControlsAreBehindTheRow(page, origin) {
+  const actionHeight = (row) =>
+    row.locator('.inline-row-actions').evaluate((node) => node.getBoundingClientRect().height)
+
+  const swipe = async (row, from = 200, to = 120) => {
+    await row.evaluate(
+      (node, [start, finish]) => {
+        const make = (x) => new Touch({ identifier: 2, target: node, clientX: x, clientY: 40 })
+        node.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            cancelable: true,
+            touches: [make(start)],
+            targetTouches: [make(start)],
+            changedTouches: [make(start)],
+          }),
+        )
+        node.dispatchEvent(
+          new TouchEvent('touchmove', {
+            bubbles: true,
+            cancelable: true,
+            touches: [make(finish)],
+            targetTouches: [make(finish)],
+            changedTouches: [make(finish)],
+          }),
+        )
+      },
+      [from, to],
+    )
+  }
+
+  const longPress = async (row) => {
+    await row.evaluate((node) => {
+      const touch = new Touch({ identifier: 1, target: node, clientX: 40, clientY: 40 })
+      node.dispatchEvent(
+        new TouchEvent('touchstart', {
+          bubbles: true,
+          cancelable: true,
+          touches: [touch],
+          targetTouches: [touch],
+          changedTouches: [touch],
+        }),
+      )
+    })
+    await page.waitForTimeout(700)
+  }
+
+  const reset = async () => {
+    await page.reload({ waitUntil: 'networkidle' })
+    await go(page, origin, '/')
+    await page.locator('.inline-row').first().waitFor()
+  }
+
   await go(page, origin, '/')
   await page.locator('.all-in-one').waitFor()
 
-  const row = page.locator('.inline-row').first()
-  await row.waitFor()
+  const rows = page.locator('.inline-row')
+  await rows.first().waitFor()
+  const count = await rows.count()
+  check('there are rows to open', count > 1, String(count))
 
-  const collapsed = await row
-    .locator('.inline-row-actions')
-    .evaluate((node) => node.getBoundingClientRect().height)
-  check('the row’s controls are collapsed to nothing', collapsed === 0, String(collapsed))
-
-  // A long press: a finger that stays still.
-  await row.evaluate((node) => {
-    const touch = new Touch({ identifier: 1, target: node, clientX: 40, clientY: 40 })
-    node.dispatchEvent(
-      new TouchEvent('touchstart', {
-        bubbles: true,
-        cancelable: true,
-        touches: [touch],
-        targetTouches: [touch],
-        changedTouches: [touch],
-      }),
-    )
-  })
-  await page.waitForTimeout(700)
   check(
-    'a long press opens them',
-    (await row
-      .locator('.inline-row-actions')
-      .evaluate((node) => node.getBoundingClientRect().height)) > 0,
+    'every row’s controls are collapsed to nothing',
+    (await actionHeight(rows.first())) === 0 && (await actionHeight(rows.last())) === 0,
   )
-  check('and the row says it is open', (await row.getAttribute('data-revealed')) === 'true')
 
-  // A swipe: a finger that moves sideways.
-  await page.reload({ waitUntil: 'networkidle' })
-  await go(page, origin, '/')
-  const row2 = page.locator('.inline-row').first()
-  await row2.waitFor()
-  await row2.evaluate((node) => {
-    const make = (x) => new Touch({ identifier: 2, target: node, clientX: x, clientY: 40 })
-    node.dispatchEvent(
-      new TouchEvent('touchstart', {
-        bubbles: true,
-        cancelable: true,
-        touches: [make(200)],
-        targetTouches: [make(200)],
-        changedTouches: [make(200)],
-      }),
-    )
-    node.dispatchEvent(
-      new TouchEvent('touchmove', {
-        bubbles: true,
-        cancelable: true,
-        touches: [make(120)],
-        targetTouches: [make(120)],
-        changedTouches: [make(120)],
-      }),
-    )
-  })
+  // A long press: every row at once, because the user is working the page.
+  await longPress(rows.first())
+  const open = []
+  for (let index = 0; index < count; index += 1) {
+    open.push(await actionHeight(rows.nth(index)))
+  }
+  check(
+    'a long press opens the controls on every row',
+    open.length > 0 && open.every((height) => height > 0),
+    JSON.stringify(open),
+  )
+  check(
+    'and the first row says it is open',
+    (await rows.first().getAttribute('data-revealed')) === 'true',
+  )
+
+  const hide = page.getByRole('button', { name: 'Hide row buttons', exact: true })
+  check('and there is a control to switch it off', await hide.isVisible())
+
+  const corner = await hide.boundingBox()
+  const screen = page.viewportSize()
+  check(
+    'and it is in the top-right corner of the screen',
+    corner !== null &&
+      screen !== null &&
+      corner.x + corner.width > screen.width - 24 &&
+      corner.y < 24,
+    JSON.stringify({ corner, screen }),
+  )
+
+  // Fixed, not in the flow: the rows scroll, the control does not.
+  await page.evaluate(() => window.scrollTo(0, 1200))
+  await page.waitForTimeout(200)
+  const still = await hide.boundingBox()
+  check(
+    'and it stays on the screen while the rows scroll',
+    still !== null &&
+      corner !== null &&
+      screen !== null &&
+      Math.abs(still.y - corner.y) <= 1 &&
+      still.y + still.height <= screen.height,
+    JSON.stringify({ corner, still }),
+  )
+
+  await hide.click()
+  // The collapse is a transition, not a jump.
   await page.waitForTimeout(300)
+  const closed = []
+  for (let index = 0; index < count; index += 1) {
+    closed.push(await actionHeight(rows.nth(index)))
+  }
   check(
-    'a swipe opens them too',
-    (await row2
-      .locator('.inline-row-actions')
-      .evaluate((node) => node.getBoundingClientRect().height)) > 0,
+    'switching it off closes every row',
+    closed.every((height) => height === 0),
+    JSON.stringify(closed),
   )
+  check('and takes the control with it', !(await hide.isVisible()))
+
+  // A swipe: the one row under the finger, and only that one.
+  await reset()
+  const swiped = page.locator('.inline-row').first()
+  await swipe(swiped)
+  await page.waitForTimeout(300)
+  check('a swipe opens that row', (await actionHeight(swiped)) > 0)
+  check(
+    'and not the other rows',
+    (await actionHeight(page.locator('.inline-row').last())) === 0,
+  )
+  check(
+    'and no every-row control appears',
+    !(await page.getByRole('button', { name: 'Hide row buttons', exact: true }).isVisible()),
+  )
+
+  // A touch anywhere else closes it: the user has moved on.
+  await page.locator('.editor-search input').first().tap()
+  await page.waitForTimeout(200)
+  check('a touch anywhere else closes it', (await actionHeight(swiped)) === 0)
+  check('and the row says so', (await swiped.getAttribute('data-revealed')) === null)
 
   // A scroll must not open them: the finger moved, so it was reading.
-  await page.reload({ waitUntil: 'networkidle' })
-  await go(page, origin, '/')
-  const row3 = page.locator('.inline-row').first()
-  await row3.waitFor()
-  await row3.evaluate((node) => {
+  await reset()
+  const scrolled = page.locator('.inline-row').first()
+  await scrolled.evaluate((node) => {
     const make = (x, y) => new Touch({ identifier: 3, target: node, clientX: x, clientY: y })
     node.dispatchEvent(
       new TouchEvent('touchstart', {
@@ -439,12 +531,7 @@ async function checkRowControlsAreBehindTheRow(page, origin) {
     )
   })
   await page.waitForTimeout(700)
-  check(
-    'but scrolling does not',
-    (await row3
-      .locator('.inline-row-actions')
-      .evaluate((node) => node.getBoundingClientRect().height)) === 0,
-  )
+  check('but scrolling does not', (await actionHeight(scrolled)) === 0)
 }
 
 /**

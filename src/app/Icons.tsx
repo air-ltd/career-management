@@ -50,6 +50,19 @@ export const MenuIcon = icon(
   </>,
 )
 
+/**
+ * The cross, on a control that closes something.
+ *
+ * Drawn as two strokes rather than a glyph so it takes the button's colour and
+ * weight like the rest of the set.
+ */
+export const CloseIcon = icon(
+  <>
+    <line x1="6" y1="6" x2="18" y2="18" />
+    <line x1="18" y1="6" x2="6" y2="18" />
+  </>,
+)
+
 export const AddIcon = icon(
   <>
     <line x1="12" y1="5" x2="12" y2="19" />

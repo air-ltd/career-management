@@ -140,9 +140,11 @@ worker, so an installed copy needs the network to start — the document is in t
 phone's own storage either way, but the shell that reads it is not cached.
 
 On a phone the buttons on a record — add, edit, hide, and the grip for
-reordering — are behind the record: a long press or a swipe opens them. The
-button that adds a record to a section stays where it is, because it is the
-only way in to that section.
+reordering — are behind the record. A swipe opens the row under the finger and
+only that row, until a touch anywhere else closes it. A long press opens the
+buttons on every row at once, for working through a page; a cross in the
+top-right corner of the screen switches that back off. The button that adds a record to a section
+stays where it is, because it is the only way in to that section.
 
 ## Bringing the old data across
 

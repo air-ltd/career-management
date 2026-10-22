@@ -70,11 +70,13 @@ way. The phone suite (`npm run test:mobile`) is where they are checked.
   run past the edge of the page and under the buttons beside it.
 - **M14 — A record's buttons are behind the record.** On a phone the buttons on
   a row — add, edit, hide, and the grip for reordering — are collapsed until
-  the row is opened with a long press or a swipe, and one row is open at a
-  time. Four buttons on every row is a screen of buttons rather than a screen of
-  records. They are collapsed rather than removed, so a screen reader and the
-  keyboard can still reach them, and a row that a keyboard tabs into opens
-  itself.
+  they are asked for. Four buttons on every row is a screen of buttons rather
+  than a screen of records. The two gestures mean two things: a swipe opens the
+  row under the finger and only that row, and a touch anywhere else closes it;
+  a long press opens every row at once and stays open until the cross it puts in
+  the top-right corner of the screen switches it off. The controls are collapsed rather than removed,
+  so a screen reader and the keyboard can still reach them, and a row that a
+  keyboard tabs into opens itself.
 - **M15 — The keyboard does not cover the field.** A phone's keyboard sits over
   the bottom of the screen, and the field being typed into can end up
   underneath it. The page asks the browser to resize the viewport for the
@@ -117,11 +119,14 @@ rather than a habit.
 - **`src/features/document/DocumentChrome.tsx`** — the one component that
   changes shape at phone width, and it does so through the device layer rather
   than by measuring the window itself.
-- **`src/features/document/rowReveal.ts`** — which row is open, and the touch
-  that opens it. A long press and a swipe are both ways in, because a long
-  press is deliberate and a swipe is quick, and people reach for different ones.
-  The long press does not fight with scrolling: a finger that moves is
-  reading, not pressing.
+- **`src/features/document/rowReveal.ts`** — what is showing, and the touch that
+  opens it. A long press and a swipe are both ways in, because a long press is
+  deliberate and a swipe is quick, and people reach for different ones. The
+  long press opens every row, because it is what a user does before working
+  through a page; the swipe opens the one row. Neither fights with scrolling: a
+  finger that moves is reading, not pressing. A touch elsewhere closes the one
+  row, and only the control closes every row — the mode must survive working
+  through the page.
 - **`src/sync/redirect.ts`** — where a native shell would have to be plugged in.
   The OAuth redirect URI is derived from the origin the app is served from, and
   the three call sites that must agree are already together in that one file.
@@ -174,7 +179,8 @@ that reads it that is not cached.
 | | |
 | --- | --- |
 | `src/app/device.test.ts` | The device layer: the answer is read before the first paint, and it follows the width changing under it. |
-| `npm run test:mobile` | The phone interface, in a browser at 390×844 with touch and a device pixel ratio of 3: the bar, the tap targets, the overlap, the sideways scroll, the folded rail, the estimate, the row that opens with a long press, the keyboard's room, what printing gives, and an axe audit on six routes. |
+| `npm run test:mobile` | The phone interface, in a browser at 390×844 with touch and a device pixel ratio of 3: the bar, the tap targets, the overlap, the sideways scroll, the folded rail, the estimate, the row that opens with a swipe, the every-row mode and its switch, the
+keyboard's room, what printing gives, and an axe audit on six routes. |
 | `npm run test:e2e` | The application at the size it was designed at. Unchanged by any of this. |
 | `npm run test:a11y` | The application at the size it was designed at. Unchanged by any of this. |
 

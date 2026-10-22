@@ -88,10 +88,10 @@ export function InlineRow({
   /*
    * The row's controls, and the touch that opens them.
    *
-   * On a phone the controls are hidden until the row is opened — with a long
-   * press or a swipe — because there is room for the record and not for the
-   * record's controls. The key is the record's own, with its table, so two
-   * records in two tables never share an open row.
+   * On a phone the controls are hidden until they are asked for: a swipe opens
+   * this row, a long press opens every row. There is room for the record and
+   * not for the record's controls. The key is the record's own, with its table,
+   * so two records in two tables never share an open row.
    */
   const reveal = useRevealOnTouch(`${registryKey}:${text(record, 'id')}`)
 

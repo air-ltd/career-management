@@ -2204,13 +2204,12 @@ code {
    * The row's controls are behind the row.
    *
    * Four buttons on every row is a screen of buttons rather than a screen of
-   * records, so on a phone they are collapsed until the row is opened with a
-   * long press or a swipe (`rowReveal.ts`).
+   * records, so on a phone they are collapsed until they are asked for: a swipe
+   * opens one row, a long press opens every row (`rowReveal.ts`).
    *
    * Collapsed rather than removed: the controls keep their place in the page,
    * so a screen reader and the keyboard can still reach them, and
-   * `:focus-within` opens the row for a keyboard that tabs into it. A row that
-   * is open stays open until another is opened.
+   * `:focus-within` opens the row for a keyboard that tabs into it.
    */
   .inline-row-actions,
   .inline-order-handle {
@@ -2251,6 +2250,32 @@ code {
   .inline-row-actions {
     flex: 1 1 100%;
     justify-content: flex-end;
+  }
+
+  /*
+   * The way out of the every-row mode.
+   *
+   * Fixed to the corner, because a long press can happen anywhere on the page
+   * and the way out has to be where the user is — a control that scrolls with
+   * the rows is one the user has to look for.
+   *
+   * The top-right is free: the header's own controls sit below this point at a
+   * phone's width, so the two do not cover each other, and the corner is out of
+   * the way of the rows the mode is about.
+   */
+  .row-buttons-off {
+    position: fixed;
+    top: calc(0.5rem + env(safe-area-inset-top));
+    right: calc(0.5rem + env(safe-area-inset-right));
+    z-index: 25;
+    width: 3rem;
+    height: 3rem;
+    /* The icon in the middle of the circle, not at its start. */
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 2px 10px rgb(0 0 0 / 18%);
   }
 
   /*
