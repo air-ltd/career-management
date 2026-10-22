@@ -99,12 +99,18 @@ export function EditorShell({
         */}
         <div className="editor-controls">
           <div className="editor-search">
-            <label htmlFor="editor-search-input">Search</label>
+            {/*
+              No label above the box, and the words in the box say what it is.
+              The name is on the control rather than beside it, so the box is
+              still named for a screen reader and for voice control — the words
+              in a box are not an accessible name on their own.
+            */}
             <input
               id="editor-search-input"
               type="search"
+              aria-label="Search"
               value={editor.query}
-              placeholder="Company, institution, a word in any text"
+              placeholder="text search"
               onChange={(event) => {
                 editor.setQuery(event.target.value)
               }}

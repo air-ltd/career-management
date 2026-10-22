@@ -1514,12 +1514,6 @@ code {
   flex: 1 1 18rem;
 }
 
-.editor-controls label {
-  display: block;
-  font-size: 0.85em;
-  margin-bottom: 0.2rem;
-}
-
 .editor-controls input {
   width: 100%;
   padding: 0.35rem 0.5rem;
