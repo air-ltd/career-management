@@ -52,7 +52,7 @@ describe('listing the templates', () => {
       deletedAt: NOW.toISOString(),
     })
     const names = (await listTemplates()).map((template) => template.name)
-    expect(names).toEqual(['Career Management Document'])
+    expect(names).toEqual(['Standard'])
   })
 
   it('is in alphabetical order, so the list does not jump about', async () => {
@@ -61,12 +61,12 @@ describe('listing the templates', () => {
     await db.templates.put({
       ...builtInTemplate(NOW),
       id: 'c',
-      name: 'Career Management Document',
+      name: 'Standard',
     })
     expect((await listTemplates()).map((template) => template.name)).toEqual([
       'Alpha',
       'Beta',
-      'Career Management Document',
+      'Standard',
     ])
   })
 })

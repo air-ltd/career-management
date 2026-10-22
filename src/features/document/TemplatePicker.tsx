@@ -30,7 +30,7 @@ export function TemplatePicker({
 
   return (
     <div className="document-template">
-      <label htmlFor="document-template">Template</label>
+      <label htmlFor="document-template">Style</label>
       <select
         id="document-template"
         value={current?.id ?? ''}

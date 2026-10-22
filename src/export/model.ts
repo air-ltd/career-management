@@ -27,6 +27,16 @@ export type Preset = 'cv' | 'interview'
 
 export interface ExportOptions {
   preset: Preset
+  /**
+   * Whether the work history is in the document.
+   *
+   * A section can be left out, the same way a story or a hidden record can.
+   */
+  includeWorkHistory: boolean
+  /** Whether the awards are in the document. */
+  includeAwards: boolean
+  /** Whether the education is in the document. */
+  includeEducation: boolean
   includeStories: boolean
   includeQuestions: boolean
   includeDeleted: boolean
@@ -50,6 +60,9 @@ export const PRESETS: Record<Preset, { label: string; hint: string; options: Exp
       hint: 'What is sent to an employer. No stories, no interview questions.',
       options: {
         preset: 'cv',
+        includeWorkHistory: true,
+        includeAwards: true,
+        includeEducation: true,
         includeStories: false,
         includeQuestions: false,
         includeDeleted: false,
@@ -60,6 +73,9 @@ export const PRESETS: Record<Preset, { label: string; hint: string; options: Exp
       hint: 'Everything, including stories and prepared answers. No page target.',
       options: {
         preset: 'interview',
+        includeWorkHistory: true,
+        includeAwards: true,
+        includeEducation: true,
         includeStories: true,
         includeQuestions: true,
         includeDeleted: false,
@@ -201,6 +217,11 @@ export function buildDocumentModel(input: {
 
   // Awards and education are two entities in storage and one table in the document
   // (D16). Combined here so no consumer has to remember to combine them.
+  /*
+   * The awards and the education are one table in the document (D16), but they
+   * are two things to include: a CV with the education in it and the awards left
+   * out is an ordinary thing to want.
+   */
   const awardsEducation: AwardEducationEntry[] = [
     ...input.awards.filter(keepLive).map((award) => ({
       kind: 'award' as const,
@@ -218,9 +239,13 @@ export function buildDocumentModel(input: {
       story: entry.story,
       deletedAt: entry.deletedAt,
     })),
-  ].sort((a, b) =>
-    a.year === b.year ? (a.institution < b.institution ? -1 : 1) : b.year - a.year,
-  )
+  ]
+    .filter((entry) =>
+      entry.kind === 'award' ? options.includeAwards : options.includeEducation,
+    )
+    .sort((a, b) =>
+      a.year === b.year ? (a.institution < b.institution ? -1 : 1) : b.year - a.year,
+    )
 
   const questionCategories: QuestionCategoryGroup[] = options.includeQuestions
     ? input.questionCategories
@@ -267,6 +292,13 @@ export function buildDocumentModel(input: {
   const included = new Set(input.settings.sections ?? DEFAULT_SECTIONS)
   const sections: DocumentSection[] = sectionOrder
     .filter((key) => included.has(key))
+    .filter((key) => {
+      // A section the user has left out is not in the document at all, rather than
+      // in it and empty: an empty section prints as a gap.
+      if (key === 'workHistory') return options.includeWorkHistory
+      if (key === 'awardsEducation') return options.includeAwards || options.includeEducation
+      return true
+    })
     .map((key) => ({
       key,
       heading: headingFor(key, input.settings.sectionHeadings),

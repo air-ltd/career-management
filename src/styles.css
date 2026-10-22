@@ -1516,6 +1516,81 @@ code {
 }
 
 /*
+ * The export menu.
+ *
+ * A disclosure that opens a list of formats, because the formats are an occasional
+ * thing and a row of buttons takes more of the rail than the choice deserves.
+ */
+.export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.export-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.export-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.export-menu-list {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
+.export-menu-list .button {
+  width: 100%;
+  justify-content: flex-start;
+  background: var(--surface);
+}
+
+/*
+ * The content card: the sections and what else to include.
+ */
+.document-content {
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.document-includes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.document-includes label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.document-content-title {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/*
  * The format card.
  *
  * One card for everything about how the document looks, so the rail reads as a

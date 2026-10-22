@@ -12,8 +12,12 @@
  */
 
 import { TemplatePicker } from './TemplatePicker'
-import { SectionOrder } from './SectionOrder'
 import { MAX_FONT_SIZE_PT, MIN_FONT_SIZE_PT, type Settings } from '../../domain/types'
+import {
+  WHITESPACE_OPTIONS,
+  settingsForWhitespace,
+  whitespaceFor,
+} from '../../domain/whitespace'
 
 export function FormatCard({
   settings,
@@ -89,45 +93,36 @@ export function FormatCard({
         </p>
       </div>
 
+      {/*
+        The whitespace: one setting, named for what it produces.
+
+        The spacing and the layout were two controls deciding the same thing, and
+        they fought — the compact spacing put a margin between the roles and the
+        compressed layout took it away again — so setting one and then the other
+        gave no way of telling which had won.
+      */}
       <div className="field">
-        <label htmlFor="document-density">Spacing</label>
+        <label htmlFor="document-whitespace">Whitespace</label>
         <select
-          id="document-density"
-          value={settings.density}
+          id="document-whitespace"
+          value={whitespaceFor(settings)}
           onChange={(event) => {
-            update({ density: event.target.value as Settings['density'] })
+            update(settingsForWhitespace(event.target.value))
           }}
         >
-          <option value="compact">Compact</option>
-          <option value="normal">Normal</option>
-          <option value="comfortable">Comfortable</option>
+          {WHITESPACE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <p className="field-hint">
-          Changes spacing rather than type size, so a page can be reclaimed without making the
-          text harder to read.
+          {WHITESPACE_OPTIONS.find((option) => option.value === whitespaceFor(settings))
+            ?.description ?? ''}{' '}
+          A role reduced to a single line gets no extra whitespace, because there is no content
+          to separate.
         </p>
       </div>
-
-      <div className="field">
-        <label htmlFor="document-format">Layout</label>
-        <select
-          id="document-format"
-          value={settings.format ?? 'compressed'}
-          onChange={(event) => {
-            update({ format: event.target.value as NonNullable<Settings['format']> })
-          }}
-        >
-          <option value="compressed">Compressed</option>
-          <option value="expanded">Expanded</option>
-        </select>
-        <p className="field-hint">
-          Expanded puts a blank line after every role. A role reduced to a single line gets
-          none, because there is no content to separate.
-        </p>
-      </div>
-
-      {/* The sections the template sets (D57), edited in place. */}
-      <SectionOrder settings={settings} saveSettings={saveSettings} />
     </div>
   )
 }

@@ -519,13 +519,13 @@ async function main() {
      */
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
-    await page.getByLabel('Layout', { exact: true }).selectOption('expanded')
+    await page.getByLabel('Whitespace', { exact: true }).selectOption('additional')
     await page.waitForTimeout(400)
     const summaryGap = await page.evaluate(() =>
       parseFloat(getComputedStyle(document.querySelector('.doc-job-summarised')).marginBottom),
     )
     check('a summary-only role gets no blank line', summaryGap <= 4, `${summaryGap}px`)
-    await page.getByLabel('Layout', { exact: true }).selectOption('compressed')
+    await page.getByLabel('Whitespace', { exact: true }).selectOption('compact')
     await page.waitForTimeout(400)
 
     // And back again, so the test does not depend on the order it runs in.
@@ -1063,7 +1063,7 @@ async function main() {
 
     await page.emulateMedia({ media: 'screen' })
 
-    await page.getByLabel('Document', { exact: true }).selectOption('interview')
+    await page.getByLabel('Template', { exact: true }).selectOption('interview')
     await page.locator('.doc').waitFor()
     const interviewText = await page.locator('.doc').innerText()
     check(
@@ -1328,7 +1328,7 @@ async function main() {
       const rail = document.querySelector('.document-sidebar')
       const box = button === null ? null : button.getBoundingClientRect()
       return {
-        count: document.querySelectorAll('.document-print button').length,
+        count: document.querySelectorAll('.document-actions > button').length,
         inRail: rail !== null && rail.contains(button),
         onScreen: box !== null && box.top >= 0 && box.bottom <= window.innerHeight,
       }
@@ -1342,7 +1342,7 @@ async function main() {
       'print is the first thing in the rail',
       (await page.evaluate(() => {
         const first = document.querySelector('.document-sidebar > *')
-        return first !== null && first.classList.contains('document-print')
+        return first !== null && first.classList.contains('document-actions')
       })) === true,
     )
     // A select, like the profile picker: the rail is a list of settings, not a
@@ -1364,14 +1364,14 @@ async function main() {
     // Open to begin with: closed, the card gives away nothing and the fit report
     // below quietly contradicts it.
     check(
-      'Also include starts expanded, and can still be collapsed',
+      'the content card holds the include options, open and named',
       (await page.evaluate(() => {
-        const details = document.querySelector('.document-options')
-        const wasOpen = details.open
-        details.open = false
-        const collapsed = details.open === false
-        details.open = wasOpen
-        return wasOpen === true && collapsed
+        const card = document.querySelector('.document-content')
+        return (
+          card !== null &&
+          card.querySelector('.document-content-title')?.textContent?.trim() === 'Content' &&
+          card.querySelectorAll('.document-includes input[type=checkbox]').length === 6
+        )
       })) === true,
     )
     // The heading and the explanatory paragraph are gone: this page is the
@@ -1420,12 +1420,12 @@ async function main() {
         rail: [...document.querySelectorAll('.document-sidebar > *')].map(
           (c) => c.className.split(' ')[0],
         ),
-        alsoIncludeOpen: document.querySelector('.document-options').open,
+        alsoIncludeOpen: document.querySelector('.document-content') !== null,
         presets: [...document.querySelectorAll('#document-preset option')].map((o) =>
           o.textContent.trim(),
         ),
         toggles: [
-          ...document.querySelectorAll('.document-sidebar .document-options label'),
+          ...document.querySelectorAll('.document-sidebar .document-includes label'),
         ].map((l) => l.textContent.trim()),
         profile: document.querySelector('.document-sidebar #document-profile') !== null,
         railRight: (() => {
@@ -1445,11 +1445,11 @@ async function main() {
       presets: [...document.querySelectorAll('#document-preset option')].map((o) =>
         o.textContent.trim(),
       ),
-      toggles: [...document.querySelectorAll('.document-sidebar .document-options label')].map(
+      toggles: [...document.querySelectorAll('.document-sidebar .document-includes label')].map(
         (l) => l.textContent.trim(),
       ),
       profile: document.querySelector('.document-sidebar #document-profile') !== null,
-      alsoIncludeOpen: document.querySelector('.document-options').open,
+      alsoIncludeOpen: document.querySelector('.document-content') !== null,
       railRight: (() => {
         const rail = document.querySelector('.document-controls').getBoundingClientRect()
         const paper = document.querySelector('.document-paper').getBoundingClientRect()
@@ -1484,7 +1484,7 @@ async function main() {
       // Scoped to the include options, as the comparison with the document page
       // is: the rail holds other checkboxes now, and those are not include
       // toggles.
-      (await page.locator('.all-in-one .document-options input[type=checkbox]').count()) === 3,
+      (await page.locator('.all-in-one .document-includes input[type=checkbox]').count()) === 6,
     )
     check(
       'the edit-all page offers the document presets',
@@ -1918,18 +1918,17 @@ async function main() {
     await page.locator('.doc').filter({ hasText: 'Consultant' }).waitFor({ timeout: 10000 })
     check('choosing a profile changes the document header', true)
 
-    // And the choice persists to the settings page, which is the same record.
-    await go(page, origin, '/settings')
+    // And the choice persists, which is the same record wherever it is read from.
+    await go(page, origin, '/document')
     check(
       'the choice is stored, not local to the document page',
-      (await page.getByLabel('Profile used in the document header').inputValue()) !== '',
+      (await page.getByLabel('Profile', { exact: true }).inputValue()) !== '',
     )
 
-    await go(page, origin, '/settings')
     check(
-      'the settings picker offers no None option either',
+      'and the picker offers no None option either',
       (await page
-        .getByLabel('Profile used in the document header')
+        .getByLabel('Profile', { exact: true })
         .locator('option', { hasText: /^\s*None\s*$/ })
         .count()) === 0,
     )
@@ -1970,7 +1969,7 @@ async function main() {
     )
 
     await go(page, origin, '/document')
-    await page.getByLabel('Document', { exact: true }).selectOption('interview')
+    await page.getByLabel('Template', { exact: true }).selectOption('interview')
     await page.locator('.doc-job').filter({ hasText: 'Storycheck' }).first().waitFor()
     const storyJob = await page
       .locator('.doc-job')
@@ -2143,9 +2142,7 @@ async function main() {
       'the built-in template is there, and it is the one in use',
       (await templateSelect.count()) === 1 &&
         (await templateSelect.inputValue()) !== '' &&
-        (await templateSelect.locator('option').allInnerTexts()).includes(
-          'Career Management Document',
-        ),
+        (await templateSelect.locator('option').allInnerTexts()).includes('Standard'),
       JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
     )
     check(
@@ -2154,50 +2151,41 @@ async function main() {
       await page.locator('.document-template-summary').innerText(),
     )
 
-    // The sections, in the order the document has them.
+    /*
+     * The content card decides what is in the document.
+     *
+     * A section the user has left out is not in the document at all, rather than
+     * in it and empty: an empty section prints as a gap.
+     */
     const sectionLabels = async () =>
       page.evaluate(() =>
         [...document.querySelectorAll('.doc-section')].map((section) =>
           section.getAttribute('aria-label'),
         ),
       )
-    const beforeSections = await sectionLabels()
+    const withWorkHistory = await sectionLabels()
     check(
-      'the document has its sections in the default order',
-      beforeSections.length > 0,
-      JSON.stringify(beforeSections),
+      'the document has its sections',
+      withWorkHistory.length > 0,
+      JSON.stringify(withWorkHistory),
     )
 
-    // The document's sections are in the order the rail lists them.
-    const railOrder = async () =>
-      page.evaluate(() =>
-        [...document.querySelectorAll('.document-section-row')].map((row) =>
-          row.querySelector('.document-section-include span')?.textContent?.trim(),
-        ),
-      )
-    // The document prints the sections it has content for, in the order the rail
-    // lists them. A section with nothing in it is not printed, so the comparison
-    // is between the document's sections and those same sections in the rail.
-    const shownIn = async (names) => (await railOrder()).filter((name) => names.includes(name))
-    check(
-      'the document prints its sections in the order they are listed',
-      JSON.stringify(await sectionLabels()) ===
-        JSON.stringify(await shownIn(await sectionLabels())),
-      `${JSON.stringify(await sectionLabels())} vs ${JSON.stringify(await shownIn(await sectionLabels()))}`,
-    )
-
-    // Reorder the sections, and check the document follows.
-    await page.locator('.document-sections > summary').click()
-    await page.waitForTimeout(200)
-    const moveDown = page.getByRole('button', { name: /^Move .* down$/ }).first()
-    await moveDown.click()
+    const workHistoryToggle = page
+      .locator('.document-includes')
+      .getByLabel('Work history', { exact: true })
+    await workHistoryToggle.uncheck()
     await page.waitForTimeout(400)
-    const afterSections = await sectionLabels()
     check(
-      'moving a section moves it in the document',
-      JSON.stringify(afterSections) !== JSON.stringify(beforeSections) &&
-        JSON.stringify(afterSections) === JSON.stringify(await shownIn(afterSections)),
-      `${JSON.stringify(beforeSections)} -> ${JSON.stringify(afterSections)}`,
+      'leaving the work history out takes it out of the document',
+      !(await sectionLabels()).includes('Work history'),
+      JSON.stringify(await sectionLabels()),
+    )
+    await workHistoryToggle.check()
+    await page.waitForTimeout(400)
+    check(
+      'and putting it back puts it back',
+      (await sectionLabels()).includes('Work history'),
+      JSON.stringify(await sectionLabels()),
     )
 
     // And a template made from the current settings reproduces it.
@@ -2223,11 +2211,11 @@ async function main() {
     )
 
     // Back to the built-in, and the document goes back with it.
-    await templateSelect.selectOption({ label: 'Career Management Document' })
+    await templateSelect.selectOption({ label: 'Standard' })
     await page.waitForTimeout(500)
     check(
       'choosing the built-in template puts the document back as it was',
-      JSON.stringify(await sectionLabels()) === JSON.stringify(beforeSections),
+      JSON.stringify(await sectionLabels()) === JSON.stringify(withWorkHistory),
       JSON.stringify(await sectionLabels()),
     )
 
@@ -2425,7 +2413,7 @@ async function main() {
     const cardLabels = await page.locator('.document-format label').allInnerTexts()
     check(
       'and it holds the template, the paper, the type, the spacing and the layout',
-      ['Template', 'Page size', 'Spacing', 'Layout'].every((label) =>
+      ['Style', 'Whitespace'].every((label) =>
         cardLabels.some((shown) => shown.startsWith(label)),
       ) && cardLabels.some((shown) => shown.startsWith('Type size')),
       JSON.stringify(cardLabels),
@@ -2443,19 +2431,34 @@ async function main() {
       JSON.stringify(settingsLabels),
     )
 
-    // The formats the document can be taken away in (D23).
+    // The formats the document can be taken away in (D23), behind one button.
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
-    const exportButtons = page.locator('.document-export button')
+    await page.locator('.export-menu > summary').click()
+    await page.waitForTimeout(200)
+    const exportButtons = page.locator('.export-menu-list button')
     check(
-      'the document can be exported as Markdown and as plain text',
-      (await exportButtons.count()) === 2 &&
-        (await exportButtons.allInnerTexts()).join(',') === 'Markdown,Plain text',
+      'the document can be exported as Markdown, plain text and Word',
+      (await exportButtons.count()) === 3 &&
+        (await exportButtons.allInnerTexts()).join(',') === 'Markdown,Plain text,Word',
       (await exportButtons.allInnerTexts()).join(','),
     )
     check(
       'and each says what it is, so the choice is not a surprise afterwards (D39)',
-      (await page.locator('.document-export button').first().getAttribute('title')) !== null,
+      (await page.locator('.export-menu-list button').first().getAttribute('title')) !== null,
+    )
+    check(
+      'the export button sits beside the print button, on one line',
+      await page.evaluate(() => {
+        const row = document.querySelector('.document-actions')
+        const print = row.querySelector('button')
+        const menu = row.querySelector('.export-menu')
+        if (print === null || menu === null) return false
+        const a = print.getBoundingClientRect()
+        const b = menu.getBoundingClientRect()
+        // Side by side rather than stacked.
+        return Math.abs(a.top - b.top) < 4 && b.left >= a.right - 1
+      }),
     )
 
     for (const added of ['/jobs/new', '/achievements/new', '/awards/new', '/education/new']) {
@@ -2744,7 +2747,7 @@ async function main() {
     const compressed = await jobGaps()
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
-    await page.getByLabel('Layout', { exact: true }).selectOption('expanded')
+    await page.getByLabel('Whitespace', { exact: true }).selectOption('additional')
     await page.waitForTimeout(400)
     const expanded = await jobGaps()
 
@@ -2764,7 +2767,7 @@ async function main() {
       expanded.some((job) => !job.summarised && !job.achievements && job.bottom > 12),
       JSON.stringify(expanded),
     )
-    await page.getByLabel('Layout', { exact: true }).selectOption('compressed')
+    await page.getByLabel('Whitespace', { exact: true }).selectOption('compact')
     await page.waitForTimeout(400)
     /*
      * The about page, and the claim it exists to make.
@@ -2960,7 +2963,7 @@ async function main() {
     const printedQuestions = async () => {
       await go(page, origin, '/document')
       await page.locator('.doc').waitFor()
-      await page.getByLabel('Document', { exact: true }).selectOption('interview')
+      await page.getByLabel('Template', { exact: true }).selectOption('interview')
       await page.waitForTimeout(300)
       return page.evaluate(() => {
         const group = [...document.querySelectorAll('.doc-question-group')].find((candidate) =>
@@ -3149,8 +3152,8 @@ async function main() {
       (await page.locator('.document-sidebar #document-profile').count()) === 1,
     )
     check(
-      'Also include is in the sidebar',
-      (await page.locator('.document-sidebar .document-options').count()) === 1,
+      'the content card is in the sidebar',
+      (await page.locator('.document-sidebar .document-content').count()) === 1,
     )
     // It explained a preset the buttons already name, and it printed if ever missed.
     check(
@@ -3199,7 +3202,7 @@ async function main() {
       !(await page.locator('.doc-deleted').count()),
     )
     // Already expanded: clicking the summary here would close it.
-    await page.locator('.document-options input[type=checkbox]').nth(2).check()
+    await page.locator('.document-includes input[type=checkbox]').nth(5).check()
     await page
       .locator('.doc-deleted')
       .first()
@@ -3297,7 +3300,7 @@ async function main() {
       page.evaluate(() => document.querySelector('.all-in-one-content')?.innerText ?? '')
     const editPrint = () => page.locator('.all-in-one-print .doc').innerText()
     const stories = () =>
-      page.locator('.document-sidebar .document-options input[type=checkbox]').nth(0)
+      page.locator('.document-sidebar .document-includes input[type=checkbox]').nth(3)
 
     // The pane and the print agree: the toggles decide both. Each type used to
     // pick its own preview — jobs showed responsibilities, achievements and
@@ -3416,8 +3419,8 @@ async function main() {
       (await paneHas()) === false,
     )
     await page
-      .locator('.document-sidebar .document-options input[type=checkbox]')
-      .nth(2)
+      .locator('.document-sidebar .document-includes input[type=checkbox]')
+      .nth(5)
       .check()
     await page.waitForTimeout(300)
     const row = page.locator('.all-in-one-content .inline-row').filter({ hasText: 'Toggle Co' })
@@ -3480,7 +3483,8 @@ async function main() {
     // prints, not what the document page prints.
     check(
       'the edit-all page also offers the label for the card',
-      (await page.locator('.document-options summary').innerText()) === 'Also include',
+      // The title is uppercased in CSS, so the comparison is on the words.
+      (await page.locator('.document-content-title').innerText()).toLowerCase() === 'content',
     )
 
     /*

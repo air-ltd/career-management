@@ -118,6 +118,21 @@ export const DocumentIcon = icon(
 )
 
 /**
+ * The share glyph, on the export control.
+ *
+ * A box with an arrow leaving it, rather than the three-node share: the arrow
+ * reads as "this goes out", which is what an export is, and the three nodes read
+ * as "send to somebody".
+ */
+export const ShareIcon = icon(
+  <>
+    <path d="M12 3v13" />
+    <polyline points="8 7 12 3 16 7" />
+    <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+  </>,
+)
+
+/**
  * The grip on a handle the user drags.
  *
  * Six dots rather than lines, because the thing is a grip and lines read as

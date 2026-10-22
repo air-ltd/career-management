@@ -61,6 +61,26 @@ Two checks there are worth knowing about:
   assistant's provider. It is an exact list, not a subset — a bundle that also
   phoned an analytics endpoint would fail it.
 
+## Where things are
+
+The rail beside the document is about **the document**: its template (a CV or an
+interview-preparation document), its profile, its style, its type, its
+whitespace, what it contains, and its paper. Everything in it changes the thing
+on the screen beside it.
+
+The whitespace is one setting — *Compact* or *Additional Whitespace* — rather
+than a spacing and a layout that fought each other.
+
+The **settings page** is about **the app**: the theme, and the key for the
+assistant. Nothing about the document, because a wrong page size is something you
+notice while looking at the document and not in a page you have to go and
+remember.
+
+The document can be printed, or exported as Markdown, plain text or Word — the
+export button is a share glyph beside the print button, and each format is
+fetched only when it is chosen, so the Word export costs nothing until it is
+pressed.
+
 ## Data
 
 The document lives in this browser's IndexedDB and, once you connect Dropbox, in

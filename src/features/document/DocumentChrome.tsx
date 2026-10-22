@@ -15,10 +15,9 @@ import {
   type Preset,
   type DocumentModel,
 } from '../../export/model'
-import { IncludeOptions } from './IncludeOptions'
 import { FormatCard } from './FormatCard'
-import { EXPORTERS } from '../../export/exporters'
-import { downloadFrom } from '../../export/exporters/download'
+import { ExportMenu } from './ExportMenu'
+import { ContentCard } from './ContentCard'
 import { PrintIcon } from '../../app/Icons'
 import type { FitReport } from './FitReport'
 import type { Profile, Settings } from '../../domain/types'
@@ -81,58 +80,28 @@ export function DocumentChrome({
             visible result until it is used — so it belongs where the eye lands,
             not at the foot of a list the user has to read past to reach.
           */}
-          <div className="button-row document-print">
-            {/* D22: print is the browser's job, not a generated file. */}
+          {/*
+            The two ways the document leaves, on one line.
+
+            Printing is the browser's job (D22); the formats are a file the app
+            writes. The Word export is fetched when it is chosen rather than with
+            the page, which is what makes it safe to offer alongside the other two
+            — the `docx` library is the largest dependency in the project and
+            most sessions never reach it.
+          */}
+          <div className="button-row document-actions">
             <button type="button" className="button" onClick={() => window.print()}>
               <PrintIcon />
               Print / save as PDF
             </button>
-            {/*
-              The Word export is built, tested and working — but not offered.
-
-              `downloadDocxFrom` in `export/exporters/download.ts` still does the
-              whole thing, and the exporter and its tests are unchanged; only this
-              button is gone. It was the largest dependency in the project and
-              doubled the page weight for a feature most sessions never reached.
-              Reinstating it is restoring this one line:
-
-                  <button onClick={() => void downloadDocxFrom(model)}>Word</button>
-            */}
-          </div>
-
-          {/*
-            The formats the document can be taken away in.
-
-            Two of them, and both free of a dependency: the Word exporter is
-            built and tested and not offered, because the `docx` library doubled
-            the page weight for a feature most sessions never reach. Markdown and
-            plain text cost nothing, and between them they go nearly everywhere —
-            a repository, a notebook, an email, a form that takes nothing else.
-
-            Each says what it is, so the choice is not a surprise afterwards
-            (D39).
-          */}
-          <div className="button-row document-export">
-            {EXPORTERS.map((exporter) => (
-              <button
-                key={exporter.id}
-                type="button"
-                className="button"
-                title={exporter.description}
-                onClick={() => {
-                  void downloadFrom(exporter, model)
-                }}
-              >
-                {exporter.label}
-              </button>
-            ))}
+            <ExportMenu model={model} />
           </div>
 
           {/* D36, D37: the primary control — which document, not what else is in
               it — presented the same way as the profile below it, so the rail reads
               as a list of settings rather than as a list of things of two kinds. */}
           <div className="document-field document-preset">
-            <label htmlFor="document-preset">Document</label>
+            <label htmlFor="document-preset">Template</label>
             <select
               id="document-preset"
               value={options.preset}
@@ -197,7 +166,52 @@ export function DocumentChrome({
             </select>
           </div>
 
-          <IncludeOptions options={options} onChange={onOptionsChange} />
+          {/* The sections and what else to include: one question, one card. */}
+          <ContentCard options={options} onOptionsChange={onOptionsChange} />
+
+          {/*
+            The paper, just above the estimate that is measured against it.
+
+            The page size is the one setting whose consequence is a number rather
+            than an appearance, and the number is the estimate below it: the
+            estimate is the document measured against this paper. So it goes with
+            the estimate rather than up with the type and the spacing.
+          */}
+          {/*
+            The paper, just above the estimate that is measured against it.
+
+            The page size is the one setting whose consequence is a number rather
+            than an appearance, and the number is the estimate below it: the
+            estimate is the document measured against this paper. So it goes with
+            the estimate rather than up with the type and the spacing.
+          */}
+          <div className="document-field document-page-size">
+            <label htmlFor="document-page-size">Page size</label>
+            <select
+              id="document-page-size"
+              value={settings.pageSize}
+              onChange={(event) => {
+                saveSettings({
+                  ...settings,
+                  pageSize: event.target.value as Settings['pageSize'],
+                })
+              }}
+            >
+              <option value="A4">A4</option>
+              <option value="Letter">US Letter</option>
+              <option value="Legal">Legal</option>
+            </select>
+            {/*
+              D43. Browsers default the print dialog to the printer's own paper
+              size and most people never change it, so a document set to A4 prints
+              on whatever is in the tray while the layout was computed for A4. The
+              app cannot detect or correct what the dialog does.
+            */}
+            <p className="field-hint">
+              The print dialog has to be set to the same size. Browsers default it to the
+              printer's own setting, and the layout is computed for the size chosen here.
+            </p>
+          </div>
 
           {/*
             D32. For the CV preset only: an estimated page count against the target,

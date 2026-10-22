@@ -1,17 +1,16 @@
 /**
- * Document settings.
+ * Settings for the app.
  *
- * These are properties of the document, not of the device: a CV tuned to fit one
- * A4 page has to print the same way on every machine (D28, D41). They sync, like
- * everything else.
+ * About the app and the device, not about the document. The document's own
+ * settings — its template, its paper, its type, its spacing, its layout, its
+ * sections and its profile — live in the rail beside the document, where the
+ * consequence of a change is visible while the change is being made. A settings
+ * page is the wrong place for them: it is a page you go to and remember, and
+ * the paper size is something you notice while looking at the paper.
  */
 
 import { useEffect, useState } from 'react'
-import type { Settings } from '../../domain/types'
-import { readSettings, writeSettings } from '../shared/data'
 import type { ThemePreference } from '../../app/theme'
-import { db } from '../../storage/db'
-import type { Profile } from '../../domain/types'
 import { clearProviderKey, readProviderKey, writeProviderKey } from '../../ai/key'
 import { chatCompletionsProvider } from '../../ai/chatCompletions'
 
@@ -21,85 +20,25 @@ export interface SettingsPageProps {
   theme: ThemePreference
 }
 
-export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [profiles, setProfiles] = useState<Profile[]>([])
+export function SettingsPage({ onThemeChange, theme }: SettingsPageProps) {
   // The key is read from the secrets store, never from the document.
   const [providerKey, setProviderKey] = useState('')
   const [keySaved, setKeySaved] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const [current, allProfiles, storedKey] = await Promise.all([
-        readSettings(),
-        db.profiles.toArray(),
-        readProviderKey(chatCompletionsProvider.id),
-      ])
+      const storedKey = await readProviderKey(chatCompletionsProvider.id)
       if (!cancelled) setProviderKey(storedKey)
-      if (cancelled) return
-      setSettings(current)
-      setProfiles(allProfiles.filter((profile) => profile.deletedAt === null))
     })()
     return () => {
       cancelled = true
     }
   }, [])
 
-  if (settings === null) return <p className="hint">Loading…</p>
-
-  function update(patch: Partial<Settings>) {
-    setSettings((previous) => (previous === null ? previous : { ...previous, ...patch }))
-    setSaved(false)
-  }
-
   return (
     <section className="settings-page">
       <h2>Settings</h2>
-
-      <div className="panel">
-        <h3>Document</h3>
-
-        <div className="field">
-          <label htmlFor="active-profile">Profile used in the document header</label>
-          <select
-            id="active-profile"
-            value={settings.activeProfileId ?? ''}
-            onChange={(event) => {
-              update({ activeProfileId: event.target.value === '' ? null : event.target.value })
-            }}
-          >
-            {/*
-              The same rule as the picker on the document page: no way to select "no
-              profile". Where several exist and none is chosen, this prompts instead.
-            */}
-            {profiles.length > 1 && settings.activeProfileId === null && (
-              <option value="" disabled>
-                Choose a profile
-              </option>
-            )}
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name || '(unnamed)'}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/*
-        The format lives in the rail, beside the document it changes.
-
-        The page size, the type, the spacing and the layout were here, and the
-        template and the sections were in the rail, and it was one choice split
-        across two places — so it is in the rail now, in one card, and the
-        consequence of changing it is visible while it is being changed.
-      */}
-      <p className="hint">
-        The document's format — the paper, the type, the spacing and the sections — is in the
-        rail beside the document, on the work history or the questions page.
-      </p>
 
       <div className="panel">
         <h3>Appearance</h3>
@@ -125,7 +64,7 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
         Its own panel, and its own save, because it is not a document setting: it
         is a credential, and it must never be written into the document, which
         syncs to Dropbox and is exported to employers. It is kept in this browser
-        and nowhere else, so it is saved here and not with the settings.
+        and nowhere else, so it is saved here and not with the document.
       */}
       <div className="panel">
         <h3>Assistant</h3>
@@ -180,21 +119,6 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
           </button>
           {keySaved && <span className="hint">Saved.</span>}
         </div>
-      </div>
-
-      <div className="button-row">
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={() => {
-            void writeSettings(settings, now).then(() => {
-              setSaved(true)
-            })
-          }}
-        >
-          Save settings
-        </button>
-        {saved && <span className="hint">Saved.</span>}
       </div>
     </section>
   )

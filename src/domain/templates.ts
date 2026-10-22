@@ -25,19 +25,21 @@ import {
 export const BUILT_IN_TEMPLATE_ID = 'builtin:career-management-document'
 
 /**
- * The template that reproduces the document the app has always produced.
+ * The style that reproduces the document the app has always produced.
  *
- * Its name is the document's own name (D54): an existing user's first load
- * looks exactly like their previous load, because the built-in template is the
- * settings they already had, and a template is a choice rather than a surprise
- * on upgrade.
+ * Its settings are the ones the user already had, so an existing user's first
+ * load looks exactly like their previous load (D54): a template is a choice
+ * rather than a surprise on upgrade.
+ *
+ * Named for what it is rather than for the document it makes — the document is
+ * the user's own, and the thing that decides how it looks is a style.
  */
 export function builtInTemplate(now: Date): Template {
   return {
     id: BUILT_IN_TEMPLATE_ID,
     updatedAt: now.toISOString(),
     deletedAt: null,
-    name: 'Career Management Document',
+    name: 'Standard',
     builtIn: true,
     pageSize: DEFAULT_PAGE_SIZE,
     fontSizePt: DEFAULT_FONT_SIZE_PT,
@@ -92,14 +94,19 @@ export function templateSettings(template: {
 export function templateSummary(template: Template): string {
   const size =
     template.fontSizePt === DEFAULT_FONT_SIZE_PT ? '' : `${template.fontSizePt}pt type`
-  const spacing = template.density === 'normal' ? '' : `${template.density} spacing`
-  const format = template.format === 'compressed' ? '' : `${template.format} layout`
+  // The whitespace is one thing now, so it is described as one thing.
+  const whitespace =
+    template.format === 'expanded'
+      ? 'additional whitespace'
+      : template.density === 'normal'
+        ? ''
+        : `${template.density} spacing`
   const page = template.pageSize === DEFAULT_PAGE_SIZE ? '' : `${template.pageSize} page`
 
   const included = template.sections.filter((key) => template.sectionOrder.includes(key))
   const order = included.map((key) => sectionName(key)).join(', ')
 
-  return [page, size, spacing, format, order].filter((part) => part !== '').join(' · ')
+  return [page, size, whitespace, order].filter((part) => part !== '').join(' · ')
 }
 
 /** The name of a section, for the summary and for the headings. */
