@@ -133,6 +133,12 @@ Dropbox will not authorise against a plain-http address on the network, so the
 phone starts with an empty document of its own. `specs/mobile-interface.md` has
 the ways round that, and the framework the whole thing sits in.
 
+The application can be installed on a phone from the deployed site: it has a
+web app manifest, so the home screen gets the application's own icon and it
+opens in its own window with no browser chrome around it. There is no service
+worker, so an installed copy needs the network to start — the document is in the
+phone's own storage either way, but the shell that reads it is not cached.
+
 ## Bringing the old data across
 
 One-off. If you have a `career_management.sqlite3` from the legacy Flask app, this

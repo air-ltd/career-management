@@ -13,7 +13,7 @@
  * for browser globals. Those globals exist at runtime but not in this file's
  * Node environment, hence the declaration.
  */
-/* global document, getComputedStyle, window */
+/* global document, getComputedStyle, Image, window */
 
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -31,6 +31,8 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json',
 }
 
 const failures = []
@@ -265,6 +267,117 @@ async function createInEditor(page, origin, { section, label, fields, expect, pa
   } catch {
     return false
   }
+}
+
+/** Parse JSON, or nothing: a file that is not JSON is not a manifest. */
+async function parseJson(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The web app manifest, and the icons it points at.
+ *
+ * The manifest is what a phone uses to install the application, and it is
+ * written at build time because the paths in it are the base path — so it is
+ * exactly the sort of file that is right in the repository and wrong in the
+ * build. It is checked here, against the served site, for the same reason the
+ * rest of this suite is: a wrong base path in it produces an application that
+ * cannot be installed, behind a completely green build.
+ *
+ * The icons are checked by loading them, because a file that is not a PNG is
+ * not an icon however well it is named.
+ */
+async function checkManifest(page, origin) {
+  const response = await page.request.get(`${origin}${BASE_PATH}manifest.webmanifest`)
+  check('the manifest is served', response.ok(), String(response.status()))
+
+  const manifest = await parseJson(await response.text())
+  check('and it is a manifest', manifest !== null)
+  if (manifest === null) return
+
+  check(
+    'it opens the application at the base path',
+    manifest.start_url === BASE_PATH && manifest.scope === BASE_PATH,
+    JSON.stringify({ start_url: manifest.start_url, scope: manifest.scope }),
+  )
+  check(
+    'it opens in its own window, without browser chrome',
+    manifest.display === 'standalone',
+    String(manifest.display),
+  )
+  check(
+    'it carries a name, a short name and a colour',
+    typeof manifest.name === 'string' &&
+      manifest.name.length > 0 &&
+      typeof manifest.short_name === 'string' &&
+      manifest.short_name.length > 0 &&
+      typeof manifest.theme_color === 'string',
+    JSON.stringify(manifest),
+  )
+
+  const sizes = (manifest.icons ?? []).map((icon) => icon.sizes)
+  check(
+    'it has the icons the install prompt asks for',
+    sizes.includes('192x192') && sizes.includes('512x512'),
+    JSON.stringify(sizes),
+  )
+  check(
+    'and one of them can be masked',
+    (manifest.icons ?? []).some((icon) => icon.purpose === 'maskable'),
+    JSON.stringify(manifest.icons),
+  )
+
+  // The icons, loaded: a file that is not an image is not an icon.
+  for (const icon of manifest.icons ?? []) {
+    const url = new URL(icon.src, origin).toString()
+    const loaded = await page.evaluate(async (src) => {
+      const image = new Image()
+      image.src = src
+      await new Promise((done) => {
+        image.onload = done
+        image.onerror = done
+      })
+      return { width: image.naturalWidth, height: image.naturalHeight }
+    }, url)
+    const expected = Number.parseInt(icon.sizes.split('x')[0], 10)
+    check(
+      `the ${icon.sizes} icon is a picture of that size`,
+      loaded.width === expected && loaded.height === expected,
+      JSON.stringify(loaded),
+    )
+  }
+
+  // The link, and the tags iOS reads instead of the manifest.
+  await go(page, origin, '/')
+  const head = await page.evaluate(() => ({
+    manifest: document.querySelector('link[rel="manifest"]')?.getAttribute('href') ?? null,
+    apple:
+      document
+        .querySelector('meta[name="apple-mobile-web-app-capable"]')
+        ?.getAttribute('content') ?? null,
+    title:
+      document
+        .querySelector('meta[name="apple-mobile-web-app-title"]')
+        ?.getAttribute('content') ?? null,
+    icon: document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute('href') ?? null,
+  }))
+  check(
+    'the page links the manifest',
+    head.manifest !== null &&
+      new URL(head.manifest, `${origin}/${BASE_PATH}index.html`).pathname.endsWith(
+        'manifest.webmanifest',
+      ),
+    JSON.stringify(head),
+  )
+  check(
+    'and carries the tags iOS reads instead',
+    head.apple === 'yes' && head.title !== null && head.icon !== null,
+    JSON.stringify(head),
+  )
 }
 
 async function main() {
@@ -3591,6 +3704,9 @@ async function main() {
       consoleErrors.length === 0,
       consoleErrors.slice(0, 3).join(' | '),
     )
+
+    // ---------------------------------------------------------------- manifest
+    await checkManifest(page, origin)
   } finally {
     await browser.close()
     server.close()

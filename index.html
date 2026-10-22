@@ -10,6 +10,25 @@
       at build time, so this resolves under /career-management-doc/.
     -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!--
+      The web app manifest, and the tags iOS wants.
+
+      iOS ignores the manifest for the home screen: it reads these meta tags and
+      the apple-touch-icon instead, and without them an added-to-home-screen
+      application opens with the browser's chrome around it. The manifest itself
+      is written at build time, because the paths in it are the base path.
+
+      The link is relative rather than absolute for the same reason: a relative
+      URL resolves against wherever the application is served from, and the
+      absolute one would have to have the base path written into it. Vite does
+      not rewrite this attribute — it rewrites the icon's, and not this one.
+    -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Career Doc" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Career Management Document</title>
     <!--
       Apply the theme before first paint (D14).

@@ -21,7 +21,7 @@ made.
 | Option | Decision | Why |
 | --- | --- | --- |
 | **A. The same bundle, arranged for a phone's width** | **Chosen** | No second codebase, no second implementation of the merge or the sync, and no new host to run. The document is already portable — it is a file in Dropbox — so the phone is simply a second device, and the one thing the app is missing on a phone is a layout that suits a thumb. |
-| B. A progressive web app: a manifest and a service worker | Deferred | This is D53 again, and the reason for deferring it has not changed: a service worker brings a cache-invalidation problem — a released build has to evict the previous one, or a phone keeps running last week's bundle — and nobody has asked for offline. The manifest half is cheap and can be added alone; the service worker half is the decision. |
+| B. A progressive web app: a manifest and a service worker | Half done | The manifest is here: an installable application with its own icon and its own window. The service worker is deferred, and the reason has not changed — it brings a cache-invalidation problem, a released build has to evict the previous one, or a phone keeps running last week's bundle — and nobody has asked for offline. |
 | C. A native shell (Capacitor and the like) around the same bundle | Deferred | The bundle would be reusable, but the OAuth redirect is derived from `window.location.origin` (`src/sync/redirect.ts`) and a shell's origin is something like `capacitor://localhost`, which is not a redirect URI Dropbox will take. A shell would need an https link on a domain of its own and a redirect URI registered for it. That is a piece of infrastructure, not a layout. |
 | D. A separate native client, written against the document file | Rejected | It is a second implementation of the merge, the sync and the document — the three parts hardest to get right — and it would still be talking to the same Dropbox file, so the two would have to agree about every conflict rule. Option A gives a phone the whole application today. |
 
@@ -112,13 +112,41 @@ rather than a habit.
 ## 5. What is deliberately not here
 
 - **No service worker**, so no offline, and so the home-screen shortcut needs
-  the network to load the application. This is D53, unchanged.
-- **No web app manifest**, so a phone that adds the site to its home screen
-  uses the browser's icon and opens it with browser chrome. The manifest is the
-  cheap half of option B and can be added on its own.
+  the network to load the application. This is D53, unchanged. The manifest is
+  the cheap half of the PWA option and it is here; the service worker is the
+  half that brings the cache-invalidation problem, and that decision has not
+  been taken.
 - **No native shell.** Option C, with the redirect URI problem it carries.
 - **No separate routes for a phone.** The routes are the routes; M1 says so.
 - **No smaller type on a phone.** The document is the document.
+
+### The manifest
+
+There is one, and it is written at build time rather than committed: the paths
+in it are the base path, and the base path is derived from the package name so
+that a rename follows automatically. The same reason the CSP is injected at
+build time.
+
+- `display: standalone` — the application opens in its own window, with no
+  browser chrome around it. Not `fullscreen`, which hides the status bar for no
+  gain, and not `browser`, which is a bookmark with extra steps.
+- `start_url` and `scope` are the base path, so it opens on the work history
+  and covers every route under it.
+- No orientation lock: the document is wider than it is tall, and a phone on
+  its side is a phone reading a CV.
+- `theme_color` is the application's accent, which is also the icon's blue.
+- The icons are rasterised from the artwork in `public/favicon.svg` by
+  `scripts/make-icons.mjs` and committed, so a build needs no rasteriser: 192
+  and 512 for the install prompt, 512 maskable for Android's adaptive icons,
+  and 180 for iOS.
+- iOS reads meta tags rather than the manifest for the home screen, so
+  `apple-mobile-web-app-capable`, `apple-mobile-web-app-title` and
+  `apple-touch-icon` are in the page as well.
+
+What is accepted by not having a service worker: the installed application
+needs the network to start, and with no network it shows the browser's offline
+page. The document is in the phone's own storage either way; it is the shell
+that reads it that is not cached.
 
 ## 6. How it is tested
 
