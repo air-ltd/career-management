@@ -112,6 +112,26 @@ async function go(page, origin, hash) {
 }
 
 /**
+ * Move between the app's own pages, without reloading.
+ *
+ * `go` loads the site afresh, which is right for a test that starts from
+ * nothing — but a reload throws away the state the app holds, and the content
+ * toggles are state the app holds: they are the document's, and they are the
+ * same whichever page you are on. So a test that checks they carry across
+ * pages has to move the way the app's own links move.
+ */
+async function navigate(page, hash) {
+  await page.evaluate((h) => {
+    globalThis.location.hash = h
+  }, hash)
+  await page.locator('.app-main').waitFor()
+  await page
+    .locator('.document-page, .all-in-one, .record-list, form, .app-main h2')
+    .first()
+    .waitFor()
+}
+
+/**
  * The contrast ratio between a control's text and its background.
  *
  * As WCAG defines it, so the number means what it means elsewhere: 1 is
@@ -298,7 +318,6 @@ async function main() {
       ['script-src', "'self'"],
       ['connect-src', 'https://api.dropboxapi.com'],
       ['connect-src', 'https://content.dropboxapi.com'],
-      ['connect-src', 'https://api.openai.com'],
       ['object-src', "'none'"],
       ['base-uri', "'none'"],
       ['form-action', "'none'"],
@@ -327,10 +346,10 @@ async function main() {
         .map((part) => part.trim())
         .filter((part) => part.startsWith(`${name} `))
     check(
-      'connect-src names the two Dropbox hosts, the assistant, and nothing else',
+      'connect-src names the two Dropbox hosts and nothing else',
       JSON.stringify(directiveOf('connect-src')) ===
         JSON.stringify([
-          "connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://api.openai.com",
+          "connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com",
         ]),
       JSON.stringify(directiveOf('connect-src')),
     )
@@ -644,6 +663,54 @@ async function main() {
         documentEstimate.includes('Estimated'),
       `${JSON.stringify(documentEstimate)} | ${JSON.stringify(editEstimate)} | ${JSON.stringify(questionsEstimate)}`,
     )
+
+    /*
+     * The content toggles are the document's, not a page's.
+     *
+     * The rail is the same on every page, and it holds the same checkboxes. If
+     * each page kept its own, the same rail would say two different things
+     * depending on where you were, and two pages could show two different
+     * documents.
+     */
+    await navigate(page, '/document')
+    await page
+      .locator('.document-includes')
+      .getByLabel('Interview questions', { exact: true })
+      .check()
+    await page.waitForTimeout(300)
+    await navigate(page, '/')
+    const onEditPage = await page
+      .locator('.document-includes')
+      .getByLabel('Interview questions', { exact: true })
+      .isChecked()
+    await navigate(page, '/interview')
+    const onQuestionsPage = await page
+      .locator('.document-includes')
+      .getByLabel('Interview questions', { exact: true })
+      .isChecked()
+    await navigate(page, '/document')
+    check(
+      'a toggle set on the document page is set on the editing pages too',
+      onEditPage && onQuestionsPage,
+      `${onEditPage} | ${onQuestionsPage}`,
+    )
+    // And back the other way.
+    await navigate(page, '/')
+    await page.locator('.document-includes').getByLabel('Stories', { exact: true }).check()
+    await page.waitForTimeout(300)
+    await navigate(page, '/document')
+    const storiesCarried = await page
+      .locator('.document-includes')
+      .getByLabel('Stories', { exact: true })
+      .isChecked()
+    check('and a toggle set on the editing page is set on the document page', storiesCarried)
+    // Put it back, so the rest of the run sees the document the run expects.
+    await page
+      .locator('.document-includes')
+      .getByLabel('Interview questions', { exact: true })
+      .uncheck()
+    await page.locator('.document-includes').getByLabel('Stories', { exact: true }).uncheck()
+    await page.waitForTimeout(300)
 
     /*
      * The card is the page.

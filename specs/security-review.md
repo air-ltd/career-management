@@ -1,44 +1,56 @@
-# Security review — the templates, phrases, export formats and assistant work
+# Security review — the release
 
-A review of the work done on `feature/phase-5`, against the security
-requirements in `specs/0001-plan.md` (§11 sync, SEC1–SEC6, D13, D26, G1) and
-against the ordinary properties of the app: no untrusted text as markup, a
-credential that does not travel, and a network surface that is exactly as wide
-as it needs to be.
+A review of `feature/phase-5` as it stands, against the security requirements in
+`specs/0001-plan.md` (§11 sync, SEC1–SEC6, D13, D26, G1) and against the
+ordinary properties of the app: no untrusted text as markup, a credential that
+does not travel, and a network surface that is exactly as wide as it needs to be.
 
-**Verdict: no findings that need fixing, and two things that were changed while
-reviewing.** Both are fixed and committed.
+**Verdict: no findings that need fixing. One thing was changed while
+reviewing** — the assistant's origin was removed from the content security
+policy, because the assistant is not in this release and a permission the app
+does not need is a channel out of the user's document that does not have to be
+closed. It is fixed and committed.
 
 ## The network surface
 
-**SEC1 amended from two origins to three.** The app now talks to
-`https://api.openai.com` as well as the two Dropbox hosts, and the CSP
-`connect-src` names exactly those three:
+**SEC1 is back to two origins.** The policy permits exactly the two Dropbox
+hosts:
 
 ```
-connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://api.openai.com
+connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com
 ```
 
-The provider is a **fixed origin**, not one the user configures. That is not a
-limitation chosen for convenience: the policy is fixed at build time, and a
-provider the user could point anywhere would need a policy that allows anywhere,
-which is the one thing the policy exists to prevent. A second provider is a new
-origin and a new line here, and a new module behind the same interface.
+The third origin was the assistant's provider, added in Phase 10 and used by
+Phase 10's feature. The assistant is not in this release — it is behind a flag
+(`src/ai/enabled.ts`) and the flag is off — so the origin has gone back out.
+The feature's code is still in the bundle, so the host is still *named* there,
+and the two are not the same thing:
 
-The rest of the policy is unchanged: `default-src 'self'`, `object-src 'none'`,
-`base-uri 'none'`, `form-action 'none'`, no wildcard anywhere, and the inline
-theme bootstrap covered by a hash rather than `unsafe-inline`.
+- `scripts/check-bundle-silent.mjs` checks what the bundle **references**. It
+  still allows the provider's host, because the code that names it is still
+  there.
+- `e2e/smoke.mjs` checks what the policy **permits**, against the served page.
+  It is the two Dropbox hosts, exactly, compared against the whole list rather
+  than by looking for the two names — a check that only confirmed the hosts were
+  *present* would pass against `connect-src ... *`.
 
-**What the assistant sends is bounded.** The request body carries the user's
-instruction and the text in the field being written. Not the profile, not the
-jobs, not the other achievements, and not the document. The URL is a constant —
-nothing the user writes reaches it — and the key goes in the `Authorization`
-header, never in a query string, where it would end up in a log.
+The gap between the two is deliberate and visible: the app cannot reach the
+provider, because the policy will not let it.
 
-**`scripts/check-bundle-silent.mjs` still holds the line.** It compares the
-hosts *referenced* by the built bundle against an exact list, not a subset, so a
-bundle that also phoned an analytics endpoint would fail it. The list grew by
-one name, deliberately.
+**The rest of the policy is unchanged:** `default-src 'self'`,
+`object-src 'none'`, `base-uri 'none'`, `form-action 'none'`, no wildcard
+anywhere, and the inline theme bootstrap covered by a hash rather than
+`unsafe-inline`.
+
+**What this costs.** The assistant's code is in the release's bundle — the
+provider, the key store and the drafting panel — which is dead weight of a few
+kilobytes, and it is a reviewer question. The tight end state is to delete it;
+it is in the history (`git show 3ac137e^` and earlier), so deleting it is
+reversible and bringing it back is too. The reason it is not deleted is that
+the decision to keep it is the release's, not the review's, and the flag makes
+that decision reversible in one line — with the two other places that have to
+change alongside it named in `src/ai/enabled.ts` so that none of them is
+forgotten.
 
 ## The credential
 
@@ -50,39 +62,43 @@ site is deployed.
 Dropbox OAuth token is kept in, and for the same reason (SEC4). That database is
 not the document database, so it is not synced, not exported and not backed up.
 It was in `localStorage` when first written, which is the one place the app has
-already decided credentials do not go; it was moved during the review.
+already decided credentials do not go; it was moved during the earlier review.
 
-The key is read at the moment of a request and nowhere else. It is not written
-to a log — the only two `console` calls in the app are about an OAuth error, and
-neither carries a token. `scripts/check-no-bundled-secrets.mjs` scans the built
-bundle for credential-shaped strings and passes, because the key is never in the
-bundle at all.
+**It is not read in this release.** The key's panel is a component of its own
+(`src/features/settings/AssistantKey.tsx`), and the settings page renders it
+only when the assistant is enabled — so while the feature is out, the app does
+not so much as read the credential.
 
-**The e2e suite opens the database and looks for the key in every table of it.**
-That is the check that matters: a key in the document would sync to Dropbox and
-be written into the files the user sends to employers.
+**The key never reaches the document.** The property is tested where it lives,
+in `src/storage/secretsRepo.test.ts`: the token and the provider's key are
+separate names in the same store, and the store is a database of its own, not
+the document's. That last part is the one that matters — a key in the document
+would sync to Dropbox and be written into the files the user sends to
+employers.
 
-The blast radius is wider than it was, and that is the cost of the feature rather
-than a defect: a credential now sits next to a CV, so an XSS or a malicious
-dependency goes from "reads your CV" to "spends your money". SEC2 now says so
-rather than leaving it unstated, and the About page tells the user what is sent
-and how to make the feature not exist — leave the key unset, and the panel is
-not offered at all.
+`scripts/check-no-bundled-secrets.mjs` scans the built bundle for
+credential-shaped strings and passes, because the key is never in the bundle at
+all.
+
+**The blast radius, for when the feature returns.** A credential sitting next
+to a CV means that an XSS or a malicious dependency goes from "reads your CV"
+to "spends your money". SEC2 says so rather than leaving it unstated.
 
 ## Untrusted text
 
 **No user text reaches the DOM as markup, anywhere.** There is no
 `dangerouslySetInnerHTML`, no `innerHTML`, no `insertAdjacentHTML` and no
 `document.write` in the source; the one occurrence of the phrase is a comment
-saying it is not used.
-
-The new surfaces are all text nodes: template names and headings, phrase text
-and notes, the assistant's draft in a `value`, and the section headings.
+saying it is not used. Every record the user writes is a text node or an
+attribute value.
 
 **The Markdown exporter escapes.** A line of the user's own writing that begins
 with a hash is not a heading — it is a line of a CV that happens to start with
-one — so it is escaped. The plain-text exporter does not escape, because plain
-text has no markup to be read as.
+one — so it is escaped, at the start of a line and inline. The plain-text
+exporter does not escape, because plain text has no markup to be read as.
+
+**The Word export** is built from the model, not from the screen, and every
+value goes into a text run rather than into markup.
 
 ## The new data
 
@@ -106,7 +122,14 @@ this job" carries the job in the query, so the form starts with it filled in.
 The value comes from the URL, so it is checked against the database before it is
 used — otherwise a crafted link would create an achievement belonging to
 nothing, which the document cannot show and the user cannot find. *Found and
-fixed during the review.*
+fixed during the earlier review.*
+
+**The estimate's links carry a record's own id.** The fit report links to the
+achievements that will run long. The link was reading the wrong attribute — the
+empty marker rather than the id — so every link was `#/achievements//edit` and
+went nowhere. It is fixed, and the fix is tested against the attribute it reads
+(`src/features/document/FitReport.test.ts`), because a test that does not fail
+on the old behaviour is not a test of anything.
 
 ## Known and accepted
 
@@ -120,21 +143,26 @@ fixed during the review.*
   They are not in the CV: the printed document, the Word export, the Markdown
   and the plain text are all built from the document model, which has no field
   for them.
-- **The third origin widens the policy.** With `connect-src` allowing the
-  provider, a compromised script could exfiltrate to it. That is the same
-  channel SEC1 exists to close, opened one name wide and deliberately, and the
-  alternative — no assistant — was available for less.
+- **The assistant's code is in the bundle.** See the network surface above: the
+  code is there, the permission is not.
+- **The document is in the DOM on the editing pages, twice.** The editing pages
+  render a copy of the document for printing, and it is laid out off the left of
+  the page and hidden with `visibility` so that the estimate can be measured
+  from it. The document was already in the DOM on the document page, so this
+  adds a second copy of text the user wrote, in the same origin, in the same
+  page — and nothing that was not already reachable is now reachable.
 
 ## What was checked, and how
 
 | Property | Checked by |
 | --- | --- |
-| The policy permits exactly three origins | `e2e/smoke.mjs`, against the served page |
-| The bundle references no host beyond the three | `scripts/check-bundle-silent.mjs` |
+| The policy permits exactly the two Dropbox hosts | `e2e/smoke.mjs`, against the served page |
+| The bundle references no host beyond the known ones | `scripts/check-bundle-silent.mjs` |
 | No credential-shaped string in the bundle | `scripts/check-no-bundled-secrets.mjs` |
-| The key is nowhere in the document | `e2e/smoke.mjs`, opening the database |
-| The key is in the secrets store, not the document | `src/ai/key.ts`, and the check above |
+| The key is in the secrets store, not the document | `src/storage/secretsRepo.test.ts` |
+| The key is not read while the assistant is out | `src/features/settings/AssistantKey.tsx`, and the flag |
 | No untrusted text as markup | the source, and axe over eight routes |
+| The estimate's links reach the achievement | `src/features/document/FitReport.test.ts` |
 | A template carries no executable content | the schema, and the review above |
 | Choosing a template touches no record | `e2e/smoke.mjs` |
 | The order field is type-safe | `src/domain/schemas.test.ts` |

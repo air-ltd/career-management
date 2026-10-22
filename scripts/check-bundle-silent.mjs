@@ -1,5 +1,5 @@
 /**
- * SEC1: the app MUST talk to exactly three third-party origins.
+ * SEC1: the app MUST talk to exactly two third-party origins.
  *
  * The requirement is an exact count, so this checks an exact list. A check that
  * only confirmed the Dropbox hosts were *present* would pass against a bundle
@@ -7,9 +7,12 @@
  * precisely the case the requirement exists to catch, and the reason "the allow-list
  * is present" is not the same claim as "the allow-list is the whole allow-list".
  *
- * The third is the assistant's provider, and it is there because the feature is
- * worth having. The key is the user's own and never leaves their browser except
- * to that provider; the document is never sent there at all.
+ * The third was the assistant's provider. The assistant is not in this release
+ * (see `src/ai/enabled.ts`), so the policy no longer permits it and the request
+ * would be blocked — but the code is still in the bundle, so the host is still
+ * named here. Keeping the name is the honest thing: this check is about what
+ * the bundle *references*, and the gap between that and what the policy
+ * *permits* is exactly the gap this check exists to make visible.
  *
  * Scans the built bundle rather than the source, because the property is about what
  * ships. A dependency added at build time, a stray URL in a comment that got
