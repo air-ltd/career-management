@@ -51,6 +51,12 @@ const ALLOWED_HOST_SUBSTRINGS = [
   'w3.org',
   'github.com',
   'schema.org',
+  // OOXML's namespaces, which the Word exporter's library writes into the file
+  // it builds, and one documentation link in an error message it can throw. The
+  // export is assembled in the browser from namespace names: nothing is fetched.
+  'openxmlformats.org',
+  'schemas.microsoft.com',
+  'answers.microsoft.com',
 ]
 
 /**

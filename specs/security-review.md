@@ -37,6 +37,12 @@ and the two are not the same thing:
 The gap between the two is deliberate and visible: the app cannot reach the
 provider, because the policy will not let it.
 
+The Word exporter's library names the OOXML namespaces it writes into the file
+and the help page in one of its error messages. Those are format identifiers and
+a link a person could open, not origins the app contacts, and the silent-bundle
+check exempts them for the same reason it already exempts the W3C namespaces the
+icons carry.
+
 **The rest of the policy is unchanged:** `default-src 'self'`,
 `object-src 'none'`, `base-uri 'none'`, `form-action 'none'`, no wildcard
 anywhere, and the inline theme bootstrap covered by a hash rather than
