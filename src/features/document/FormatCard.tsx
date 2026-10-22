@@ -115,19 +115,12 @@ export function FormatCard({
         <div className={fit.over ? 'fit-report fit-over' : 'fit-report'} role="status">
           <p>
             Estimated {fit.report.pages} {fit.report.pages === 1 ? 'page' : 'pages'}
-            {fit.report.target !== null && (
-              <>
-                {' '}
-                (target {fit.report.target}) — <em>an estimate</em>
-              </>
-            )}
+            {fit.report.target !== null && <> (target {fit.report.target})</>}
           </p>
 
-          {fit.report.target !== null && (
+          {fit.over && (
             <p className="fit-hint">
-              {fit.over
-                ? 'The app will not shrink the text to make this fit. Shorten the records below.'
-                : 'Nothing to shorten. If it prints over a page, it will say so here.'}
+              The app will not shrink the text to make this fit. Shorten the records below.
             </p>
           )}
 
@@ -138,13 +131,24 @@ export function FormatCard({
                 {fit.report.typicalLines}:
               </p>
               <ul>
-                {fit.report.overLong.map((record) => (
-                  <li key={record.achievementId}>
-                    <a href={`#/achievements/${record.achievementId}/edit`}>
-                      {model.jobs.find((job) => job.id === record.jobId)?.company ?? 'a job'}
-                    </a>
-                  </li>
-                ))}
+                {fit.report.overLong.map((record) => {
+                  const achievement = model.achievementsByJob
+                    .get(record.jobId)
+                    ?.find((candidate) => candidate.id === record.achievementId)
+                  const text = achievement?.achievement ?? 'an achievement'
+                  const company =
+                    model.jobs.find((job) => job.id === record.jobId)?.company ?? 'a job'
+                  return (
+                    <li key={record.achievementId}>
+                      <a
+                        href={`#/achievements/${record.achievementId}/edit`}
+                        title={`${text} — ${company}`}
+                      >
+                        {text.length > 48 ? `${text.slice(0, 48)}…` : text}
+                      </a>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}

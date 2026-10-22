@@ -129,7 +129,7 @@ function linesOf(element: HTMLElement): number {
  * achievement at a fixed character count is a number the user will learn to
  * ignore.
  */
-function overLongAchievements(container: HTMLElement) {
+export function overLongAchievements(container: HTMLElement) {
   const achievements = Array.from(
     container.querySelectorAll<HTMLElement>('[data-fit-achievement]'),
   )
@@ -144,7 +144,10 @@ function overLongAchievements(container: HTMLElement) {
     if (lines >= median * 2 && lines >= 2) {
       overLong.push({
         jobId: element.dataset['fitJob'] ?? '',
-        achievementId: element.dataset['fitAchievement'] ?? '',
+        // The id, from the attribute that carries it. `data-fit-achievement` is the
+        // marker that says "this is an achievement" and is empty; the id is on
+        // `data-fit-achievement-id`.
+        achievementId: element.dataset['fitAchievementId'] ?? '',
         lines,
       })
     }
