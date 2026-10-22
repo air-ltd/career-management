@@ -89,9 +89,13 @@ export function RecordList({
             404s. `RegistryEdit` and the navigation use the same form.
           */}
           {newHref !== undefined && (
-            <a className="button button-primary" href={`#${newHref}`}>
-              <AddIcon />
-              {newLabel}
+            <a
+              className="button button-primary button-icon"
+              title={newLabel}
+              aria-label={newLabel}
+              href={`#${newHref}`}
+            >
+              <AddIcon size={14} />
             </a>
           )}
           <label className="show-deleted">

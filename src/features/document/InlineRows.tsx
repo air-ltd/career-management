@@ -13,7 +13,7 @@
  */
 
 import { REGISTRY, type RegistryKey } from '../shared/registry'
-import { EditIcon, HideIcon, UndoIcon } from '../../app/Icons'
+import { EditIcon, HideIcon, PlusIcon, UndoIcon } from '../../app/Icons'
 import { text } from './recordText'
 
 /** A row that shows one record and what can be done with it. */
@@ -230,8 +230,13 @@ export function InlineSection({
         <h2>{title}</h2>
         <div className="inline-section-actions">
           {newHref !== undefined && (
-            <a className="button button-primary" href={`#${newHref}`}>
-              Add {definition.singular.toLowerCase()}
+            <a
+              className="button button-primary button-icon"
+              title={`Add ${definition.singular.toLowerCase()}`}
+              aria-label={`Add ${definition.singular.toLowerCase()}`}
+              href={`#${newHref}`}
+            >
+              <PlusIcon size={14} />
             </a>
           )}
         </div>
