@@ -139,6 +139,11 @@ opens in its own window with no browser chrome around it. There is no service
 worker, so an installed copy needs the network to start — the document is in the
 phone's own storage either way, but the shell that reads it is not cached.
 
+On a phone the buttons on a record — add, edit, hide, and the grip for
+reordering — are behind the record: a long press or a swipe opens them. The
+button that adds a record to a section stays where it is, because it is the
+only way in to that section.
+
 ## Bringing the old data across
 
 One-off. If you have a `career_management.sqlite3` from the legacy Flask app, this
