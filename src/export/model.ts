@@ -21,7 +21,14 @@ import type {
   Settings,
 } from '../domain/types'
 import { compareByOrder, sortByOrder } from '../domain/order'
-import { DEFAULT_SECTIONS, headingFor, nameFor, resolveOrder } from '../domain/sections'
+import {
+  DEFAULT_SECTION_HEADINGS,
+  DEFAULT_SECTIONS,
+  headingFor,
+  nameFor,
+  resolveOrder,
+  type SectionKey,
+} from '../domain/sections'
 
 export type Preset = 'cv' | 'interview'
 
@@ -150,6 +157,26 @@ export interface DocumentModel {
  * them forever because they stop an offline device resurrecting a deletion —
  * which is a different question from whether they belong on a printed page.
  */
+/**
+ * A section's heading, as the document has it.
+ *
+ * A template can name a section anything it likes, and that is the heading it
+ * gets. Where the template has said nothing, the heading says what is in it: a
+ * document with the awards in it and the education out of it is not called
+ * "Awards and Education".
+ */
+function sectionHeading(
+  key: string,
+  options: ExportOptions,
+  headings: Record<string, string> | undefined,
+): string {
+  const named = headingFor(key, headings)
+  if (named !== DEFAULT_SECTION_HEADINGS[key as SectionKey]) return named
+  if (key !== 'awardsEducation') return named
+  if (options.includeAwards && options.includeEducation) return 'Awards and Education'
+  return options.includeAwards ? 'Awards' : 'Education'
+}
+
 export function buildDocumentModel(input: {
   options: ExportOptions
   settings: Settings
@@ -301,7 +328,7 @@ export function buildDocumentModel(input: {
     })
     .map((key) => ({
       key,
-      heading: headingFor(key, input.settings.sectionHeadings),
+      heading: sectionHeading(key, options, input.settings.sectionHeadings),
       name: nameFor(key, input.settings.sectionHeadings),
     }))
 

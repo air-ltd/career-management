@@ -13,6 +13,7 @@
  */
 
 import { REGISTRY, type RegistryKey } from '../shared/registry'
+import { EditIcon, HideIcon, UndoIcon } from '../../app/Icons'
 import { text } from './recordText'
 
 /** A row that shows one record and what can be done with it. */
@@ -85,7 +86,9 @@ export function InlineRow({
 
   return (
     <div
-      className={isDeleted ? 'inline-row is-deleted' : 'inline-row'}
+      className={['inline-row', `inline-row-${registryKey}`, isDeleted ? 'is-deleted' : '']
+        .filter((name) => name !== '')
+        .join(' ')}
       // The record's id on the row itself, so a test — or a user in devtools —
       // can confirm a record was saved under a real id rather than an empty one.
       data-record-id={text(record, 'id')}
@@ -127,8 +130,13 @@ export function InlineRow({
             navigates cannot be opened in a new tab, and a link that does
             something else cannot be.
           */}
-          <a className="button button-small" href={editHref}>
-            Edit
+          <a
+            className="button button-small button-icon"
+            href={editHref}
+            title="Edit"
+            aria-label="Edit"
+          >
+            <EditIcon size={14} />
           </a>
           {/*
             A hidden record is offered back rather than hidden again.
@@ -142,23 +150,27 @@ export function InlineRow({
             ? onRecover !== undefined && (
                 <button
                   type="button"
-                  className="button button-small"
+                  className="button button-small button-icon"
+                  title="Recover"
+                  aria-label="Recover"
                   onClick={() => {
                     onRecover(text(record, 'id'))
                   }}
                 >
-                  Recover
+                  <UndoIcon size={14} />
                 </button>
               )
             : onDelete !== undefined && (
                 <button
                   type="button"
-                  className="button button-small"
+                  className="button button-small button-icon"
+                  title="Hide"
+                  aria-label="Hide"
                   onClick={() => {
                     onDelete(text(record, 'id'))
                   }}
                 >
-                  Hide
+                  <HideIcon size={14} />
                 </button>
               )}
         </div>

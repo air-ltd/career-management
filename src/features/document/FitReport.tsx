@@ -82,7 +82,15 @@ export function measureFit({ element, model }: FitInput): FitReport | null {
 
   return {
     pages,
-    target: model.options.preset === 'cv' ? model.settings.targetPages : null,
+    /*
+     * The target, for a CV.
+     *
+     * A CV has a page to fit on; an interview-preparation document has not, and
+     * one that runs to eight pages is working correctly (D40). Which of the two
+     * this is, is decided by what is in it: the questions are what make it the
+     * interview document, and the questions are in the content card.
+     */
+    target: model.options.includeQuestions ? null : model.settings.targetPages,
     overLong: overLongAchievements(document),
     typicalLines: typicalAchievementLines(document),
   }

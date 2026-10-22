@@ -7,6 +7,7 @@
  */
 
 import { IncludeOptions } from './IncludeOptions'
+import { useDisclosure } from './useDisclosure'
 import type { ExportOptions } from '../../export/model'
 
 export function ContentCard({
@@ -16,17 +17,19 @@ export function ContentCard({
   options: ExportOptions
   onOptionsChange: (next: ExportOptions) => void
 }) {
+  const { open, setOpen } = useDisclosure('content')
+
   return (
-    <div
+    <details
       className="document-field document-content"
-      role="group"
-      aria-labelledby="document-content-title"
+      open={open}
+      onToggle={(event) => {
+        setOpen((event.target as HTMLDetailsElement).open)
+      }}
     >
-      <p className="document-content-title" id="document-content-title">
-        Content
-      </p>
+      <summary className="document-content-title">Content</summary>
 
       <IncludeOptions options={options} onChange={onOptionsChange} />
-    </div>
+    </details>
   )
 }

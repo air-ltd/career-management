@@ -11,7 +11,7 @@
  * it safe to offer here at all.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { downloadBlob } from '../../export/exporters/download'
 import { ShareIcon } from '../../app/Icons'
 import type { DocumentModel } from '../../export/model'
@@ -53,6 +53,26 @@ const FORMATS: ExportFormat[] = [
 export function ExportMenu({ model }: { model: DocumentModel }) {
   const [open, setOpen] = useState(false)
   const [working, setWorking] = useState(false)
+  const self = useRef<HTMLDetailsElement | null>(null)
+
+  /*
+   * A click outside closes it.
+   *
+   * A menu that stays open after the pointer has moved on is a menu that is in
+   * the way, and the pointer is somewhere else.
+   */
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (self.current === null || !(target instanceof Node)) return
+      if (!self.current.contains(target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [open])
 
   const exportAs = async (format: ExportFormat) => {
     setOpen(false)
@@ -68,6 +88,7 @@ export function ExportMenu({ model }: { model: DocumentModel }) {
 
   return (
     <details
+      ref={self}
       className="export-menu"
       open={open}
       onToggle={(event) => {

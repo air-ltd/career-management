@@ -33,7 +33,6 @@ export function DocumentPage({ now }: { now: Date }) {
         saveSettings={saveSettings}
         liveProfiles={liveProfiles}
         model={model}
-        now={now}
         fit={
           report !== null
             ? {

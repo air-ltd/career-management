@@ -17,6 +17,7 @@
  */
 
 import { InlineRow, InlineSection } from './InlineRows'
+import { PlusIcon } from '../../app/Icons'
 import { EditorShell } from './EditorShell'
 import { storyPreview, useEditorState, type Row } from './editorState'
 import { OrderAnnouncement, OrderHandle } from './OrderHandle'
@@ -55,10 +56,12 @@ export function QuestionsPage({
           // The link names the category, so the form starts with it filled in
           // rather than asking which category the question belongs to.
           <a
-            className="button button-small"
+            className="button button-small button-icon"
+            title="Add question"
+            aria-label="Add question"
             href={`#/questions/all/new?category=${encodeURIComponent(text(category, 'id'))}`}
           >
-            Add question
+            <PlusIcon size={14} />
           </a>
         )}
         renderChildren={(category) => (

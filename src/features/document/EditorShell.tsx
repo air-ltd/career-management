@@ -47,7 +47,6 @@ export function EditorShell({
         saveSettings={editor.saveSettings}
         liveProfiles={editor.liveProfiles}
         model={editor.model}
-        now={editor.now}
       />
 
       {editor.undo !== null && (

@@ -9,15 +9,10 @@
  * document depending on which page you pressed it from.
  */
 
-import {
-  PRESETS,
-  type ExportOptions,
-  type Preset,
-  type DocumentModel,
-} from '../../export/model'
-import { FormatCard } from './FormatCard'
+import type { ExportOptions, DocumentModel } from '../../export/model'
 import { ExportMenu } from './ExportMenu'
 import { ContentCard } from './ContentCard'
+import { FormatCard } from './FormatCard'
 import { PrintIcon } from '../../app/Icons'
 import type { FitReport } from './FitReport'
 import type { Profile, Settings } from '../../domain/types'
@@ -29,7 +24,6 @@ export function DocumentChrome({
   saveSettings,
   liveProfiles,
   model,
-  now,
   fit,
 }: {
   options: ExportOptions
@@ -38,8 +32,6 @@ export function DocumentChrome({
   saveSettings: (next: Settings) => void
   liveProfiles: Profile[]
   model: DocumentModel
-  /** The clock, for the templates: one is stamped when it is written. */
-  now: Date
   /**
    * The fit report, where there is a rendered document to measure.
    *
@@ -92,42 +84,15 @@ export function DocumentChrome({
           <div className="button-row document-actions">
             <button type="button" className="button" onClick={() => window.print()}>
               <PrintIcon />
-              Print / save as PDF
+              Print / PDF
             </button>
             <ExportMenu model={model} />
           </div>
 
-          {/* D36, D37: the primary control — which document, not what else is in
-              it — presented the same way as the profile below it, so the rail reads
-              as a list of settings rather than as a list of things of two kinds. */}
-          <div className="document-field document-preset">
-            <label htmlFor="document-preset">Template</label>
-            <select
-              id="document-preset"
-              value={options.preset}
-              onChange={(event) => {
-                onOptionsChange(PRESETS[event.target.value as Preset].options)
-              }}
-            >
-              {(Object.keys(PRESETS) as Preset[]).map((preset) => (
-                <option key={preset} value={preset}>
-                  {PRESETS[preset].label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/*
-            D60: the template, with the preset and the profile. The three of them
-            are the three choices that decide a document, and they are all in the
-            rail for the same reason — the consequence of each is visible on the
-            paper beside them.
-
-            The template is inside the format card, with the paper, the type and
-            the sections: they are one choice, and they were in three places.
+            The profile, first of the settings: it is the name at the top of the
+            document, so it is the first thing wrong when it is wrong.
           */}
-          <FormatCard settings={settings} saveSettings={saveSettings} now={now} />
-
           <div className="document-field document-profile">
             <label htmlFor="document-profile">Profile</label>
             {/*
@@ -166,103 +131,22 @@ export function DocumentChrome({
             </select>
           </div>
 
-          {/* The sections and what else to include: one question, one card. */}
+          {/* What the document contains: one question, one card. */}
           <ContentCard options={options} onOptionsChange={onOptionsChange} />
 
           {/*
-            The paper, just above the estimate that is measured against it.
-
-            The page size is the one setting whose consequence is a number rather
-            than an appearance, and the number is the estimate below it: the
-            estimate is the document measured against this paper. So it goes with
-            the estimate rather than up with the type and the spacing.
+            The shape of the printed page: the whitespace, the type and the
+            paper. They are one card because they change each other — a bigger
+            type on a smaller page is a different document.
           */}
-          {/*
-            The paper, just above the estimate that is measured against it.
-
-            The page size is the one setting whose consequence is a number rather
-            than an appearance, and the number is the estimate below it: the
-            estimate is the document measured against this paper. So it goes with
-            the estimate rather than up with the type and the spacing.
-          */}
-          <div className="document-field document-page-size">
-            <label htmlFor="document-page-size">Page size</label>
-            <select
-              id="document-page-size"
-              value={settings.pageSize}
-              onChange={(event) => {
-                saveSettings({
-                  ...settings,
-                  pageSize: event.target.value as Settings['pageSize'],
-                })
-              }}
-            >
-              <option value="A4">A4</option>
-              <option value="Letter">US Letter</option>
-              <option value="Legal">Legal</option>
-            </select>
-            {/*
-              D43. Browsers default the print dialog to the printer's own paper
-              size and most people never change it, so a document set to A4 prints
-              on whatever is in the tray while the layout was computed for A4. The
-              app cannot detect or correct what the dialog does.
-            */}
-            <p className="field-hint">
-              The print dialog has to be set to the same size. Browsers default it to the
-              printer's own setting, and the layout is computed for the size chosen here.
-            </p>
-          </div>
-
-          {/*
-            D32. For the CV preset only: an estimated page count against the target,
-            and the specific records to shorten. Never an auto-fit, and never a
-            warning on interview preparation (D40).
-          */}
-          {fit !== null && fit !== undefined && (
-            <div className={fit.over ? 'fit-report fit-over' : 'fit-report'} role="status">
-              <p>
-                Estimated {fit.report.pages} {fit.report.pages === 1 ? 'page' : 'pages'}
-                {fit.report.target !== null && (
-                  <>
-                    {' '}
-                    (target {fit.report.target}) — <em>an estimate</em>
-                  </>
-                )}
-              </p>
-
-              {fit.report.target !== null && (
-                <p className="fit-hint">
-                  {fit.over
-                    ? 'The app will not shrink the text to make this fit. Shorten the records below.'
-                    : 'Nothing to shorten. If it prints over a page, it will say so here.'}
-                </p>
-              )}
-
-              {fit.report.overLong.length > 0 && (
-                <div className="fit-records">
-                  <p>
-                    These will run to {fit.report.overLong[0]?.lines} lines when most are{' '}
-                    {fit.report.typicalLines}:
-                  </p>
-                  <ul>
-                    {fit.report.overLong.map((record) => (
-                      <li key={record.achievementId}>
-                        <a href={`#/achievements/${record.achievementId}/edit`}>
-                          {jobName(model, record.jobId)}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+          <FormatCard
+            settings={settings}
+            saveSettings={saveSettings}
+            model={model}
+            {...(fit === null || fit === undefined ? {} : { fit })}
+          />
         </div>
       </div>
     </>
   )
-}
-
-function jobName(model: { jobs: { id: string; company: string }[] }, jobId: string): string {
-  return model.jobs.find((job) => job.id === jobId)?.company ?? 'a job'
 }

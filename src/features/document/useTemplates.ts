@@ -10,9 +10,8 @@
  * choice, never a surprise on upgrade.
  */
 
-import { useCallback, useEffect, useState } from 'react'
 import { bumpRevision, db } from '../../storage/db'
-import { newId, restore } from '../../storage/repository'
+import { restore } from '../../storage/repository'
 import { BUILT_IN_TEMPLATE_ID, builtInTemplate, templateSettings } from '../../domain/templates'
 import type { Settings, Template } from '../../domain/types'
 
@@ -104,127 +103,4 @@ function sameHeadings(
   const actualKeys = Object.keys(right)
   if (wantedKeys.length !== actualKeys.length) return false
   return wantedKeys.every((key) => (wanted ?? {})[key] === right[key])
-}
-
-export interface TemplatesApi {
-  /** The templates the user can choose between. */
-  templates: Template[]
-  /** The template the document currently matches, if any. */
-  current: Template | null
-  /** Applies a template's settings to the document. */
-  apply: (template: Template) => void
-  /** Saves the document's current settings as a new template. */
-  saveCurrentAs: (name: string) => void
-  /** Deletes a template, which can then be undone. */
-  remove: (template: Template) => void
-  /** The last template deleted, and the undo for it. */
-  undo: { id: string; name: string } | null
-  restore: () => void
-}
-
-export function useTemplates(
-  settings: Settings,
-  saveSettings: (next: Settings) => void,
-  now: Date,
-): TemplatesApi {
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [undo, setUndo] = useState<{ id: string; name: string } | null>(null)
-
-  const reload = useCallback(async () => {
-    setTemplates(await listTemplates())
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await ensureBuiltInTemplate(now)
-      if (cancelled) return
-      setTemplates(await listTemplates())
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [now])
-
-  const apply = useCallback(
-    (template: Template) => {
-      // Only the settings the template carries. The profile in particular is not
-      // one of them: choosing a template must not change who the CV is for.
-      saveSettings({ ...settings, ...templateSettings(template) })
-    },
-    [settings, saveSettings],
-  )
-
-  const saveCurrentAs = useCallback(
-    (name: string) => {
-      const trimmed = name.trim()
-      if (trimmed === '') return
-      const template: Template = {
-        ...currentAsTemplate(settings, now),
-        id: newId(),
-        name: trimmed,
-        builtIn: false,
-      }
-      void saveTemplate(template, now).then(() => {
-        void reload()
-      })
-    },
-    [settings, now, reload],
-  )
-
-  const remove = useCallback(
-    (template: Template) => {
-      void deleteTemplate(template.id, now)
-        .then(() => {
-          setUndo({ id: template.id, name: template.name })
-          void reload()
-        })
-        .catch(() => {
-          setUndo(null)
-        })
-    },
-    [now, reload],
-  )
-
-  const restoreDeleted = useCallback(() => {
-    const target = undo
-    if (target === null) return
-    setUndo(null)
-    void restoreTemplate(target.id, now).then(() => {
-      void reload()
-    })
-  }, [undo, now, reload])
-
-  const current = templates.find((template) => matchesTemplate(template, settings)) ?? null
-
-  return {
-    templates,
-    current,
-    apply,
-    saveCurrentAs,
-    remove,
-    undo,
-    restore: restoreDeleted,
-  }
-}
-
-/**
- * The document's current settings, as a template.
- *
- * What "Edit current" makes a copy of: the settings as they are now, not the
- * built-in's.
- */
-function currentAsTemplate(settings: Settings, now: Date): Template {
-  const wanted = templateSettings(settings)
-  return {
-    ...builtInTemplate(now),
-    pageSize: wanted.pageSize ?? 'A4',
-    fontSizePt: wanted.fontSizePt ?? 10,
-    density: wanted.density ?? 'normal',
-    format: wanted.format ?? 'compressed',
-    targetPages: wanted.targetPages ?? 1,
-    sectionOrder: wanted.sectionOrder ?? [],
-    sections: wanted.sections ?? [],
-    sectionHeadings: wanted.sectionHeadings ?? {},
-  }
 }

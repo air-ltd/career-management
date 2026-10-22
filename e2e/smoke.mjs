@@ -749,10 +749,7 @@ async function main() {
     check('the preset control does not print', !printText.includes('Interview preparation'))
     check('the fit report does not print', !printText.includes('Estimated'))
     check('the include toggles do not print', !printText.includes('Also include'))
-    check(
-      'the print and export buttons do not print',
-      !printText.includes('Print / save as PDF'),
-    )
+    check('the print and export buttons do not print', !printText.includes('Print / PDF'))
     check(
       'the navigation does not print',
       !printText.includes('Document') || !printText.includes('Settings'),
@@ -1063,7 +1060,10 @@ async function main() {
 
     await page.emulateMedia({ media: 'screen' })
 
-    await page.getByLabel('Template', { exact: true }).selectOption('interview')
+    await page
+      .locator('.document-includes')
+      .getByLabel('Interview questions', { exact: true })
+      .check()
     await page.locator('.doc').waitFor()
     const interviewText = await page.locator('.doc').innerText()
     check(
@@ -1323,7 +1323,7 @@ async function main() {
     // In the rail, not the toolbar: it belongs with the other document controls.
     const printInRail = await page.evaluate(() => {
       const button = [...document.querySelectorAll('button')].find((b) =>
-        b.textContent.includes('Print / save as PDF'),
+        b.textContent.includes('Print / PDF'),
       )
       const rail = document.querySelector('.document-sidebar')
       const box = button === null ? null : button.getBoundingClientRect()
@@ -1343,22 +1343,6 @@ async function main() {
       (await page.evaluate(() => {
         const first = document.querySelector('.document-sidebar > *')
         return first !== null && first.classList.contains('document-actions')
-      })) === true,
-    )
-    // A select, like the profile picker: the rail is a list of settings, not a
-    // list of things of two kinds.
-    check(
-      'the preset choice is a select in the rail, not above the document',
-      (await page.evaluate(() => {
-        const rail = document.querySelector('.document-sidebar')
-        const control = document.querySelector('#document-preset')
-        return (
-          rail !== null &&
-          control !== null &&
-          control.tagName === 'SELECT' &&
-          rail.contains(control) &&
-          document.querySelector('.document-toolbar') === null
-        )
       })) === true,
     )
     // Open to begin with: closed, the card gives away nothing and the fit report
@@ -1485,10 +1469,6 @@ async function main() {
       // is: the rail holds other checkboxes now, and those are not include
       // toggles.
       (await page.locator('.all-in-one .document-includes input[type=checkbox]').count()) === 6,
-    )
-    check(
-      'the edit-all page offers the document presets',
-      (await page.locator('.all-in-one #document-preset option').count()) >= 2,
     )
     const editAllOnScreen = await page.evaluate(
       () => getComputedStyle(document.querySelector('.all-in-one-print')).display,
@@ -1784,7 +1764,7 @@ async function main() {
             return (
               active !== null &&
               active.closest('.inline-row-actions') !== null &&
-              active.textContent?.trim() === 'Edit'
+              active.getAttribute('aria-label') === 'Edit'
             )
           },
           undefined,
@@ -1969,7 +1949,11 @@ async function main() {
     )
 
     await go(page, origin, '/document')
-    await page.getByLabel('Template', { exact: true }).selectOption('interview')
+    await page
+      .locator('.document-includes')
+      .getByLabel('Interview questions', { exact: true })
+      .check()
+    await page.locator('.document-includes').getByLabel('Stories', { exact: true }).check()
     await page.locator('.doc-job').filter({ hasText: 'Storycheck' }).first().waitFor()
     const storyJob = await page
       .locator('.doc-job')
@@ -2129,26 +2113,16 @@ async function main() {
     }
 
     /*
-     * Templates.
+     * The named styles are in the document but not in the interface.
      *
-     * A template is a named set of document settings (D54). The one that ships is
-     * the document the app has always produced, so an existing user's first load
-     * looks exactly like their previous load.
+     * A style sets the page, the type, the whitespace and the sections, and all
+     * four are now edited directly, so a control that sets them all at once is
+     * one more way to set the same things — and the one that was hardest to
+     * understand.
      */
-    await go(page, origin, '/document')
-    await page.locator('.doc').waitFor()
-    const templateSelect = page.locator('#document-template')
     check(
-      'the built-in template is there, and it is the one in use',
-      (await templateSelect.count()) === 1 &&
-        (await templateSelect.inputValue()) !== '' &&
-        (await templateSelect.locator('option').allInnerTexts()).includes('Standard'),
-      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
-    )
-    check(
-      'and it says what it is before it is chosen (D60)',
-      (await page.locator('.document-template-summary').innerText()).length > 0,
-      await page.locator('.document-template-summary').innerText(),
+      'the interface offers no style selector',
+      (await page.locator('#document-template').count()) === 0,
     )
 
     /*
@@ -2157,6 +2131,8 @@ async function main() {
      * A section the user has left out is not in the document at all, rather than
      * in it and empty: an empty section prints as a gap.
      */
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
     const sectionLabels = async () =>
       page.evaluate(() =>
         [...document.querySelectorAll('.doc-section')].map((section) =>
@@ -2186,55 +2162,6 @@ async function main() {
       'and putting it back puts it back',
       (await sectionLabels()).includes('Work history'),
       JSON.stringify(await sectionLabels()),
-    )
-
-    // And a template made from the current settings reproduces it.
-    await page.getByRole('button', { name: 'Save current as a template' }).click()
-    await page.locator('#document-template-name').fill('Reordered')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page.waitForTimeout(600)
-    check(
-      'a template can be made from the current settings (D61)',
-      (await templateSelect.locator('option').allInnerTexts()).includes('Reordered'),
-      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
-    )
-
-    // Choosing a template is a choice of settings, not of records: the profile
-    // the CV is for is not one of them (D56).
-    const profileBefore = await page.locator('#document-profile').inputValue()
-    await templateSelect.selectOption({ label: 'Reordered' })
-    await page.waitForTimeout(400)
-    check(
-      'choosing a template does not change who the document is for (D56)',
-      (await page.locator('#document-profile').inputValue()) === profileBefore,
-      `${await page.locator('#document-profile').inputValue()} vs ${profileBefore}`,
-    )
-
-    // Back to the built-in, and the document goes back with it.
-    await templateSelect.selectOption({ label: 'Standard' })
-    await page.waitForTimeout(500)
-    check(
-      'choosing the built-in template puts the document back as it was',
-      JSON.stringify(await sectionLabels()) === JSON.stringify(withWorkHistory),
-      JSON.stringify(await sectionLabels()),
-    )
-
-    // A template that is not built-in can be deleted, and brought back.
-    await templateSelect.selectOption({ label: 'Reordered' })
-    await page.waitForTimeout(400)
-    await page.getByRole('button', { name: 'Delete', exact: true }).click()
-    await page.waitForTimeout(500)
-    check(
-      'a template that is not built-in can be deleted (D62)',
-      !(await templateSelect.locator('option').allInnerTexts()).includes('Reordered'),
-      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
-    )
-    await page.getByRole('button', { name: 'Undo', exact: true }).click()
-    await page.waitForTimeout(500)
-    check(
-      'and the delete can be undone',
-      (await templateSelect.locator('option').allInnerTexts()).includes('Reordered'),
-      JSON.stringify(await templateSelect.locator('option').allInnerTexts()),
     )
 
     /*
@@ -2413,7 +2340,7 @@ async function main() {
     const cardLabels = await page.locator('.document-format label').allInnerTexts()
     check(
       'and it holds the template, the paper, the type, the spacing and the layout',
-      ['Style', 'Whitespace'].every((label) =>
+      ['Whitespace', 'Type size', 'Page size'].every((label) =>
         cardLabels.some((shown) => shown.startsWith(label)),
       ) && cardLabels.some((shown) => shown.startsWith('Type size')),
       JSON.stringify(cardLabels),
@@ -2520,7 +2447,7 @@ async function main() {
             return (
               active !== null &&
               active.closest('.inline-row-actions') !== null &&
-              active.textContent?.trim() === 'Edit'
+              active.getAttribute('aria-label') === 'Edit'
             )
           },
           undefined,
@@ -2963,7 +2890,10 @@ async function main() {
     const printedQuestions = async () => {
       await go(page, origin, '/document')
       await page.locator('.doc').waitFor()
-      await page.getByLabel('Template', { exact: true }).selectOption('interview')
+      await page
+        .locator('.document-includes')
+        .getByLabel('Interview questions', { exact: true })
+        .check()
       await page.waitForTimeout(300)
       return page.evaluate(() => {
         const group = [...document.querySelectorAll('.doc-question-group')].find((candidate) =>

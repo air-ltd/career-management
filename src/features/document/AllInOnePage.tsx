@@ -19,6 +19,7 @@
  */
 
 import { InlineRow, InlineSection } from './InlineRows'
+import { PlusIcon } from '../../app/Icons'
 import { EditorShell } from './EditorShell'
 import { collapse, storyPreview, useEditorState } from './editorState'
 import { OrderAnnouncement, OrderHandle } from './OrderHandle'
@@ -81,10 +82,12 @@ export function AllInOnePage({
           // The link names the job, so the form starts with it filled in rather
           // than asking which job the achievement belongs to.
           <a
-            className="button button-small"
+            className="button button-small button-icon"
+            title="Add achievement"
+            aria-label="Add achievement"
             href={`#/achievements/new?job=${encodeURIComponent(text(job, 'id'))}`}
           >
-            Add achievement
+            <PlusIcon size={14} />
           </a>
         )}
         renderChildren={(job) => (

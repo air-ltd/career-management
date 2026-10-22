@@ -133,6 +133,31 @@ export const ShareIcon = icon(
 )
 
 /**
+ * The eye with a slash through it, on the control that hides a record.
+ *
+ * An open eye crossed out rather than a bin: the record is not destroyed, it is
+ * taken out of the document, and there is a control to bring it back.
+ */
+export const HideIcon = icon(
+  <>
+    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 8 10 8a17.6 17.6 0 0 1-2.55 3.77" />
+    <path d="M6.61 6.61A17.6 17.6 0 0 0 2 12s3.5 8 10 8a9.1 9.1 0 0 0 4.39-1.06" />
+    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+    <line x1="2" y1="2" x2="22" y2="22" />
+  </>,
+)
+
+/**
+ * The plus, on the control that adds a record.
+ */
+export const PlusIcon = icon(
+  <>
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </>,
+)
+
+/**
  * The grip on a handle the user drags.
  *
  * Six dots rather than lines, because the thing is a grip and lines read as

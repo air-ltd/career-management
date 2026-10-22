@@ -763,6 +763,18 @@ code {
   font-size: 0.92rem;
 }
 
+/*
+ * An achievement's text is the text, not a heading.
+ *
+ * A role's heading is a heading — the company and the title, and it should read
+ * as one. An achievement is a line the user wrote, and setting it in the bold of
+ * a heading makes it look like a title rather than the thing it is.
+ */
+.inline-row-achievement .inline-row-heading,
+.inline-row-question .inline-row-heading {
+  font-weight: 400;
+}
+
 .inline-row-detail {
   color: var(--text-muted);
   font-size: 0.82rem;
@@ -1521,9 +1533,24 @@ code {
  * A disclosure that opens a list of formats, because the formats are an occasional
  * thing and a row of buttons takes more of the rail than the choice deserves.
  */
+/*
+ * The two buttons fill the rail: the print button takes the width the export
+ * glyph does not, so the row reads as one thing rather than two.
+ */
+.document-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.document-actions > .button {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
 .export-menu {
   position: relative;
   display: inline-block;
+  flex: 0 0 auto;
 }
 
 .export-menu > summary {
@@ -1582,6 +1609,9 @@ code {
 }
 
 .document-content-title {
+  display: block;
+  cursor: pointer;
+  list-style: none;
   margin: 0;
   font-size: 0.7rem;
   font-weight: 600;
@@ -1606,6 +1636,9 @@ code {
 }
 
 .document-format-title {
+  display: block;
+  cursor: pointer;
+  list-style: none;
   margin: 0 0 0.4rem;
   font-size: 0.7rem;
   font-weight: 600;
