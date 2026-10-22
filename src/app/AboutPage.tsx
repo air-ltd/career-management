@@ -8,6 +8,8 @@
  * and does not dress it up.
  */
 
+import { ASSISTANT_ENABLED } from '../ai/enabled'
+
 export function AboutPage() {
   return (
     <section className="about-page">
@@ -40,19 +42,28 @@ export function AboutPage() {
           one in your own Dropbox, and that is there because you chose to put it there.
         </p>
 
-        <h3>If you use the assistant</h3>
-        <p>
-          Drafting a line with an assistant sends your instruction and the line you are writing
-          to the provider you chose, using a key of your own. That key is kept in this browser:
-          it is never synced, never exported and never sent anywhere but the provider. The rest
-          of your document is not sent — not the profile, not the jobs, not the other
-          achievements.
-        </p>
-        <p>
-          Nothing is sent unless you ask for a draft, and the panel is not offered at all until
-          a key is set. If you would rather it sent nothing, leave the key unset: the feature is
-          simply not there.
-        </p>
+        {/*
+          The assistant is not in this release, so this is not said here either.
+          A note about a feature that cannot be reached is a note about a feature
+          that does not exist; see `src/ai/enabled.ts`.
+        */}
+        {ASSISTANT_ENABLED && (
+          <>
+            <h3>If you use the assistant</h3>
+            <p>
+              Drafting a line with an assistant sends your instruction and the line you are
+              writing to the provider you chose, using a key of your own. That key is kept in
+              this browser: it is never synced, never exported and never sent anywhere but the
+              provider. The rest of your document is not sent — not the profile, not the jobs,
+              not the other achievements.
+            </p>
+            <p>
+              Nothing is sent unless you ask for a draft, and the panel is not offered at all
+              until a key is set. If you would rather it sent nothing, leave the key unset: the
+              feature is simply not there.
+            </p>
+          </>
+        )}
       </div>
     </section>
   )

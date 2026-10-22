@@ -2276,20 +2276,23 @@ async function main() {
     await go(page, origin, '/settings')
     await page.locator('.settings-page').waitFor()
     check(
-      'the drafting panel is not offered without a key',
-      (await page.locator('#provider-key').count()) === 1,
+      'the assistant is not in this release: there is no key to set',
+      (await page.locator('#provider-key').count()) === 0,
     )
-    await fill(page, 'Your provider key', 'sk-not-a-real-key-but-long-enough')
-    await page.getByRole('button', { name: 'Save key', exact: true }).click()
-    await page.waitForTimeout(300)
     await go(page, origin, '/achievements/new')
     await page.locator('.record-form').waitFor()
     check(
-      'with a key it is offered',
-      (await page.locator('.record-assist summary').allInnerTexts()).includes(
+      'and the drafting panel is not offered',
+      !(await page.locator('.record-assist summary').allInnerTexts()).includes(
         'Draft with an assistant',
       ),
       JSON.stringify(await page.locator('.record-assist summary').allInnerTexts()),
+    )
+    await go(page, origin, '/about')
+    await page.locator('.about-page').waitFor()
+    check(
+      'and the About page does not mention it',
+      !(await page.locator('.about-page').innerText()).includes('assistant'),
     )
     // The key must not be anywhere in the document: the document syncs to
     // Dropbox and is exported to employers, and a credential in it would travel

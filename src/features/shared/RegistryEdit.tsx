@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { RecordForm } from './RecordForm'
 import { saveFields, useFieldContext, useRecords } from './data'
+import { ASSISTANT_ENABLED } from '../../ai/enabled'
 import { blankRecord, REGISTRY, type RegistryKey } from './registry'
 import { valuesFromRecord } from './fields'
 import { text } from '../document/recordText'
@@ -158,7 +159,8 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
                 id: text(phrase, 'id'),
                 text: text(phrase, 'text'),
               })),
-              drafting: true,
+              // The drafting panel is not in this release; see `src/ai/enabled.ts`.
+              drafting: ASSISTANT_ENABLED,
             },
           })}
       submitLabel="Save"
