@@ -16,10 +16,9 @@ import {
   type DocumentModel,
 } from '../../export/model'
 import { IncludeOptions } from './IncludeOptions'
-import { TemplatePicker } from './TemplatePicker'
+import { FormatCard } from './FormatCard'
 import { EXPORTERS } from '../../export/exporters'
 import { downloadFrom } from '../../export/exporters/download'
-import { SectionOrder } from './SectionOrder'
 import { PrintIcon } from '../../app/Icons'
 import type { FitReport } from './FitReport'
 import type { Profile, Settings } from '../../domain/types'
@@ -154,11 +153,11 @@ export function DocumentChrome({
             are the three choices that decide a document, and they are all in the
             rail for the same reason — the consequence of each is visible on the
             paper beside them.
-          */}
-          <TemplatePicker settings={settings} saveSettings={saveSettings} now={now} />
 
-          {/* The sections the template sets (D57), edited in place. */}
-          <SectionOrder settings={settings} saveSettings={saveSettings} />
+            The template is inside the format card, with the paper, the type and
+            the sections: they are one choice, and they were in three places.
+          */}
+          <FormatCard settings={settings} saveSettings={saveSettings} now={now} />
 
           <div className="document-field document-profile">
             <label htmlFor="document-profile">Profile</label>

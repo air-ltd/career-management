@@ -1516,6 +1516,38 @@ code {
 }
 
 /*
+ * The format card.
+ *
+ * One card for everything about how the document looks, so the rail reads as a
+ * list of decisions rather than a list of controls.
+ */
+.document-format {
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.6rem 0.7rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.document-format-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.document-format .field {
+  font-size: 0.85rem;
+}
+
+.document-format .field-hint {
+  font-size: 0.78rem;
+}
+
+/*
  * The template picker.
  *
  * The summary line is what makes the choice a choice rather than a guess: it says

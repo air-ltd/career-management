@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { MAX_FONT_SIZE_PT, MIN_FONT_SIZE_PT, type Settings } from '../../domain/types'
+import type { Settings } from '../../domain/types'
 import { readSettings, writeSettings } from '../shared/data'
 import type { ThemePreference } from '../../app/theme'
 import { db } from '../../storage/db'
@@ -88,91 +88,18 @@ export function SettingsPage({ now, onThemeChange, theme }: SettingsPageProps) {
         </div>
       </div>
 
-      <div className="panel">
-        <h3>Print</h3>
+      {/*
+        The format lives in the rail, beside the document it changes.
 
-        <div className="field">
-          <label htmlFor="page-size">Page size</label>
-          <select
-            id="page-size"
-            value={settings.pageSize}
-            onChange={(event) => {
-              update({ pageSize: event.target.value as Settings['pageSize'] })
-            }}
-          >
-            <option value="A4">A4</option>
-            <option value="Letter">US Letter</option>
-            <option value="Legal">Legal</option>
-          </select>
-          {/**
-           * D43. Browsers default the print dialog to the printer's own paper
-           * size and most people never change it, so a document set to A4 prints
-           * on whatever is in the tray while the layout was computed for A4.
-           * The app cannot detect or correct what the dialog does.
-           */}
-          <p className="field-hint">
-            The print dialog has to be set to the same size. Browsers default it to the
-            printer's own setting, and the layout is computed for the size chosen here.
-          </p>
-        </div>
-
-        <div className="field">
-          <label htmlFor="font-size">Type size: {settings.fontSizePt}pt</label>
-          <input
-            id="font-size"
-            type="range"
-            min={MIN_FONT_SIZE_PT}
-            max={MAX_FONT_SIZE_PT}
-            step={1}
-            value={settings.fontSizePt}
-            onChange={(event) => {
-              update({ fontSizePt: Number(event.target.value) })
-            }}
-          />
-          <p className="field-hint">
-            Printed only. The app will not shrink text to make the document fit — it will tell
-            you what to shorten instead.
-          </p>
-        </div>
-
-        <div className="field">
-          <label htmlFor="format">Format</label>
-          <select
-            id="format"
-            value={settings.format ?? 'compressed'}
-            onChange={(event) => {
-              update({ format: event.target.value as NonNullable<Settings['format']> })
-            }}
-          >
-            <option value="compressed">Compressed</option>
-            <option value="expanded">Expanded</option>
-          </select>
-          <p className="field-hint">
-            Expanded puts a blank line after every role. A role reduced to a single line gets
-            none, because there is no content to separate. The first step towards being able to
-            build your own template.
-          </p>
-        </div>
-
-        <div className="field">
-          <label htmlFor="density">Spacing</label>
-          <select
-            id="density"
-            value={settings.density}
-            onChange={(event) => {
-              update({ density: event.target.value as Settings['density'] })
-            }}
-          >
-            <option value="compact">Compact</option>
-            <option value="normal">Normal</option>
-            <option value="comfortable">Comfortable</option>
-          </select>
-          <p className="field-hint">
-            Changes spacing rather than type size, so a page can be reclaimed without making the
-            text harder to read.
-          </p>
-        </div>
-      </div>
+        The page size, the type, the spacing and the layout were here, and the
+        template and the sections were in the rail, and it was one choice split
+        across two places — so it is in the rail now, in one card, and the
+        consequence of changing it is visible while it is being changed.
+      */}
+      <p className="hint">
+        The document's format — the paper, the type, the spacing and the sections — is in the
+        rail beside the document, on the work history or the questions page.
+      </p>
 
       <div className="panel">
         <h3>Appearance</h3>

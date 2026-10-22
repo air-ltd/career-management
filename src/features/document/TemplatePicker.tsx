@@ -29,7 +29,7 @@ export function TemplatePicker({
   const deletable = current !== null && !current.builtIn
 
   return (
-    <div className="document-field document-template">
+    <div className="document-template">
       <label htmlFor="document-template">Template</label>
       <select
         id="document-template"

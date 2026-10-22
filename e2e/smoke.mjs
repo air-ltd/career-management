@@ -517,20 +517,16 @@ async function main() {
      * role is made. Back to compressed afterwards, so nothing after this depends on
      * the format having been changed.
      */
-    await go(page, origin, '/settings')
-    await page.getByLabel('Format', { exact: true }).selectOption('expanded')
-    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-    await page.getByText('Saved.', { exact: true }).waitFor()
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
+    await page.getByLabel('Layout', { exact: true }).selectOption('expanded')
+    await page.waitForTimeout(400)
     const summaryGap = await page.evaluate(() =>
       parseFloat(getComputedStyle(document.querySelector('.doc-job-summarised')).marginBottom),
     )
     check('a summary-only role gets no blank line', summaryGap <= 4, `${summaryGap}px`)
-    await go(page, origin, '/settings')
-    await page.getByLabel('Format', { exact: true }).selectOption('compressed')
-    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-    await page.getByText('Saved.', { exact: true }).waitFor()
+    await page.getByLabel('Layout', { exact: true }).selectOption('compressed')
+    await page.waitForTimeout(400)
 
     // And back again, so the test does not depend on the order it runs in.
     await go(page, origin, '/')
@@ -2411,6 +2407,42 @@ async function main() {
       `${editorWidth.scrollWidth} > ${editorWidth.clientWidth}`,
     )
 
+    /*
+     * The format is one card in the rail.
+     *
+     * The paper, the type, the spacing and the layout were on the settings page,
+     * and the template and the sections were in the rail, and it was one choice
+     * split across two places. The card holds all of it, and the settings page
+     * does not repeat it.
+     */
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    check(
+      'the rail has one card for the format',
+      (await page.locator('.document-format').count()) === 1 &&
+        (await page.locator('.document-format-title').innerText()).toLowerCase() === 'format',
+    )
+    const cardLabels = await page.locator('.document-format label').allInnerTexts()
+    check(
+      'and it holds the template, the paper, the type, the spacing and the layout',
+      ['Template', 'Page size', 'Spacing', 'Layout'].every((label) =>
+        cardLabels.some((shown) => shown.startsWith(label)),
+      ) && cardLabels.some((shown) => shown.startsWith('Type size')),
+      JSON.stringify(cardLabels),
+    )
+    await go(page, origin, '/settings')
+    await page.locator('.settings-page').waitFor()
+    const settingsLabels = await page.locator('.settings-page label').allInnerTexts()
+    check(
+      'and the settings page does not repeat them',
+      !settingsLabels.some((label) =>
+        ['Page size', 'Type size', 'Spacing', 'Layout'].some((moved) =>
+          label.startsWith(moved),
+        ),
+      ),
+      JSON.stringify(settingsLabels),
+    )
+
     // The formats the document can be taken away in (D23).
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
@@ -2710,13 +2742,10 @@ async function main() {
         })),
       )
     const compressed = await jobGaps()
-    await go(page, origin, '/settings')
-    await page.getByLabel('Format', { exact: true }).selectOption('expanded')
-    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-    await page.getByText('Saved.', { exact: true }).waitFor()
     await go(page, origin, '/document')
     await page.locator('.doc').waitFor()
-    await page.waitForTimeout(300)
+    await page.getByLabel('Layout', { exact: true }).selectOption('expanded')
+    await page.waitForTimeout(400)
     const expanded = await jobGaps()
 
     check(
@@ -2735,10 +2764,8 @@ async function main() {
       expanded.some((job) => !job.summarised && !job.achievements && job.bottom > 12),
       JSON.stringify(expanded),
     )
-    await go(page, origin, '/settings')
-    await page.getByLabel('Format', { exact: true }).selectOption('compressed')
-    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-    await page.getByText('Saved.', { exact: true }).waitFor()
+    await page.getByLabel('Layout', { exact: true }).selectOption('compressed')
+    await page.waitForTimeout(400)
     /*
      * The about page, and the claim it exists to make.
      *
