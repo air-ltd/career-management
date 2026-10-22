@@ -325,7 +325,7 @@ function renderRoute(
     case '/interview':
       return <QuestionsPage now={now} options={options} onOptionsChange={setOptions} />
     case '/document':
-      return <DocumentPage now={now} />
+      return <DocumentPage now={now} options={options} onOptionsChange={setOptions} />
     case '/settings':
       return <SettingsPage now={now} theme={theme} onThemeChange={onThemeChange} />
     case '/sync':

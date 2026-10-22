@@ -642,6 +642,32 @@ code {
   display: none;
 }
 
+/*
+ * Laid out, but not seen.
+ *
+ * The estimate on the editing pages is measured from this copy, and a copy that
+ * is not laid out has no lines to count: `display: none` takes it out of the
+ * layout entirely, and the measurement finds nothing to measure.
+ *
+ * So on the screen it is laid out — off to the left, where it cannot be seen —
+ * and hidden with `visibility`, which takes it out of the page and out of the
+ * accessibility tree without taking it out of the layout. It stays the same
+ * measure, the same type and the same leading as the paper, which is the whole
+ * point of measuring it here.
+ *
+ * Printed, the screen rule does not apply and the copy is shown as it always
+ * was.
+ */
+@media screen {
+  .all-in-one-print {
+    display: block;
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    visibility: hidden;
+  }
+}
+
 .inline-section {
   border: 1px solid var(--border);
   border-radius: var(--radius);

@@ -623,6 +623,29 @@ async function main() {
     )
 
     /*
+     * The estimate belongs to the document, not to one screen.
+     *
+     * Its whole purpose is to tell the user, while they are writing, whether
+     * what they are writing fits the page. So it has to be on the editing pages
+     * too — and it has to say the same thing as the document page's, because it
+     * is the same document, measured the same way.
+     */
+    const documentEstimate = await page.locator('.fit-report').innerText()
+    await go(page, origin, '/')
+    const editEstimate = await page.locator('.fit-report').innerText()
+    await go(page, origin, '/interview')
+    const questionsEstimate = await page.locator('.fit-report').innerText()
+    await go(page, origin, '/document')
+    await page.locator('.doc').waitFor()
+    check(
+      'the estimate is on the editing pages and agrees with the document page',
+      editEstimate === documentEstimate &&
+        questionsEstimate === documentEstimate &&
+        documentEstimate.includes('Estimated'),
+      `${JSON.stringify(documentEstimate)} | ${JSON.stringify(editEstimate)} | ${JSON.stringify(questionsEstimate)}`,
+    )
+
+    /*
      * The card is the page.
      *
      * The point of the card is that the text on screen breaks where the text on
@@ -1470,13 +1493,17 @@ async function main() {
       // toggles.
       (await page.locator('.all-in-one .document-includes input[type=checkbox]').count()) === 6,
     )
-    const editAllOnScreen = await page.evaluate(
-      () => getComputedStyle(document.querySelector('.all-in-one-print')).display,
-    )
+    const editAllOnScreen = await page.evaluate(() => {
+      const element = document.querySelector('.all-in-one-print')
+      const style = getComputedStyle(element)
+      // Hidden rather than not displayed: the estimate is measured from this
+      // copy, and a copy that is not laid out has no lines to count.
+      return { display: style.display, visibility: style.visibility }
+    })
     check(
       'the printed document is not also shown on screen',
-      editAllOnScreen === 'none',
-      editAllOnScreen,
+      editAllOnScreen.visibility === 'hidden',
+      JSON.stringify(editAllOnScreen),
     )
     await page.emulateMedia({ media: 'print' })
     const editAllPrint = await page.evaluate(() => {
@@ -3251,7 +3278,10 @@ async function main() {
     // innerText waits for stability while the editor is still closing.
     const paneText = () =>
       page.evaluate(() => document.querySelector('.all-in-one-content')?.innerText ?? '')
-    const editPrint = () => page.locator('.all-in-one-print .doc').innerText()
+    // `textContent`, not `innerText`: the printed copy is hidden with
+    // `visibility` so that it can be measured, and a hidden element has no
+    // rendered text for `innerText` to report.
+    const editPrint = () => page.locator('.all-in-one-print .doc').textContent()
     const stories = () =>
       page.locator('.document-sidebar .document-includes input[type=checkbox]').nth(3)
 

@@ -9,6 +9,7 @@
 import type { ReactNode } from 'react'
 import { DocumentChrome } from './DocumentChrome'
 import { DocumentView } from './DocumentView'
+import { useFitReport } from './FitReport'
 import { UndoIcon } from '../../app/Icons'
 import type { EditorState } from './editorState'
 
@@ -28,6 +29,17 @@ export function EditorShell({
   children: ReactNode
   className: string
 }) {
+  /*
+   * The estimate, measured from the document this page already renders.
+   *
+   * The printed copy is laid out on the screen but not seen (see
+   * `.all-in-one-print` in the stylesheet), so it can be measured: the same
+   * measure, the same type and the same leading as the paper, which is what the
+   * estimate is about. The hook is called before the early return below because
+   * a hook cannot be called conditionally.
+   */
+  const { ref, report } = useFitReport(editor.model)
+
   if (editor.loading) return <p className="hint">Loading…</p>
 
   return (
@@ -36,7 +48,7 @@ export function EditorShell({
         The print output, not a preview: hidden on screen, shown when printing.
         See `all-in-one-print` in the stylesheet.
       */}
-      <div className="all-in-one-print">
+      <div className="all-in-one-print" ref={ref}>
         <DocumentView model={editor.model} />
       </div>
 
@@ -47,6 +59,14 @@ export function EditorShell({
         saveSettings={editor.saveSettings}
         liveProfiles={editor.liveProfiles}
         model={editor.model}
+        fit={
+          report !== null
+            ? {
+                report,
+                over: report.target !== null && report.pages > report.target,
+              }
+            : null
+        }
       />
 
       {editor.undo !== null && (
