@@ -25,7 +25,7 @@ import { SyncIndicator } from '../features/sync/SyncIndicator'
 import { describeKeySource } from '../sync/appKey'
 import { PRESETS, type ExportOptions } from '../export/model'
 import { SyncProvider } from '../features/sync/SyncProvider'
-import { DocumentIcon, SettingsIcon } from './Icons'
+import { DocumentIcon, MenuIcon } from './Icons'
 import { DocumentPage } from '../features/document/DocumentPage'
 import { AboutPage } from './AboutPage'
 import { AllInOnePage } from '../features/document/AllInOnePage'
@@ -74,11 +74,11 @@ const ROUTES: readonly Route[] = [
 /*
  * The header's sections.
  *
- * Only Jobs. The Profiles and Questions links went because the header was offering
- * two ways to reach something the editing pages already hold: profiles are the
- * first section of the edit-all page, and questions have a page of their own, both
- * reachable from the header's home link in one click. A nav entry that duplicates a
- * page is a second thing to keep in step with it.
+ * The three pages a user moves between: the work history, the interview
+ * questions, and the document itself. The document was a link outside the nav
+ * until it moved in — it is one of the three things one moves between, and a
+ * page sitting in the corner of the header while the other two sat in the nav
+ * made it look like an afterthought.
  *
  * The list routes themselves stay — a direct link to one still resolves, and the
  * editor's fit report links into them.
@@ -86,6 +86,20 @@ const ROUTES: readonly Route[] = [
 const SECTIONS = [
   { href: '/', label: 'Work history' },
   { href: '/interview', label: 'Questions' },
+  { href: '/document', label: 'Document' },
+] as const
+
+/**
+ * The pages behind the menu.
+ *
+ * The settings and the about page: places one visits rather than works in, so
+ * they are one control away rather than one click away. On a phone there is
+ * room for exactly one row of links, and on a laptop there is plenty of room —
+ * but the same arrangement on both is worth more than the room it saves.
+ */
+const MENU = [
+  { href: '/settings', label: 'Settings' },
+  { href: '/about', label: 'About' },
 ] as const
 
 export function App() {
@@ -113,6 +127,39 @@ export function App() {
     setWhere({ path, from: where.path })
   }
   const from = where.from
+
+  /**
+   * Whether the menu is open.
+   *
+   * Held with the path it was opened on, and closed when the path changes: a
+   * menu left open on the page the user has just chosen is a menu in the way of
+   * the page they asked for. Adjusted while rendering rather than in an effect,
+   * which is the same pattern the form's "where it came from" uses above.
+   */
+  const [menu, setMenu] = useState({ path, open: false })
+  if (menu.path !== path) {
+    setMenu({ path, open: false })
+  }
+
+  /**
+   * Escape closes the menu.
+   *
+   * The button is the only thing in it that can be reached from the keyboard, so
+   * without this there is no way out of an open menu but choosing something from
+   * it.
+   */
+  useEffect(() => {
+    if (!menu.open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenu({ path, open: false })
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menu.open, path])
 
   const [theme, setTheme] = useState<ThemePreference>(readStoredPreference)
   /**
@@ -205,35 +252,43 @@ export function App() {
             </ul>
           </nav>
           <div className="app-header-controls">
-            <a
-              className="app-nav-link"
-              href="#/document"
-              aria-current={path === '/document' ? 'page' : undefined}
-            >
-              Document
-            </a>
             <SyncIndicator />
-            <a
-              className="button button-icon"
-              href="#/settings"
-              title="Settings"
-              aria-label="Settings"
+            <button
+              type="button"
+              className="button button-icon app-menu-button"
+              aria-expanded={menu.open}
+              aria-controls="app-menu"
+              aria-label="Menu"
+              onClick={() => {
+                setMenu({ path, open: !menu.open })
+              }}
             >
-              <SettingsIcon />
-            </a>
-            {/*
-              At the end of the header, after the controls, because it is the least
-              used thing here — and the one a reader arrives looking for when they
-              want to check who holds their data rather than to do any work.
-            */}
-            <a
-              className="app-nav-link"
-              href="#/about"
-              aria-current={path === '/about' ? 'page' : undefined}
-            >
-              About
-            </a>
+              <MenuIcon />
+            </button>
           </div>
+          {/*
+            The menu itself, in the header, over the page.
+
+            A second navigation landmark with its own name, so it is not a second
+            nameless copy of the first: a screen reader announces "More" and then
+            the two destinations in it.
+          */}
+          {menu.open && (
+            <nav aria-label="More" className="app-menu" id="app-menu">
+              {MENU.map((item) => (
+                <a
+                  key={item.href}
+                  href={`#${item.href}`}
+                  aria-current={path === item.href ? 'page' : undefined}
+                  onClick={() => {
+                    setMenu({ path, open: false })
+                  }}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          )}
         </header>
 
         <main className="app-main">

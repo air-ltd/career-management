@@ -2198,29 +2198,44 @@ async function main() {
     // a route that 404s with a "back to the start" is the honest answer, not a
     // silent empty list.
     check(
-      'the navigation offers the work history and the questions, and nothing else',
+      'the navigation offers the work history, the questions and the document',
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()) ===
-        JSON.stringify(['Work history', 'Questions']),
+        JSON.stringify(['Work history', 'Questions', 'Document']),
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()),
     )
     /*
-     * Settings is an icon, which is the sort of change that can quietly cost the
-     * link its name: remove the word and a screen reader announces an image. So
-     * the name is asserted on the link rather than left to the SVG, and the SVG is
-     * asserted hidden — the two together are what "still a button called Settings"
-     * means.
+     * The menu behind the hamburger.
+     *
+     * The two destinations that are not work. The button is the only way in, so
+     * it has to be named, and the menu has to close again — a menu left open
+     * over the page the user chose is a menu in the way of that page.
      */
-    const settingsLink = page.locator('.app-header-controls a[href="#/settings"]')
+    const menuButton = page.locator('.app-header-controls button[aria-controls="app-menu"]')
     check(
-      'Settings is a gear icon with no word beside it',
-      (await settingsLink.innerText()).trim() === '' &&
-        (await settingsLink.locator('svg').count()) === 1,
-      JSON.stringify(await settingsLink.innerText()),
+      'the menu is opened by a button with a name',
+      (await menuButton.count()) === 1 &&
+        (await menuButton.getAttribute('aria-label')) === 'Menu' &&
+        (await menuButton.getAttribute('aria-expanded')) === 'false',
+    )
+    await menuButton.click()
+    await page.locator('#app-menu').waitFor()
+    check(
+      'the menu holds the settings and the about page',
+      JSON.stringify(await page.locator('#app-menu a').allInnerTexts()) ===
+        JSON.stringify(['Settings', 'About']),
+      JSON.stringify(await page.locator('#app-menu a').allInnerTexts()),
     )
     check(
-      'the gear is decorative and the link carries the name',
-      (await settingsLink.getAttribute('aria-label')) === 'Settings' &&
-        (await settingsLink.locator('svg[aria-hidden="true"]').count()) === 1,
+      'and the button says it is open',
+      (await menuButton.getAttribute('aria-expanded')) === 'true',
+    )
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(200)
+    check('and escape closes it', (await page.locator('#app-menu').count()) === 0)
+    check(
+      'the settings and the about page are in the menu, not in the header',
+      (await page.locator('.app-header-controls a[href="#/settings"]').count()) === 0 &&
+        (await page.locator('.app-header-controls a[href="#/about"]').count()) === 0,
     )
     check(
       'the header controls are right-aligned',
@@ -3155,19 +3170,20 @@ async function main() {
           ? child.getAttribute('aria-label')?.startsWith('Sync:')
             ? 'Sync'
             : child.getAttribute('aria-label') || child.textContent.trim()
-          : child.tagName,
+          : child.tagName === 'BUTTON'
+            ? (child.getAttribute('aria-label') ?? 'BUTTON')
+            : child.tagName,
       ),
     )
     check(
-      'the header line reads Document, sync, settings, then About',
-      JSON.stringify(controlsChildren) ===
-        JSON.stringify(['Document', 'Sync', 'Settings', 'About']),
+      'the header line reads the sync state, then the menu',
+      JSON.stringify(controlsChildren) === JSON.stringify(['Sync', 'Menu']),
       JSON.stringify(controlsChildren),
     )
     check(
       'Document is styled as a link, not a button',
       (await page
-        .locator('.app-header-controls a[href="#/document"]')
+        .locator('.app-nav a[href="#/document"]')
         .evaluate((el) => el.classList.contains('button'))) === false,
     )
     const syncErrors = await page.locator('.sync-page .form-error').count()
