@@ -1986,8 +1986,6 @@ async function main() {
     const order = ['RESPONSIBILITIES_TEXT', 'JOB_STORY_TEXT', 'ACHIEVEMENT_TEXT'].map((text) =>
       storyJob.indexOf(text),
     )
-    /*
-
     check(
       'the job story sits between the responsibilities and the achievements',
       order[0] >= 0 && order[1] > order[0] && order[2] > order[1],
