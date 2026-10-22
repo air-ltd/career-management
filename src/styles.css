@@ -770,8 +770,8 @@ code {
  * as one. An achievement is a line the user wrote, and setting it in the bold of
  * a heading makes it look like a title rather than the thing it is.
  */
-.inline-row-achievement .inline-row-heading,
-.inline-row-question .inline-row-heading {
+.inline-row-achievements .inline-row-heading,
+.inline-row-questions .inline-row-heading {
   font-weight: 400;
 }
 

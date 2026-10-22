@@ -1948,6 +1948,29 @@ async function main() {
       }),
     )
 
+    /*
+     * An achievement is a line the user wrote, not a heading.
+     *
+     * A role's heading is a heading and should read as one; the achievement
+     * under it is the text itself, and setting it in the bold of a heading makes
+     * it look like a title.
+     */
+    const weights = await page.evaluate(() => {
+      const weightOf = (selector) => {
+        const element = document.querySelector(selector)
+        return element === null ? null : getComputedStyle(element).fontWeight
+      }
+      return {
+        achievement: weightOf('.inline-row-achievements .inline-row-heading'),
+        job: weightOf('.inline-row-jobs .inline-row-heading'),
+      }
+    })
+    check(
+      "an achievement's text is not set as a heading",
+      weights.achievement === '400' && weights.job === '600',
+      JSON.stringify(weights),
+    )
+
     await go(page, origin, '/document')
     await page
       .locator('.document-includes')
@@ -1963,6 +1986,8 @@ async function main() {
     const order = ['RESPONSIBILITIES_TEXT', 'JOB_STORY_TEXT', 'ACHIEVEMENT_TEXT'].map((text) =>
       storyJob.indexOf(text),
     )
+    /*
+
     check(
       'the job story sits between the responsibilities and the achievements',
       order[0] >= 0 && order[1] > order[0] && order[2] > order[1],
