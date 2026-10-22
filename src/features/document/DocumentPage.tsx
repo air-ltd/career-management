@@ -14,6 +14,7 @@ import { DocumentView } from './DocumentView'
 import { DocumentChrome } from './DocumentChrome'
 import { useFitReport } from './FitReport'
 import { useDocument, usePageRule } from './useDocumentSource'
+import { usePhoneLayout } from '../../app/device'
 
 export function DocumentPage({
   now,
@@ -29,6 +30,17 @@ export function DocumentPage({
   usePageRule(settings.pageSize)
 
   const { ref, report } = useFitReport(model)
+
+  /*
+   * Whether the paper scrolls sideways on a phone.
+   *
+   * The card is the printed page, so on a phone it is wider than the screen and
+   * scrolls inside its own box. That is right — a document shown at the width it
+   * prints at is the point of it — but a scrollable region that cannot be
+   * reached from the keyboard is one a keyboard user cannot scroll, so the box
+   * is given focus and a name.
+   */
+  const phone = usePhoneLayout()
 
   return (
     <section className="document-page">
@@ -49,7 +61,17 @@ export function DocumentPage({
         }
       />
 
-      <div className="document-paper" ref={ref}>
+      {/*
+        The paper scrolls sideways on a phone, and a scrollable region that
+        cannot be reached from the keyboard is a scrollable region a keyboard
+        user cannot scroll. Making it focusable, and naming it, is what makes
+        it reachable — the same way a scrollable table is given a caption.
+      */}
+      <div
+        className="document-paper"
+        ref={ref}
+        {...(phone ? { tabIndex: 0, role: 'region', 'aria-label': 'The document' } : {})}
+      >
         <DocumentView model={model} />
       </div>
     </section>

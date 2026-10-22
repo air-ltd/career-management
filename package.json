@@ -19,6 +19,8 @@
     "test:coverage": "vitest run --coverage",
     "verify": "npm run typecheck && npm run format:check && npm run lint && npm run check:citations && npm run test && npm run build && npm run check:secrets && npm run check:silent",
     "test:e2e": "node e2e/smoke.mjs",
+    "test:mobile": "node e2e/mobile.mjs",
+    "preview": "vite preview",
     "check:secrets": "node scripts/check-no-bundled-secrets.mjs",
     "check:silent": "node scripts/check-bundle-silent.mjs",
     "check:citations": "node scripts/check-citations.mjs",

@@ -153,6 +153,8 @@ code {
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
   margin-bottom: 1.5rem;
+  /* The menu is placed against the header, not the page. */
+  position: relative;
 }
 
 .app-header h1 {
@@ -238,6 +240,44 @@ code {
    * width is not ours to spend.
    */
   margin-left: auto;
+}
+
+/*
+ * The menu, behind the hamburger.
+ *
+ * A panel under the header, holding the two destinations that are not work: the
+ * settings and the about page. It is placed against the header rather than the
+ * page, so it belongs to the control that opened it.
+ */
+.app-menu {
+  position: absolute;
+  top: 100%;
+  right: 1rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  padding: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.app-menu a {
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+}
+
+.app-menu a:hover {
+  background: var(--surface-2);
+}
+
+.app-menu a[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .app-main {
@@ -1455,7 +1495,6 @@ code {
   grid-row: 1;
 }
 
-.document-paper,
 /*
  * The editor's search.
  *
@@ -1818,6 +1857,20 @@ code {
 }
 
 .document-paper {
+  /*
+   * The box the document sits in, and nothing else.
+   *
+   * A plain block, so the document keeps the measure it prints at: the card is
+   * the page (D16), and a card narrower than the page wraps early and lies —
+   * about the wrapping, and about the page count, because the fit report
+   * measures this document.
+   *
+   * It was a flex container by accident, which meant the document was squeezed
+   * to the width of the box rather than overflowing it. On a laptop there was
+   * room, so it did not show; on a phone the document was laid out at a third
+   * of its measure, wrapped early, and the estimate was of a document nobody
+   * would ever print.
+   */
   overflow-x: auto;
 }
 
@@ -1994,18 +2047,217 @@ code {
 
 /* ------------------------------------------------------------------- mobile */
 
+/*
+ * The phone interface.
+ *
+ * The same application, arranged for a screen a third as wide as a laptop's and
+ * for a thumb rather than a cursor. Everything here is arrangement: no route
+ * changes, no record is written differently, and the document is the document.
+ *
+ * The width is the same one `src/app/device.ts` asks about, so the stylesheet
+ * and the code agree about where the boundary is. If one of them moves, the
+ * other has to move with it.
+ */
 @media (max-width: 40rem) {
   .app-header {
     align-items: flex-start;
+    gap: 0.5rem;
   }
 
+  /*
+   * The title wraps.
+   *
+   * The header's title is as wide as its words on a laptop. Left alone on a
+   * phone it makes the page wider than the screen — every element then lays out
+   * to that width, the fixed bar is as wide as it, and the page scrolls
+   * sideways. Which is the classic mobile failure: everything is reachable and
+   * nothing is where the thumb expects it.
+   */
+  .app-header h1 {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .app-home,
+  .app-home span {
+    min-width: 0;
+  }
+
+  /*
+   * The section links, in a bar at the foot of the screen.
+   *
+   * Fixed rather than in the flow, because the foot of the screen is where the
+   * holding hand is: these links are used between screens rather than while
+   * reading one, and a thumb does not reach the top of a phone. The print rules
+   * hide the nav, so the bar does not print.
+   */
   .app-nav {
-    order: 3;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
     width: 100%;
+    margin: 0;
+    padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom));
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .app-nav li {
+    flex: 1 1 0;
+  }
+
+  /*
+   * A tap target, not a line of text.
+   *
+   * 44px is the smallest target the platform guidance accepts and the smallest
+   * a thumb hits without aiming. The padding is what makes the link that tall;
+   * the text itself is small.
+   */
+  .app-nav a {
+    display: block;
+    min-height: 48px;
+    padding: 0.65rem 0.25rem;
+    text-align: center;
+    font-size: 0.95rem;
+    border-bottom: none;
+  }
+
+  /*
+   * The page you are on is the coloured one.
+   *
+   * The desktop rule marks the current section with an underline; in a bar at
+   * the foot of the screen an underline reads as a mistake, so the colour
+   * carries it instead.
+   */
+  .app-nav a[aria-current='page'] {
+    color: var(--accent);
+  }
+
+  /*
+   * Buttons are tap targets, and a little bigger than the minimum.
+   *
+   * 44px is the smallest the platform guidance accepts; 48 is what a thumb
+   * actually wants, and the difference is a few millimetres. The icon buttons
+   * get a width as well, so they are square rather than tall and thin — a
+   * button that is easy to miss sideways is easy to miss.
+   */
+  .button {
+    min-height: 48px;
+  }
+
+  .button-icon {
+    min-width: 48px;
+    justify-content: center;
+  }
+
+  /* Room for the bar, so the last row of the page is not under it. */
+  .app-main {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  /*
+   * The menu, across the width of the screen.
+   *
+   * A panel the width of the page rather than a corner of it, and its links are
+   * tap targets like everything else here.
+   */
+  .app-menu {
+    left: 1rem;
+    right: 1rem;
+    min-width: 0;
+  }
+
+  .app-menu a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
   }
 
   .record-row {
     grid-template-columns: 1fr;
+  }
+
+  /*
+   * A record's row stacks.
+   *
+   * On a laptop the heading, the detail and the actions sit on one line. On a
+   * phone there is no room for three: the detail is a date range and is set to
+   * never wrap, so it does not give way — it runs off the side of the screen and
+   * under the buttons. Stacked, each has the width of the page.
+   */
+  .inline-row-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 0.35rem;
+  }
+
+  .inline-row-toggle {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    row-gap: 0.15rem;
+  }
+
+  .inline-row-heading,
+  .inline-row-detail {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .inline-row-detail {
+    white-space: normal;
+  }
+
+  .inline-row-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  /*
+   * Long words break rather than run off.
+   *
+   * An email address or a company name with no spaces in it has nowhere to
+   * break, and a browser that cannot break it lets it run past the edge of the
+   * screen. Breaking it is the only other choice: nothing here is truncated
+   * (D31).
+   */
+  .record-row-heading,
+  .record-row-detail,
+  .inline-row-heading,
+  .inline-row-detail {
+    overflow-wrap: break-word;
+  }
+
+  /*
+   * The document's controls, folded away.
+   *
+   * On a laptop the rail sits beside the paper and everything in it is one
+   * glance away. On a phone it would be a column of controls above the
+   * document, and the document is the thing the page is for — so it folds
+   * behind one line that says what is inside it.
+   */
+  .document-sidebar-folded > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap);
+    padding: 0.75rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .document-sidebar-folded > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .document-sidebar-folded[open] > summary {
+    margin-bottom: 0.5rem;
   }
 }
 

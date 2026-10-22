@@ -96,6 +96,12 @@ jobs:
       - name: Accessibility
         run: npm run test:a11y
 
+      # The same application at a phone's size. It is the same bundle and the same
+      # routes, so it is here rather than in a job of its own: a layout that only
+      # works on a laptop is a layout that has not been checked at all.
+      - name: Phone layout
+        run: npm run test:mobile
+
   deploy:
     name: Deploy to GitHub Pages
     needs: [verify, smoke]
