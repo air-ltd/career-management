@@ -338,6 +338,116 @@ async function checkPhoneLayout(page, origin) {
 }
 
 /**
+ * A row's controls are behind the row.
+ *
+ * Four buttons on every row is a screen of buttons, so on a phone they are
+ * collapsed until the row is opened. Two ways in, and both are checked here:
+ * a long press and a swipe.
+ */
+async function checkRowControlsAreBehindTheRow(page, origin) {
+  await go(page, origin, '/')
+  await page.locator('.all-in-one').waitFor()
+
+  const row = page.locator('.inline-row').first()
+  await row.waitFor()
+
+  const collapsed = await row
+    .locator('.inline-row-actions')
+    .evaluate((node) => node.getBoundingClientRect().height)
+  check('the row’s controls are collapsed to nothing', collapsed === 0, String(collapsed))
+
+  // A long press: a finger that stays still.
+  await row.evaluate((node) => {
+    const touch = new Touch({ identifier: 1, target: node, clientX: 40, clientY: 40 })
+    node.dispatchEvent(
+      new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        touches: [touch],
+        targetTouches: [touch],
+        changedTouches: [touch],
+      }),
+    )
+  })
+  await page.waitForTimeout(700)
+  check(
+    'a long press opens them',
+    (await row
+      .locator('.inline-row-actions')
+      .evaluate((node) => node.getBoundingClientRect().height)) > 0,
+  )
+  check('and the row says it is open', (await row.getAttribute('data-revealed')) === 'true')
+
+  // A swipe: a finger that moves sideways.
+  await page.reload({ waitUntil: 'networkidle' })
+  await go(page, origin, '/')
+  const row2 = page.locator('.inline-row').first()
+  await row2.waitFor()
+  await row2.evaluate((node) => {
+    const make = (x) => new Touch({ identifier: 2, target: node, clientX: x, clientY: 40 })
+    node.dispatchEvent(
+      new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        touches: [make(200)],
+        targetTouches: [make(200)],
+        changedTouches: [make(200)],
+      }),
+    )
+    node.dispatchEvent(
+      new TouchEvent('touchmove', {
+        bubbles: true,
+        cancelable: true,
+        touches: [make(120)],
+        targetTouches: [make(120)],
+        changedTouches: [make(120)],
+      }),
+    )
+  })
+  await page.waitForTimeout(300)
+  check(
+    'a swipe opens them too',
+    (await row2
+      .locator('.inline-row-actions')
+      .evaluate((node) => node.getBoundingClientRect().height)) > 0,
+  )
+
+  // A scroll must not open them: the finger moved, so it was reading.
+  await page.reload({ waitUntil: 'networkidle' })
+  await go(page, origin, '/')
+  const row3 = page.locator('.inline-row').first()
+  await row3.waitFor()
+  await row3.evaluate((node) => {
+    const make = (x, y) => new Touch({ identifier: 3, target: node, clientX: x, clientY: y })
+    node.dispatchEvent(
+      new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        touches: [make(200, 100)],
+        targetTouches: [make(200, 100)],
+        changedTouches: [make(200, 100)],
+      }),
+    )
+    node.dispatchEvent(
+      new TouchEvent('touchmove', {
+        bubbles: true,
+        cancelable: true,
+        touches: [make(200, 40)],
+        targetTouches: [make(200, 40)],
+        changedTouches: [make(200, 40)],
+      }),
+    )
+  })
+  await page.waitForTimeout(700)
+  check(
+    'but scrolling does not',
+    (await row3
+      .locator('.inline-row-actions')
+      .evaluate((node) => node.getBoundingClientRect().height)) === 0,
+  )
+}
+
+/**
  * Nothing runs off the side of the screen.
  *
  * Text with no spaces in it — an email address, a company name — has nowhere to
@@ -452,6 +562,7 @@ async function main() {
   try {
     await seed(page, origin)
     await checkPhoneLayout(page, origin)
+    await checkRowControlsAreBehindTheRow(page, origin)
     await checkNothingRunsOff(page, origin)
     await checkEstimateIsTheSame(page, origin)
     await checkAccessibility(page, origin)

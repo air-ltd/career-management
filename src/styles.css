@@ -2188,6 +2188,38 @@ code {
     row-gap: 0.35rem;
   }
 
+  /*
+   * The row's controls are behind the row.
+   *
+   * Four buttons on every row is a screen of buttons rather than a screen of
+   * records, so on a phone they are collapsed until the row is opened with a
+   * long press or a swipe (`rowReveal.ts`).
+   *
+   * Collapsed rather than removed: the controls keep their place in the page,
+   * so a screen reader and the keyboard can still reach them, and
+   * `:focus-within` opens the row for a keyboard that tabs into it. A row that
+   * is open stays open until another is opened.
+   */
+  .inline-row-actions,
+  .inline-order-handle {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      max-height 0.18s ease,
+      opacity 0.18s ease;
+  }
+
+  .inline-row[data-revealed='true'] .inline-row-actions,
+  .inline-row[data-revealed='true'] .inline-order-handle,
+  .inline-row:focus-within .inline-row-actions,
+  .inline-row:focus-within .inline-order-handle {
+    max-height: 4rem;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .inline-row-toggle {
     flex: 1 1 100%;
     flex-wrap: wrap;
