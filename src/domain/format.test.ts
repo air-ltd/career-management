@@ -75,3 +75,17 @@ describe('currentYear', () => {
     expect(currentYear(new Date('2024-06-15T00:00:00Z'))).toBe(2024)
   })
 })
+
+describe('a date that will not parse', () => {
+  /*
+   * An unparseable date in the document is a data problem the user needs to
+   * see, not a blank to hide: the stored value is unhelpful but honest, and it
+   * keeps the rest of the document readable.
+   */
+  it('is shown as it is stored', () => {
+    expect(formatMonthYear('not a date')).toBe('not a date')
+    expect(formatMonthYear('2024-13-45')).toBe('2024-13-45')
+    // A date in the wrong shape — a full timestamp, or a day-month-year.
+    expect(formatMonthYear('31/01/2024')).toBe('31/01/2024')
+  })
+})

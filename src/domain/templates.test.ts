@@ -15,10 +15,10 @@ import {
 } from './templates'
 import { matchesTemplate } from '../features/document/useTemplates'
 import { defaultSettings } from '../export/envelope'
+import { DEFAULT_SECTION_HEADINGS, DEFAULT_SECTION_ORDER, DEFAULT_SECTIONS } from './sections'
 import { buildDocumentModel, PRESETS } from '../export/model'
 import type { Achievement, Award, Job, Profile, Settings } from './types'
 import { achievementRow, awardRow, jobRow, profileRow } from '../test/factories'
-import { DEFAULT_SECTIONS } from './sections'
 
 const NOW = new Date('2026-10-01T00:00:00.000Z')
 
@@ -177,5 +177,49 @@ describe('a document written before templates existed', () => {
     // And the built-in template is what that document is using, so the picker
     // shows it rather than "Custom".
     expect(matchesTemplate(builtInTemplate(NOW), settings)).toBe(true)
+  })
+})
+
+describe('a template from an older build', () => {
+  /*
+   * A template carries a fixed set of fields, and a build that predates the
+   * format — the layout, the section order, the headings — is missing them.
+   * A missing field is not an error: it is a document from before that field
+   * existed, and it gets the default for it.
+   */
+  it('is applied with the defaults for the fields it does not have', () => {
+    const older = {
+      pageSize: 'A4' as const,
+      fontSizePt: 10,
+      density: 'normal' as const,
+      targetPages: 1,
+    }
+
+    const settings = templateSettings(older)
+
+    expect(settings.format).toBe('compressed')
+    expect(settings.sectionOrder).toEqual(DEFAULT_SECTION_ORDER)
+    expect(settings.sections).toEqual(DEFAULT_SECTIONS)
+    expect(settings.sectionHeadings).toEqual(DEFAULT_SECTION_HEADINGS)
+  })
+})
+
+describe("a template's summary", () => {
+  it('says the whitespace is additional when the format is expanded', () => {
+    const summary = templateSummary({
+      ...builtInTemplate(new Date(0)),
+      format: 'expanded',
+    })
+    expect(summary).toContain('additional whitespace')
+  })
+
+  it('says nothing about the whitespace when the spacing is normal', () => {
+    const summary = templateSummary({
+      ...builtInTemplate(new Date(0)),
+      format: 'compressed',
+      density: 'normal',
+    })
+    expect(summary).not.toContain('whitespace')
+    expect(summary).not.toContain('spacing')
   })
 })

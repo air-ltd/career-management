@@ -9,6 +9,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   FORMAT,
+  FORMAT_VERSION,
+  SCHEMA_VERSION,
   defaultSettings,
   narrowTables,
   parseEnvelope,
@@ -334,5 +336,39 @@ describe('toEnvelope', () => {
     const counts = toEnvelope(snapshotOf([job('a')]), new Date(0)).counts
     expect(counts['jobs']).toBe(1)
     expect(counts['awards']).toBe(0)
+  })
+})
+
+describe('a file that is not a valid document', () => {
+  /*
+   * The message is what the user reads when the import fails, and it has to say
+   * what was wrong with the file rather than that something was. Zod's issues
+   * are turned into one line each, and the path is included, so the user can
+   * tell which part of the file the app did not like.
+   */
+  it('says what is wrong with it, and where', () => {
+    const result = parseEnvelope(
+      { format: FORMAT, formatVersion: FORMAT_VERSION, schemaVersion: SCHEMA_VERSION },
+      SCHEMA_VERSION,
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('not a valid document')
+    // The path of the field that is wrong, so the user can tell which part of
+    // the file the app did not like.
+    expect(result.message).toContain('exportedAt')
+  })
+
+  it("says plainly when the file is not this app's file at all", () => {
+    const notOurs = parseEnvelope({ format: 'something-else' }, SCHEMA_VERSION)
+    expect(notOurs.ok).toBe(false)
+    if (notOurs.ok) return
+    expect(notOurs.message).toBe('Not a career management document file.')
+
+    const notAnObject = parseEnvelope('a string', SCHEMA_VERSION)
+    expect(notAnObject.ok).toBe(false)
+    if (notAnObject.ok) return
+    expect(notAnObject.message).toBe('Not a career management document file.')
   })
 })

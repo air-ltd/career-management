@@ -46,7 +46,22 @@ const HEADING_SIZE = {
 } as const
 
 /** A paragraph with blank lines between blocks, which is how stories read. */
-function paragraphs(text: string, size: number, italics = false): Paragraph[] {
+/**
+ * The paragraphs of a block of text.
+ *
+ * The indent is a parameter rather than something applied afterwards: a
+ * `Paragraph` is an object with its runs inside it, and spreading one into
+ * another `Paragraph` copies the properties of the object and not the runs it
+ * holds — so the text is dropped and what is left is an empty paragraph. The
+ * text of an achievement's story was lost to Word that way, and lost quietly:
+ * the paragraph was there, so the export looked right.
+ */
+function paragraphs(
+  text: string,
+  size: number,
+  italics = false,
+  indent?: { left: number },
+): Paragraph[] {
   const blocks = text
     .split(/\n{2,}|\n/)
     .map((block) => block.trim())
@@ -57,6 +72,7 @@ function paragraphs(text: string, size: number, italics = false): Paragraph[] {
       new Paragraph({
         children: [new TextRun({ text: block, size: size * HALF_POINTS_PER_PT, italics })],
         spacing: { after: 120 },
+        ...(indent === undefined ? {} : { indent }),
       }),
   )
 }
@@ -184,13 +200,10 @@ export const docxExporter: DocumentExporter = {
             }),
           )
           if (model.options.includeStories && achievement.story !== '') {
-            for (const paragraph of paragraphs(achievement.story, size, true)) {
-              children.push(
-                new Paragraph({
-                  ...paragraph,
-                  indent: { left: 360 },
-                }),
-              )
+            // Indented under the bullet, so the story reads as belonging to the
+            // achievement it belongs to.
+            for (const paragraph of paragraphs(achievement.story, size, true, { left: 360 })) {
+              children.push(paragraph)
             }
           }
         }

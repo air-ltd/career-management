@@ -378,3 +378,38 @@ describe('ExportOptions', () => {
     expect(JSON.parse(JSON.stringify(options))).toEqual(options)
   })
 })
+
+describe('the awards and education heading', () => {
+  /*
+   * The awards and the education are two things to include and one table in the
+   * document (D16). A CV with the education in it and the awards left out is
+   * an ordinary thing to want, and the heading has to say which of the two is
+   * there — "Awards and Education" over a table of degrees is a lie the reader
+   * sees.
+   */
+  it('names both when both are included', () => {
+    const document = buildDocumentModel(rows())
+    const heading = document.sections.find((section) => section.key === 'awardsEducation')
+    expect(heading?.heading).toBe('Awards and Education')
+  })
+
+  it('names only the awards when the education is left out', () => {
+    const document = buildDocumentModel(
+      rows({
+        options: { ...PRESETS['cv'].options, includeAwards: true, includeEducation: false },
+      }),
+    )
+    const heading = document.sections.find((section) => section.key === 'awardsEducation')
+    expect(heading?.heading).toBe('Awards')
+  })
+
+  it('names only the education when the awards are left out', () => {
+    const document = buildDocumentModel(
+      rows({
+        options: { ...PRESETS['cv'].options, includeAwards: false, includeEducation: true },
+      }),
+    )
+    const heading = document.sections.find((section) => section.key === 'awardsEducation')
+    expect(heading?.heading).toBe('Education')
+  })
+})

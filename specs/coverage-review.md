@@ -1,110 +1,136 @@
-# Test coverage review — `feature/phase-5`
+# Test coverage review — the release
 
 A review of what the unit tests cover, what they do not, and what changed.
 
-**Before:** 74.6% of statements, 67.1% of branches, 63.8% of functions, over 247
-tests in 19 files.
-**After:** 94.8% of statements, 83.0% of branches, 96.6% of functions, over 385
-tests in 31 files.
+**Before this pass:** 92.4% of statements, 81.5% of branches, 94.5% of functions,
+over 381 tests in 31 files.
+**After:** 94.2% of statements, 84.4% of branches, 95.8% of functions, over 408
+tests in 32 files.
 
-## The first thing to know: the number was misleading
+The previous review took the number from 74.6% to 94.8% by writing tests for
+the parts of the app that decide things — the storage, the merge, the
+providers, the schemas. This pass went after what was left, and the left-overs
+were not the same kind of thing.
+
+## The number is still not the whole story
 
 `npm run test:coverage` counts the files the tests *import*. It does not count
-the files they never reach. On the branch as it stood, the whole of `src/ai/`
-was absent from the report — not because it was well covered, but because
-nothing imported it. The assistant, the provider and the key store were three
-files of security-relevant code with no tests at all, and the report said
-nothing about them.
+the files they never reach, and a file can be absent from the report for two
+opposite reasons: it was never reached, or it is at 100% everywhere and the
+reporter hides it. `--coverage.all` is what tells them apart, and it is what
+the numbers above are from.
 
-That is a flaw in the measurement, not in the code. A file can be absent from
-the report for two opposite reasons, and the text report does not say which:
+**44 of the 78 source files have no unit test at all.** They are almost all
+React components — the editor, the document view, the rail, the settings page.
+They are covered by the Playwright suite instead, which drives a real browser
+against a real database, and a layout is better tested that way than by a
+rendering test. The unit coverage number is a measure of the *logic*; the
+application's behaviour is covered by `npm run test:e2e` and
+`npm run test:a11y`.
 
-- it was never reached — nothing imported it, so nothing tested it, and the
-  report is silent about it;
-- it is at 100% everywhere, and the reporter hides fully-covered files.
+So the number to watch is the file list, and a file that has disappeared from
+it has either been fully covered or never reached.
 
-`--coverage.reporter=json-summary --coverage.reportsDirectory=/tmp/cov` tells
-them apart: it lists every file, covered or not. `src/ai/chatCompletions.ts`
-was in that list at 100%, and `src/ai/useDraft.ts` was not in it at all.
+## The finding: the Word export was losing an achievement's story
 
-## What was not covered, and why it mattered
+The most valuable test written in this pass found a real bug.
+
+**An achievement's story was exported to Word as an empty paragraph.** The
+story is the long version of the achievement — the prepared answer for an
+interview — and it was simply not in the `.docx`.
+
+The cause was a spread:
+
+```ts
+for (const paragraph of paragraphs(achievement.story, size, true)) {
+  children.push(new Paragraph({ ...paragraph, indent: { left: 360 } }))
+}
+```
+
+A `Paragraph` is an object with its runs inside it. Spreading one into another
+`Paragraph` copies the properties of the object and not the runs it holds, so
+the new paragraph had the indent and no text. The job's story — the same
+paragraphs, pushed directly — was fine, which is why the export was not
+obviously broken.
+
+It failed quietly in the worst way: the paragraph was there, so the document
+looked right. A user would have got a Word file with an empty indented line
+under their achievements and no way to tell what had happened.
+
+The fix is to make the indent a parameter of the helper rather than something
+applied afterwards, so the runs are never copied. The test fails on the old
+code and passes on the new — checked, not assumed.
+
+## What else was covered, and why it was worth writing
 
 | Area | Was | Now | Why it was worth it |
 | --- | --- | --- | --- |
-| `src/ai/` — the provider and the key | 0% | 97% | The provider decides what leaves the device. |
-| `src/features/shared/data.ts` — every write in the app | 6% | 97% | The path every change goes through. |
-| `src/features/document/useTemplates.ts` | 22% | 96% | The template feature's whole behaviour. |
-| `src/features/shared/registry.ts` | 15% | 98% | The contract between a form and a schema. |
-| `src/storage/repository.ts` | 10% | 97% | The primitives every write uses. |
-| The two text exporters | 76–78% | 97–99% | The interview document and the stories. |
-| `src/sync/appKey.ts` | 33% | 100% | Which Dropbox app this origin talks to. |
+| `src/features/document/FitReport.tsx` | 34% | 68% | The measurement the estimate is made of, and where the broken link was. |
+| `src/export/exporters/docx.ts` | 92% | 95% | The bug above. |
+| `src/export/envelope.ts` | branches 85% | 85% | The message a user reads when an import fails. |
+| `src/export/model.ts` | 96% | 98% | The awards and education heading when only one is in the document. |
+| `src/domain/templates.ts` | branches 85% | 95% | A template from a build before the format existed. |
+| `src/domain/sections.ts` | — | 100% | A section this build has never heard of. |
+| `src/domain/format.ts` | — | 100% | A date that will not parse. |
+| `src/domain/repair.ts` | 97% | 97% | A record the repair cannot give an id to. |
+| `src/features/shared/registry.ts` | branches 58% | 63% | The categories a question's dropdown offers. |
+| `src/sync/engine.ts` | 93% | 93% | The push that keeps failing, and the bound on the retries. |
 
-## Two findings, both fixed
+**The measurement, because it is the estimate.** The report tells the user
+whether what they are writing fits the page. Its tests now cover the page
+count against the paper's own height, the target for each kind of document, and
+the records that run long — the three things the number rests on. The link
+that was broken is in the same file, and the test for it is in the same file
+for that reason.
 
-**The scheduler discarded a working token and blamed the wrong thing.** A
-`scope-missing` failure — Dropbox rejecting the *app* for a permission it does
-not have — was treated as an unusable credential, so the token was thrown away
-and the user was told their sign-in had expired. The actual problem is the app's
-permissions in the Dropbox App Console, and there was a message saying exactly
-that, written and then unreachable: `isAuthFailure` claimed `scope-missing`
-before the branch that handles it could ever run.
+**A section this build does not know.** A document can carry a section from a
+later build, kept rather than dropped (D6). The exporters leave it out rather
+than printing an empty heading, and the section's name falls back to its key
+rather than to nothing.
 
-The token is now kept, and the user is told where to look. The branch was
-uncovered code doing exactly the job it was written for.
+**A template from an older build.** A build that predates the format, the
+section order and the headings is missing those fields. A missing field is a
+document from before that field existed, and it gets the default.
 
-**A comment said the opposite of what the code did.** `resolveOrder` was
-documented as keeping a section it does not know about; it drops it. The
-behaviour is right — the stored order keeps it, and a build that knows the
-section will still find it where it was left — so the comment was corrected
-rather than the code.
+**A record the repair cannot fix.** The repair gives a record with no usable id
+a fresh one, so it can be edited and merged. When it cannot — the generator
+fails, or hands back an id that is taken — the record is reported rather than
+left silently broken.
 
-## The tests that were worth writing
-
-**What the assistant sends, and what it does not.** The provider's test asserts
-that the key is in a header and not in the body, that the URL is a constant and
-contains nothing the user wrote, and that the body carries the instruction and
-the draft and nothing else — no profile, no job, no other achievement. A test of
-the *response* would have passed while any of that was wrong.
-
-**The key is not in the document.** The key test opens the document's database
-and looks for the key in every table of it. The document syncs to Dropbox and is
-exported; the key is in a separate database that is neither.
-
-**Every write announces itself.** The hooks' test writes a record *through the
-app's path* and asserts a reader picks it up. It is the same test that would
-have caught a write that skipped the announcement — and it is why the test
-writes through `save` rather than straight to the table.
-
-**The registry and the schemas have to agree.** The registry's test checks that
-every field a form offers is one the entity's schema has. A field the schema
-does not know is a field the form writes and the envelope drops, which is a
-silent loss of what the user typed.
-
-**A template cannot change who the document is for.** Applying a template writes
-its settings and leaves the profile alone (D56), and the test says so.
+**The push that keeps failing.** The retries are bounded, and the bound is the
+point: a push that keeps being refused has to end as a failure the user is
+told about. The test takes a second and a half, because the back-off is half a
+second and then a second.
 
 ## What is still not covered, and why
 
-- **The React components.** The editor, the document view and the settings page
-  are covered by the Playwright suite, not by unit tests. They are measured
-  against a real browser with a real database, which is a better test of a
-  layout than a rendering test would be — and the unit coverage report does not
-  count them, which is the measurement flaw above.
+- **The React components.** Covered by the Playwright suite rather than by unit
+  tests, and the unit coverage report does not count them. This is the
+  measurement flaw above, and it is the largest thing in it.
+- **`useFitReport`, the hook.** The measurement is tested through
+  `measureFit`; the hook that calls it is a thin wrapper around a
+  `ResizeObserver`, and testing it means rendering React for the sake of a
+  re-measure.
 - **The retry back-off in the scheduler.** The arms and the delays, with their
-  timers. Covering it means waiting on real timers, and a test that waits is a
-  test that is slow and flaky. The decision of *whether* to retry is covered.
+  timers: five seconds, thirty seconds, two minutes. Covering it means waiting
+  on real timers, and a test that waits is a test that is slow and flaky. The
+  decision of *whether* to retry is covered.
 - **The migration's untidy inputs** (`scripts/migrate/transform.ts`, 89%). The
-  legacy data is full of half-written records, and the branches that handle them
-  are the ones the committed fixture does not contain. A fixture that does would
-  be a better test than a unit test.
+  legacy data is full of half-written records, and the branches that handle
+  them are the ones the committed fixture does not contain. A fixture that did
+  would be a better test than a unit test.
+- **The registry's field builders.** Their branches are mostly the same
+  condition in several places — a field that is required, a field that is not.
+  The property that matters, that the registry and the schemas agree, is
+  covered.
 
 ## How to read the number now
 
 `npm run test:coverage` is a unit-test measure. The application's behaviour is
 covered by `npm run test:e2e` and `npm run test:a11y`, which drive a real
-browser. Between them: 385 unit tests, the full smoke suite, and axe over eight
+browser. Between them: 408 unit tests, the full smoke suite, and axe over eight
 routes.
 
-The number to watch is not the percentage. It is the file list — and a file that
-disappears from it has either been fully covered or never reached, and the
+The number to watch is not the percentage. It is the file list — and a file
+that disappears from it has either been fully covered or never reached, and the
 summary says which.

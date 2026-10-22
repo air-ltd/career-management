@@ -390,3 +390,52 @@ describe('the table for a key', () => {
     expect(tableOf('questionCategories').name).toBe('questionCategories')
   })
 })
+
+describe("a question's category", () => {
+  /*
+   * The category is a dropdown, and a dropdown that offers a category the user
+   * has deleted offers them something that cannot be shown. A deleted category
+   * is kept forever (D51), so "deleted" is not "gone" — it is hidden, and the
+   * picker must not offer it.
+   *
+   * The list is alphabetical, because a category is a heading and not an event:
+   * the order they were created in is not an order the user would choose.
+   */
+  it('offers the live categories, in alphabetical order', () => {
+    const options = REGISTRY['questions'].fields({
+      jobs: [],
+      now: new Date(0),
+      questionCategories: [
+        {
+          id: 'c1',
+          title: 'Technical',
+          story: '',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          deletedAt: null,
+        },
+        {
+          id: 'c2',
+          title: 'Behavioural',
+          story: '',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          deletedAt: null,
+        },
+        {
+          id: 'c3',
+          title: 'Hidden',
+          story: '',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          deletedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+
+    const category = options.find((field) => field.name === 'categoryId')
+    expect(category?.kind).toBe('select')
+    if (category?.kind !== 'select') return
+    expect(category.options).toEqual([
+      { value: 'c2', label: 'Behavioural' },
+      { value: 'c1', label: 'Technical' },
+    ])
+  })
+})

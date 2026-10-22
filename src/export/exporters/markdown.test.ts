@@ -11,6 +11,7 @@ import { toMarkdown, markdownExporter } from './markdown'
 import { toPlainText, plainTextExporter } from './plainText'
 import { buildDocumentModel, PRESETS, type ExportOptions } from '../model'
 import { defaultSettings } from '../envelope'
+import type { DocumentModel } from '../model'
 import type { Question, QuestionCategory } from '../../domain/types'
 import {
   achievementRow,
@@ -253,5 +254,42 @@ describe('the section order', () => {
     )
     const text = toPlainText(withOrder)
     expect(text.indexOf('AWARDS AND EDUCATION')).toBeLessThan(text.indexOf('Acme: Engineer'))
+  })
+})
+
+describe('a section the exporter does not know', () => {
+  /*
+   * A document can carry a section this build has never heard of — a template
+   * from a later build, say — and the exporter is asked for a document that
+   * includes it. The section has no body the exporter knows how to write, so
+   * it is left out. What it must not do is print an empty heading, which looks
+   * like a mistake in the document rather than in the build.
+   */
+  it('is left out of the Markdown, and not printed as an empty heading', () => {
+    const document = model()
+    const withUnknownSection = {
+      ...document,
+      sections: [
+        ...document.sections,
+        { key: 'aSectionFromTheFuture', heading: 'A Section From The Future' },
+      ],
+    } as unknown as DocumentModel
+
+    const markdown = toMarkdown(withUnknownSection)
+
+    expect(markdown).not.toContain('A Section From The Future')
+  })
+
+  it('is left out of the plain text', () => {
+    const document = model()
+    const withUnknownSection = {
+      ...document,
+      sections: [
+        ...document.sections,
+        { key: 'aSectionFromTheFuture', heading: 'A Section From The Future' },
+      ],
+    } as unknown as DocumentModel
+
+    expect(toPlainText(withUnknownSection)).not.toContain('A Section From The Future')
   })
 })

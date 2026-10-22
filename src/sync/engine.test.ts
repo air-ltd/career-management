@@ -147,6 +147,32 @@ describe('runSync', () => {
     expect(getLastRev()).toBe('new-rev')
   })
 
+  it('gives up on a push that keeps failing, rather than retrying for ever', async () => {
+    /*
+     * The retries are bounded, and the bound is the point: a push that keeps
+     * being refused must end as a failure the user is told about, not a loop
+     * that goes on all afternoon.
+     *
+     * The back-off between the attempts is half a second and then a second, so
+     * this test takes a moment and a half. That is the cost of covering the
+     * one path where the app gives up.
+     */
+    const provider = new FakeProvider()
+    provider.remote = null
+    provider.pushError = new SyncError('network', 'The network is down.')
+    const { deps } = harness(snapshotOf([row('a', 1)]), provider)
+
+    const outcome = await runSync(deps)
+
+    expect(outcome).toEqual({
+      status: 'failed',
+      message: 'The network is down.',
+      kind: 'network',
+    })
+    // Three attempts, and no more: the bound is what makes it a bound.
+    expect(provider.pushCount).toBe(3)
+  })
+
   it('announces a publish only when there is one, never for agreement', async () => {
     /*
      * The header's "Syncing" hangs on this. A cycle that finds both sides already

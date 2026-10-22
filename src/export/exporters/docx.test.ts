@@ -189,6 +189,29 @@ describe('docxExporter', () => {
     expect(xml).toContain('a long story')
   })
 
+  it("includes an achievement's own story, when the stories are included", async () => {
+    /*
+     * An achievement can carry a story as well as the line itself — the long
+     * version, for an interview. The story belongs to the achievement, so it
+     * travels with it, indented under the bullet rather than floating loose.
+     */
+    const theModel = model({
+      settings: { ...defaultSettings(new Date(0)), activeProfileId: 'p1' },
+      profiles: [profileRow('p1', { title: 'Senior Engineer' })],
+      jobs: [jobRow('j1', { company: 'Acme', jobTitle: 'Engineer' })],
+      options: PRESETS['interview'].options,
+      achievements: [
+        achievementRow('a1', {
+          jobId: 'j1',
+          achievement: 'Shipped it',
+          story: 'the achievement story',
+        }),
+      ],
+    })
+    const xml = await entry(await docxExporter.build(theModel), 'word/document.xml')
+    expect(xml).toContain('the achievement story')
+  })
+
   it('includes questions in the interview preset and not in the CV', async () => {
     const base = {
       ...baseInput(),
