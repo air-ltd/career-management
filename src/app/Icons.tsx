@@ -36,6 +36,33 @@ function icon(path: React.ReactNode, viewBox = '0 0 24 24') {
   }
 }
 
+/**
+ * The hamburger, on the control that opens the menu.
+ *
+ * Three lines rather than the older glyphs' single strokes: the point is that it
+ * is a stack of things, and a single line reads as a rule rather than a menu.
+ */
+export const MenuIcon = icon(
+  <>
+    <line x1="4" y1="7" x2="20" y2="7" />
+    <line x1="4" y1="12" x2="20" y2="12" />
+    <line x1="4" y1="17" x2="20" y2="17" />
+  </>,
+)
+
+/**
+ * The cross, on a control that closes something.
+ *
+ * Drawn as two strokes rather than a glyph so it takes the button's colour and
+ * weight like the rest of the set.
+ */
+export const CloseIcon = icon(
+  <>
+    <line x1="6" y1="6" x2="18" y2="18" />
+    <line x1="18" y1="6" x2="6" y2="18" />
+  </>,
+)
+
 export const AddIcon = icon(
   <>
     <line x1="12" y1="5" x2="12" y2="19" />

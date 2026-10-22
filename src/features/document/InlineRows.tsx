@@ -15,6 +15,7 @@
 import { REGISTRY, type RegistryKey } from '../shared/registry'
 import { EditIcon, HideIcon, PlusIcon, UndoIcon } from '../../app/Icons'
 import { text } from './recordText'
+import { useRevealOnTouch } from './rowReveal'
 
 /** A row that shows one record and what can be done with it. */
 export function InlineRow({
@@ -84,6 +85,16 @@ export function InlineRow({
   const isDeleted = text(record, 'deletedAt') !== ''
   const editHref = `#${REGISTRY[registryKey].editPath(text(record, 'id'))}`
 
+  /*
+   * The row's controls, and the touch that opens them.
+   *
+   * On a phone the controls are hidden until they are asked for: a swipe opens
+   * this row, a long press opens every row. There is room for the record and
+   * not for the record's controls. The key is the record's own, with its table,
+   * so two records in two tables never share an open row.
+   */
+  const reveal = useRevealOnTouch(`${registryKey}:${text(record, 'id')}`)
+
   return (
     <div
       className={['inline-row', `inline-row-${registryKey}`, isDeleted ? 'is-deleted' : '']
@@ -92,6 +103,12 @@ export function InlineRow({
       // The record's id on the row itself, so a test — or a user in devtools —
       // can confirm a record was saved under a real id rather than an empty one.
       data-record-id={text(record, 'id')}
+      {...(reveal.revealed ? { 'data-revealed': 'true' } : {})}
+      onTouchStart={reveal.onTouchStart}
+      onTouchMove={reveal.onTouchMove}
+      onTouchEnd={reveal.onTouchEnd}
+      onTouchCancel={reveal.onTouchEnd}
+      onContextMenu={reveal.onContextMenu}
       {...(handle === undefined ? {} : { onDragOver, onDrop, 'data-drop': drop })}
     >
       <div className="inline-row-head">

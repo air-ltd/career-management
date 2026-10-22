@@ -44,6 +44,8 @@ npm run test      # vitest, once
 npm run test:watch
 npm run dev       # the Vite dev server
 npm run test:e2e  # Playwright against a production build; run `npm run build` first
+npm run test:mobile  # the same application at a phone's size; run `npm run build` first
+npm run preview   # serve the built site on this machine
 ```
 
 Everything is linted, formatted and type-checked on every run of `npm run verify`.
@@ -108,6 +110,41 @@ You do not need the App secret, and you should never put it in the repository.
 The keys that are checked in are client ids, not credentials.
 
 The app works without Dropbox — everything except sync.
+
+## On a phone
+
+The same application runs on a phone: it is a static site, the document is a
+file in Dropbox, and a phone has a browser and an IndexedDB. What changes at a
+phone's width is the arrangement — the section links move to the foot of the
+screen where a thumb reaches, the tap targets grow, and the document's controls
+fold away so the document is what the page shows.
+
+To try it on a phone on the same network:
+
+```bash
+npm run build
+npm run preview -- --host --port 4173
+```
+
+and open `http://<this machine's address>:4173/career-management/` on the
+phone. The path matters: the site is served under `/career-management/`.
+
+Dropbox will not authorise against a plain-http address on the network, so the
+phone starts with an empty document of its own. `specs/mobile-interface.md` has
+the ways round that, and the framework the whole thing sits in.
+
+The application can be installed on a phone from the deployed site: it has a
+web app manifest, so the home screen gets the application's own icon and it
+opens in its own window with no browser chrome around it. There is no service
+worker, so an installed copy needs the network to start — the document is in the
+phone's own storage either way, but the shell that reads it is not cached.
+
+On a phone the buttons on a record — add, edit, hide, and the grip for
+reordering — are behind the record. A swipe opens the row under the finger and
+only that row, until a touch anywhere else closes it. A long press opens the
+buttons on every row at once, for working through a page; a cross in the
+top-right corner of the screen switches that back off. The button that adds a record to a section
+stays where it is, because it is the only way in to that section.
 
 ## Bringing the old data across
 

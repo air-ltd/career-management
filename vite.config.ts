@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
+import type { Plugin } from 'vite'
 
 /**
  * Base path for the built site.
@@ -146,6 +147,75 @@ function contentSecurityPolicy() {
   }
 }
 
+/**
+ * The web app manifest.
+ *
+ * Written at build time rather than committed, because the paths in it are the
+ * base path: the base is derived from the package name so a rename follows
+ * automatically, and a manifest with the path written into it would not. The
+ * same reason the CSP is injected at build time.
+ *
+ * There is no service worker with it, and there is not going to be one without
+ * a decision about cache invalidation (D53). What the manifest buys is that a
+ * phone can install the application: its own icon, its own window, no browser
+ * chrome around it. The cost is that the installed application needs the
+ * network to start — the shell is not cached — and the document itself is in
+ * the phone's own storage either way.
+ *
+ * Served by the dev server as well, so that the manifest a developer sees is the
+ * manifest that ships rather than a 404.
+ */
+function webAppManifest(base: string): Plugin {
+  const manifest = {
+    name: 'Career Management Document',
+    // What fits under an icon on a home screen. The full name is 28 characters
+    // and every platform truncates it somewhere around a dozen.
+    short_name: 'Career Doc',
+    description:
+      'Your career records, and the document they make. Kept in your own browser and synced to your own Dropbox.',
+    // The base path, so the application opens on the work history and the
+    // manifest covers every route under it.
+    start_url: base,
+    scope: base,
+    display: 'standalone',
+    // Not locked: the document is wider than it is tall, and a phone turned on
+    // its side is a phone reading a CV.
+    orientation: 'any',
+    background_color: '#f7f7f5',
+    theme_color: '#2563eb',
+    icons: [
+      { src: `${base}icon-192.png`, sizes: '192x192', type: 'image/png' },
+      { src: `${base}icon-512.png`, sizes: '512x512', type: 'image/png' },
+      {
+        src: `${base}icon-maskable-512.png`,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+    ],
+  }
+
+  const body = JSON.stringify(manifest, null, 2)
+
+  return {
+    name: 'web-app-manifest',
+    /** The dev server serves it, so the file is in both places. */
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if ((request.url ?? '').split('?')[0] !== `${base}manifest.webmanifest`) {
+          next()
+          return
+        }
+        response.setHeader('content-type', 'application/manifest+json')
+        response.end(body)
+      })
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'manifest.webmanifest', source: body })
+    },
+  }
+}
+
 export default defineConfig({
   base,
   /**
@@ -162,7 +232,7 @@ export default defineConfig({
    * static and is not affected.
    */
   server: { host: true },
-  plugins: [react(), contentSecurityPolicy(), pagesSpaFallback()],
+  plugins: [react(), contentSecurityPolicy(), webAppManifest(base), pagesSpaFallback()],
   build: {
     // Source maps are not published. This app holds personal data and there is
     // no reason to expose internals.

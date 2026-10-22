@@ -112,17 +112,18 @@ export function RecordList({
 
         <div className="record-list-tools">
           <div className="field">
-            <label htmlFor={`${headingId}-search`}>Search {title.toLowerCase()}</label>
             {/*
-              `type="search"` for the platform's own clear affordance, and because
-              a screen reader announces it as a search field rather than as a text
-              box the user has to guess the purpose of.
+              No label above the box, and the words in the box say what it is.
+              The name is on the control rather than beside it, so the box is
+              still named for a screen reader and for voice control — the words
+              in a box are not an accessible name on their own.
             */}
             <input
               id={`${headingId}-search`}
               type="search"
+              aria-label={`Search ${title.toLowerCase()}`}
               value={query}
-              placeholder="Search…"
+              placeholder="text search"
               onChange={(event) => {
                 onQueryChange(event.target.value)
               }}

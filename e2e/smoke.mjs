@@ -13,7 +13,7 @@
  * for browser globals. Those globals exist at runtime but not in this file's
  * Node environment, hence the declaration.
  */
-/* global document, getComputedStyle, window */
+/* global document, getComputedStyle, Image, window */
 
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -31,6 +31,8 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json',
 }
 
 const failures = []
@@ -265,6 +267,117 @@ async function createInEditor(page, origin, { section, label, fields, expect, pa
   } catch {
     return false
   }
+}
+
+/** Parse JSON, or nothing: a file that is not JSON is not a manifest. */
+async function parseJson(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The web app manifest, and the icons it points at.
+ *
+ * The manifest is what a phone uses to install the application, and it is
+ * written at build time because the paths in it are the base path — so it is
+ * exactly the sort of file that is right in the repository and wrong in the
+ * build. It is checked here, against the served site, for the same reason the
+ * rest of this suite is: a wrong base path in it produces an application that
+ * cannot be installed, behind a completely green build.
+ *
+ * The icons are checked by loading them, because a file that is not a PNG is
+ * not an icon however well it is named.
+ */
+async function checkManifest(page, origin) {
+  const response = await page.request.get(`${origin}${BASE_PATH}manifest.webmanifest`)
+  check('the manifest is served', response.ok(), String(response.status()))
+
+  const manifest = await parseJson(await response.text())
+  check('and it is a manifest', manifest !== null)
+  if (manifest === null) return
+
+  check(
+    'it opens the application at the base path',
+    manifest.start_url === BASE_PATH && manifest.scope === BASE_PATH,
+    JSON.stringify({ start_url: manifest.start_url, scope: manifest.scope }),
+  )
+  check(
+    'it opens in its own window, without browser chrome',
+    manifest.display === 'standalone',
+    String(manifest.display),
+  )
+  check(
+    'it carries a name, a short name and a colour',
+    typeof manifest.name === 'string' &&
+      manifest.name.length > 0 &&
+      typeof manifest.short_name === 'string' &&
+      manifest.short_name.length > 0 &&
+      typeof manifest.theme_color === 'string',
+    JSON.stringify(manifest),
+  )
+
+  const sizes = (manifest.icons ?? []).map((icon) => icon.sizes)
+  check(
+    'it has the icons the install prompt asks for',
+    sizes.includes('192x192') && sizes.includes('512x512'),
+    JSON.stringify(sizes),
+  )
+  check(
+    'and one of them can be masked',
+    (manifest.icons ?? []).some((icon) => icon.purpose === 'maskable'),
+    JSON.stringify(manifest.icons),
+  )
+
+  // The icons, loaded: a file that is not an image is not an icon.
+  for (const icon of manifest.icons ?? []) {
+    const url = new URL(icon.src, origin).toString()
+    const loaded = await page.evaluate(async (src) => {
+      const image = new Image()
+      image.src = src
+      await new Promise((done) => {
+        image.onload = done
+        image.onerror = done
+      })
+      return { width: image.naturalWidth, height: image.naturalHeight }
+    }, url)
+    const expected = Number.parseInt(icon.sizes.split('x')[0], 10)
+    check(
+      `the ${icon.sizes} icon is a picture of that size`,
+      loaded.width === expected && loaded.height === expected,
+      JSON.stringify(loaded),
+    )
+  }
+
+  // The link, and the tags iOS reads instead of the manifest.
+  await go(page, origin, '/')
+  const head = await page.evaluate(() => ({
+    manifest: document.querySelector('link[rel="manifest"]')?.getAttribute('href') ?? null,
+    apple:
+      document
+        .querySelector('meta[name="apple-mobile-web-app-capable"]')
+        ?.getAttribute('content') ?? null,
+    title:
+      document
+        .querySelector('meta[name="apple-mobile-web-app-title"]')
+        ?.getAttribute('content') ?? null,
+    icon: document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute('href') ?? null,
+  }))
+  check(
+    'the page links the manifest',
+    head.manifest !== null &&
+      new URL(head.manifest, `${origin}/${BASE_PATH}index.html`).pathname.endsWith(
+        'manifest.webmanifest',
+      ),
+    JSON.stringify(head),
+  )
+  check(
+    'and carries the tags iOS reads instead',
+    head.apple === 'yes' && head.title !== null && head.icon !== null,
+    JSON.stringify(head),
+  )
 }
 
 async function main() {
@@ -2198,29 +2311,44 @@ async function main() {
     // a route that 404s with a "back to the start" is the honest answer, not a
     // silent empty list.
     check(
-      'the navigation offers the work history and the questions, and nothing else',
+      'the navigation offers the work history, the questions and the document',
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()) ===
-        JSON.stringify(['Work history', 'Questions']),
+        JSON.stringify(['Work history', 'Questions', 'Document']),
       JSON.stringify(await page.locator('.app-nav a').allInnerTexts()),
     )
     /*
-     * Settings is an icon, which is the sort of change that can quietly cost the
-     * link its name: remove the word and a screen reader announces an image. So
-     * the name is asserted on the link rather than left to the SVG, and the SVG is
-     * asserted hidden — the two together are what "still a button called Settings"
-     * means.
+     * The menu behind the hamburger.
+     *
+     * The two destinations that are not work. The button is the only way in, so
+     * it has to be named, and the menu has to close again — a menu left open
+     * over the page the user chose is a menu in the way of that page.
      */
-    const settingsLink = page.locator('.app-header-controls a[href="#/settings"]')
+    const menuButton = page.locator('.app-header-controls button[aria-controls="app-menu"]')
     check(
-      'Settings is a gear icon with no word beside it',
-      (await settingsLink.innerText()).trim() === '' &&
-        (await settingsLink.locator('svg').count()) === 1,
-      JSON.stringify(await settingsLink.innerText()),
+      'the menu is opened by a button with a name',
+      (await menuButton.count()) === 1 &&
+        (await menuButton.getAttribute('aria-label')) === 'Menu' &&
+        (await menuButton.getAttribute('aria-expanded')) === 'false',
+    )
+    await menuButton.click()
+    await page.locator('#app-menu').waitFor()
+    check(
+      'the menu holds the settings and the about page',
+      JSON.stringify(await page.locator('#app-menu a').allInnerTexts()) ===
+        JSON.stringify(['Settings', 'About']),
+      JSON.stringify(await page.locator('#app-menu a').allInnerTexts()),
     )
     check(
-      'the gear is decorative and the link carries the name',
-      (await settingsLink.getAttribute('aria-label')) === 'Settings' &&
-        (await settingsLink.locator('svg[aria-hidden="true"]').count()) === 1,
+      'and the button says it is open',
+      (await menuButton.getAttribute('aria-expanded')) === 'true',
+    )
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(200)
+    check('and escape closes it', (await page.locator('#app-menu').count()) === 0)
+    check(
+      'the settings and the about page are in the menu, not in the header',
+      (await page.locator('.app-header-controls a[href="#/settings"]').count()) === 0 &&
+        (await page.locator('.app-header-controls a[href="#/about"]').count()) === 0,
     )
     check(
       'the header controls are right-aligned',
@@ -3155,19 +3283,20 @@ async function main() {
           ? child.getAttribute('aria-label')?.startsWith('Sync:')
             ? 'Sync'
             : child.getAttribute('aria-label') || child.textContent.trim()
-          : child.tagName,
+          : child.tagName === 'BUTTON'
+            ? (child.getAttribute('aria-label') ?? 'BUTTON')
+            : child.tagName,
       ),
     )
     check(
-      'the header line reads Document, sync, settings, then About',
-      JSON.stringify(controlsChildren) ===
-        JSON.stringify(['Document', 'Sync', 'Settings', 'About']),
+      'the header line reads the sync state, then the menu',
+      JSON.stringify(controlsChildren) === JSON.stringify(['Sync', 'Menu']),
       JSON.stringify(controlsChildren),
     )
     check(
       'Document is styled as a link, not a button',
       (await page
-        .locator('.app-header-controls a[href="#/document"]')
+        .locator('.app-nav a[href="#/document"]')
         .evaluate((el) => el.classList.contains('button'))) === false,
     )
     const syncErrors = await page.locator('.sync-page .form-error').count()
@@ -3575,6 +3704,9 @@ async function main() {
       consoleErrors.length === 0,
       consoleErrors.slice(0, 3).join(' | '),
     )
+
+    // ---------------------------------------------------------------- manifest
+    await checkManifest(page, origin)
   } finally {
     await browser.close()
     server.close()
