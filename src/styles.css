@@ -2153,6 +2153,18 @@ code {
   }
 
   /*
+   * The same room, for the browser's own scrolling.
+   *
+   * A phone's keyboard takes the bottom of the screen, and the field being
+   * typed into is scrolled to just above it — which, with a bar at the foot of
+   * the screen, is under the bar. The padding is what leaves the field clear
+   * of both.
+   */
+  html {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  /*
    * The menu, across the width of the screen.
    *
    * A panel the width of the page rather than a corner of it, and its links are

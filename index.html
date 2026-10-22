@@ -2,7 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      `interactive-widget=resizes-content` is for the keyboard.
+
+      Without it, a phone's keyboard sits on top of the page and the field being
+      typed into can end up underneath it — the field is focused, the caret is
+      in it, and the user cannot see what they are typing. With it, the browser
+      resizes the viewport for the keyboard instead, so the field is above it.
+      The browsers that do not support it scroll the focused field into view
+      themselves, which is the older behaviour and the better half of it.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+    />
     <!--
       Declared rather than left to the browser's default probe. Without this the
       browser requests /favicon.ico at the origin root, which for a project site

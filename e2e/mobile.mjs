@@ -15,7 +15,7 @@
  * Run against a production build:
  *   npm run build && npm run test:mobile
  */
-/* global document, getComputedStyle, window */
+/* global document, getComputedStyle, Touch, TouchEvent, window */
 
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -448,6 +448,89 @@ async function checkRowControlsAreBehindTheRow(page, origin) {
 }
 
 /**
+ * The keyboard, and the print sheet.
+ *
+ * The two things a phone does that a laptop does not: it puts a keyboard over
+ * the bottom of the screen, and it prints through the platform's own sheet
+ * rather than through a dialog.
+ *
+ * The keyboard cannot be raised in a browser, so what is checked is the thing
+ * that makes it bearable: a field that is focused is scrolled to somewhere the
+ * keyboard is not. The page asks the browser to resize for the keyboard, and
+ * leaves room for the bar at the foot of the screen, so the field is above
+ * both.
+ *
+ * The print sheet cannot be raised either, so what is checked is what comes
+ * out: the document, and not the editor.
+ */
+async function checkKeyboardAndPrint(page, origin) {
+  await go(page, origin, '/jobs/new')
+  await page.locator('.record-form').waitFor()
+
+  const field = page.getByLabel('Company', { exact: true })
+  await field.focus()
+  await page.waitForTimeout(300)
+
+  const focused = await field.boundingBox()
+  const bar = await page.locator('.app-nav').boundingBox()
+  check(
+    'a focused field is above the bar at the foot of the screen',
+    focused !== null && bar !== null && focused.y + focused.height <= bar.y,
+    JSON.stringify({ focused, bar }),
+  )
+  check('and it is on the screen', focused !== null && focused.y >= 0, JSON.stringify(focused))
+
+  const viewport = await page.evaluate(() => ({
+    interactiveWidget: document
+      .querySelector('meta[name="viewport"]')
+      ?.getAttribute('content')
+      ?.includes('interactive-widget=resizes-content'),
+    scrollPadding: getComputedStyle(document.documentElement).scrollPaddingBottom,
+  }))
+  check(
+    'the page asks the browser to make room for the keyboard',
+    viewport.interactiveWidget === true,
+    JSON.stringify(viewport),
+  )
+  check(
+    'and leaves room for the bar when it scrolls something into view',
+    Number.parseFloat(viewport.scrollPadding) > 0,
+    JSON.stringify(viewport),
+  )
+
+  // The print sheet: what comes out of it.
+  await go(page, origin, '/')
+  await page.locator('.all-in-one').waitFor()
+  await page.emulateMedia({ media: 'print' })
+  await page.waitForTimeout(200)
+  const printed = await page.evaluate(() => {
+    const visible = (selector) => {
+      const node = document.querySelector(selector)
+      if (node === null) return false
+      const style = getComputedStyle(node)
+      return style.display !== 'none' && style.visibility !== 'hidden'
+    }
+    return {
+      document: visible('.all-in-one-print'),
+      editor: visible('.all-in-one-content'),
+      header: visible('.app-header'),
+      bar: visible('.app-nav'),
+    }
+  })
+  check(
+    'printing from a phone prints the document and not the editor',
+    printed.document && !printed.editor,
+    JSON.stringify(printed),
+  )
+  check(
+    'and prints neither the header nor the bar',
+    !printed.header && !printed.bar,
+    JSON.stringify(printed),
+  )
+  await page.emulateMedia({ media: 'screen' })
+}
+
+/**
  * Nothing runs off the side of the screen.
  *
  * Text with no spaces in it — an email address, a company name — has nowhere to
@@ -563,6 +646,7 @@ async function main() {
     await seed(page, origin)
     await checkPhoneLayout(page, origin)
     await checkRowControlsAreBehindTheRow(page, origin)
+    await checkKeyboardAndPrint(page, origin)
     await checkNothingRunsOff(page, origin)
     await checkEstimateIsTheSame(page, origin)
     await checkAccessibility(page, origin)
