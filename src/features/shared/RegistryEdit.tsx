@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { RecordForm } from './RecordForm'
 import { saveFields, useFieldContext, useRecords } from './data'
 import { ASSISTANT_ENABLED } from '../../ai/enabled'
+import { PHRASES_ENABLED } from './phrases'
 import { blankRecord, REGISTRY, type RegistryKey } from './registry'
 import { valuesFromRecord } from './fields'
 import { text } from '../document/recordText'
@@ -150,7 +151,7 @@ export function RegistryEdit({ registryKey, id, now, seed, from }: RegistryEditP
       }
       fields={fields}
       values={valuesFromRecord(state.record, fields)}
-      {...(definition.assistField === undefined
+      {...(definition.assistField === undefined || !PHRASES_ENABLED
         ? {}
         : {
             assist: {

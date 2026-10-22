@@ -1260,16 +1260,17 @@ async function main() {
       !questionSections.some((name) => ['Work history', 'Awards', 'Education'].includes(name)),
       JSON.stringify(questionSections),
     )
-    // Reachable both ways without typing a route, or the second page has no way in.
+    // The two pages are reached from the header, not from a link at the foot of
+    // each other: the foot of the page is where the work ends, not a menu.
     check(
-      'the questions page links back to the career content',
-      (await page.locator('.page-cross-link a[href="#/"]').count()) === 1,
+      'the questions page does not link back to the career content',
+      (await page.locator('.questions-page .all-in-one-content a[href="#/"]').count()) === 0,
     )
     await go(page, origin, '/edit')
     await page.locator('.all-in-one').waitFor()
     check(
-      'the career page links on to the questions',
-      (await page.locator('.page-cross-link a[href="#/interview"]').count()) === 1,
+      'and the career page does not link on to the questions',
+      (await page.locator('.all-in-one-content a[href="#/interview"]').count()) === 0,
     )
     check(
       'the page opens no form at all',
@@ -2301,54 +2302,33 @@ async function main() {
     )
 
     /*
-     * The phrases: the writing-support material (Phase 9).
+     * The phrases are hidden in this release.
      *
-     * The point of them is that they are offered in the form they are used in, so
-     * the check is that a phrase lands in the field being written.
+     * They stay in the document — the file format is version 2 and a document
+     * written with them still syncs — but the front end does not offer them: no
+     * section on Work History, no disclosure in the achievement form, and no
+     * route. See `src/features/shared/phrases.ts`.
      */
     await go(page, origin, '/')
     await page.locator('.all-in-one').waitFor()
-    await page
-      .locator('.inline-section')
-      .filter({ has: page.locator('h2', { hasText: 'Phrases' }) })
-      .getByRole('link', { name: 'Add phrase', exact: true })
-      .click()
-    await page.locator('.record-form').waitFor()
-    await fill(page, 'Phrase', 'Cut the billing page load time in half')
-    await fill(page, 'When to use it', 'For anything about speed')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page.waitForTimeout(700)
     check(
-      'a phrase can be written',
-      (
-        await page.locator('.inline-section').filter({ hasText: 'Phrases' }).innerText()
-      ).includes('Cut the billing page load time in half'),
+      'the phrases are not on the editing page',
+      (await page.locator('.inline-section').filter({ hasText: 'Phrases' }).count()) === 0,
     )
-
-    // And it can be reached from the achievement form.
-    await go(page, origin, '/jobs/new')
-    await page.locator('.record-form').waitFor()
-    await fill(page, 'Company', 'Phrase Co')
-    await fill(page, 'Job title', 'Role')
-    await fill(page, 'Start date', '2024-01-01')
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page.waitForTimeout(700)
     await go(page, origin, '/achievements/new')
     await page.locator('.record-form').waitFor()
-    await page.getByText('Phrases', { exact: true }).click()
-    await page.waitForTimeout(200)
     check(
-      'the phrases are offered in the achievement form',
-      (await page.locator('.record-assist-list button').count()) === 1,
-      `${await page.locator('.record-assist-list button').count()} phrases`,
+      'and the achievement form does not offer them',
+      (await page.getByText('Phrases', { exact: true }).count()) === 0,
     )
-    await page.locator('.record-assist-list button').first().click()
-    await page.waitForTimeout(200)
+    await page.evaluate(() => {
+      // The page's `window`, not this module's — see the comment on `go`.
+      globalThis.location.hash = '/phrases/new'
+    })
+    await page.getByRole('heading', { name: 'Page not found' }).waitFor()
     check(
-      'and clicking one puts it in the field being written',
-      (await page.getByLabel('Achievement', { exact: true }).inputValue()) ===
-        'Cut the billing page load time in half',
-      await page.getByLabel('Achievement', { exact: true }).inputValue(),
+      'and the phrase route is not routed',
+      (await page.locator('.record-form').count()) === 0,
     )
 
     /*

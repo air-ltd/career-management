@@ -148,7 +148,8 @@ on the old behaviour is not a test of anything.
   are the user's own words and they are meant to follow them between devices.
   They are not in the CV: the printed document, the Word export, the Markdown
   and the plain text are all built from the document model, which has no field
-  for them.
+  for them. The front end hides them in this release (`PHRASES_ENABLED`); the
+  data stays so a document that has them is not damaged.
 - **The assistant's code is in the bundle.** See the network surface above: the
   code is there, the permission is not.
 - **The document is in the DOM on the editing pages, twice.** The editing pages

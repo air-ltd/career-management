@@ -181,6 +181,10 @@ which are new tables rather than new fields on old ones. A document written
 before them opens exactly as it did: the built-in template is the document the app
 has always produced, and there is a test that says so.
 
+The phrases are not offered in this release (the section, the achievement-form
+disclosure and the routes are hidden), but the table stays in the file: a
+document that already has phrases keeps them, and they still sync.
+
 ### Before a release
 
 ```bash

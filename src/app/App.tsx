@@ -18,6 +18,7 @@ import {
 import { RegistryList } from '../features/shared/RegistryList'
 import { RegistryEdit } from '../features/shared/RegistryEdit'
 import { REGISTRY } from '../features/shared/registry'
+import { PHRASES_ENABLED } from '../features/shared/phrases'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { SyncPage } from '../features/sync/SyncPage'
 import { SyncIndicator } from '../features/sync/SyncIndicator'
@@ -48,8 +49,10 @@ const ROUTES: readonly Route[] = [
   { path: '/awards/:id/edit' },
   { path: '/education/new' },
   { path: '/education/:id/edit' },
-  { path: '/phrases/new' },
-  { path: '/phrases/:id/edit' },
+  // The phrase routes are hidden with the rest of the feature; see
+  // `src/features/shared/phrases.ts`. The data stays in the document, so the
+  // routes are the only thing that has to go.
+  ...(PHRASES_ENABLED ? [{ path: '/phrases/new' }, { path: '/phrases/:id/edit' }] : []),
   { path: '/questions' },
   { path: '/questions/new' },
   { path: '/question-categories/:id/edit' },
@@ -355,7 +358,7 @@ const NEW_ROUTES: Record<
   '/achievements/new': 'achievements',
   '/awards/new': 'awards',
   '/education/new': 'education',
-  '/phrases/new': 'phrases',
+  ...(PHRASES_ENABLED ? { '/phrases/new': 'phrases' as const } : {}),
   '/questions/new': 'questionCategories',
   '/questions/all/new': 'questions',
 }
@@ -369,7 +372,7 @@ const EDIT_ROUTES: Record<
   '/achievements/:id/edit': 'achievements',
   '/awards/:id/edit': 'awards',
   '/education/:id/edit': 'education',
-  '/phrases/:id/edit': 'phrases',
+  ...(PHRASES_ENABLED ? { '/phrases/:id/edit': 'phrases' as const } : {}),
   '/question-categories/:id/edit': 'questionCategories',
   '/questions/:id/edit': 'questions',
 }

@@ -30,6 +30,7 @@ import type { ExportOptions } from '../../export/model'
 import { text } from './recordText'
 import { formatDateRange, formatYear } from '../../domain/format'
 import { REGISTRY } from '../shared/registry'
+import { PHRASES_ENABLED } from '../shared/phrases'
 import type { Row } from './editorState'
 
 export function AllInOnePage({
@@ -145,24 +146,25 @@ export function AllInOnePage({
         At the foot of the page, because nothing here prints — it is a library the
         user writes for themselves, not part of the CV. The phrases are offered in
         the achievement form as well, which is where they are wanted.
-      */}
-      <InlineSection
-        title="Phrases"
-        registryKey="phrases"
-        onDelete={editor.deleteFrom('phrases')}
-        onRecover={editor.recoverFrom('phrases')}
-        records={editor.ordered('phrases')}
-        describe={(record) => ({
-          heading: text(record, 'text'),
-          detail: text(record, 'note'),
-        })}
-        emptyText="No phrases yet."
-        newHref={REGISTRY.phrases.newPath}
-      />
 
-      <p className="page-cross-link">
-        <a href="#/interview">Interview questions →</a>
-      </p>
+        Hidden in this release; see `PHRASES_ENABLED` in `../shared/phrases` for
+        why the data stays while the section goes.
+      */}
+      {PHRASES_ENABLED && (
+        <InlineSection
+          title="Phrases"
+          registryKey="phrases"
+          onDelete={editor.deleteFrom('phrases')}
+          onRecover={editor.recoverFrom('phrases')}
+          records={editor.ordered('phrases')}
+          describe={(record) => ({
+            heading: text(record, 'text'),
+            detail: text(record, 'note'),
+          })}
+          emptyText="No phrases yet."
+          newHref={REGISTRY.phrases.newPath}
+        />
+      )}
     </EditorShell>
   )
 }

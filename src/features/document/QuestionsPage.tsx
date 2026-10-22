@@ -77,10 +77,6 @@ export function QuestionsPage({
           />
         )}
       />
-
-      <p className="page-cross-link">
-        <a href="#/">← Work history, awards and education</a>
-      </p>
     </EditorShell>
   )
 }
